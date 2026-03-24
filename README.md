@@ -113,7 +113,7 @@ php -S localhost:8000 -t api
 API default frontend diarahkan ke:
 
 ```env
-VITE_API_URL=http://localhost:8000/index.php?route=
+VITE_API_URL=/api/index.php?route=
 ```
 
 ## Impor Excel
