@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const apiBase =
-  import.meta.env.VITE_API_URL || "http://localhost:8000/index.php?route=";
+  import.meta.env.VITE_API_URL || "/api/index.php?route=";
 export const apiRoot = apiBase.includes("index.php?route=")
   ? apiBase.split("index.php?route=")[0]
   : apiBase;
