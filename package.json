@@ -17,6 +17,10 @@
     "recharts": "^2.15.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
