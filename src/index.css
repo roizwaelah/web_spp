@@ -1,14 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Abel&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color: #0f172a;
+  color: #1f2937;
   background:
-    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 25%),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 20%),
-    #f8fafc;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 30%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 25%),
+    #edf2f7;
+  font-family: 'Abel', ui-sans-serif, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
 }
 
 html, body, #root {
@@ -17,18 +21,22 @@ html, body, #root {
 
 body {
   margin: 0;
+  color: #1f2937;
+  background-color: #edf2f7;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 .card {
-  @apply rounded-3xl bg-white/90 shadow-sm ring-1 ring-slate-200 backdrop-blur;
+  @apply rounded-3xl bg-slate-50/95 shadow-sm ring-1 ring-slate-200/80 backdrop-blur;
 }
 
 .glass {
-  @apply rounded-3xl border border-white/60 bg-white/70 backdrop-blur-xl;
+  @apply rounded-3xl border border-slate-200/80 bg-slate-100/70 backdrop-blur-xl;
 }
 
 .input {
-  @apply w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100;
+  @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-[0.98rem] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100;
 }
 
 .textarea {
@@ -36,7 +44,7 @@ body {
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[0.98rem] font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-primary {
@@ -72,11 +80,11 @@ body {
 }
 
 .section-title {
-  @apply text-lg font-bold text-slate-900;
+  @apply text-[1.12rem] font-bold text-slate-900;
 }
 
 .label {
-  @apply mb-1.5 block text-sm font-medium text-slate-600;
+  @apply mb-1.5 block text-[0.95rem] font-medium text-slate-600;
 }
 
 .page-grid {
