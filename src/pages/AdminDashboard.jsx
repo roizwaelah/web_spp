@@ -61,7 +61,14 @@ export default function AdminDashboard() {
 
   return (
     <Layout
-      title="Dashboard"
+      title={
+        <div className="flex flex-wrap items-center gap-2">
+          <span>Dashboard</span>
+          <span className="bg-gradient-to-r from-sky-600 via-blue-600 to-amber-500 bg-clip-text text-2xl font-bold tracking-wide text-transparent">
+            MADSC Payment
+          </span>
+        </div>
+      }
       subtitle="Pantau ringkasan operasional, performa pembayaran, tagihan aktif, dan bukti bayar pending."
     >
       {message && (
@@ -70,7 +77,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Siswa"
           value={data.summary?.students || 0}
@@ -93,21 +100,21 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="card p-6">
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+        <div className="card p-5 xl:p-5">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-sky-100 p-3 text-sky-700">
-              <BarChart3 size={20} />
+            <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
+              <BarChart3 size={18} />
             </div>
             <div>
               <h3 className="section-title">Pendapatan per bulan</h3>
-              <p className="text-sm text-slate-500">
+              <p className="text-[0.82rem] text-slate-500">
                 Ringkasan transaksi sukses per bulan berjalan.
               </p>
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3">
+          <div className="mt-5 grid gap-2.5">
             {loading ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 Memuat grafik...
@@ -120,12 +127,12 @@ export default function AdminDashboard() {
               data.monthly.map((item) => (
                 <div
                   key={item.month}
-                  className="grid grid-cols-[80px_1fr_120px] items-center gap-3"
+                  className="grid grid-cols-[58px_1fr_110px] items-center gap-2.5"
                 >
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-[0.8rem] font-semibold text-slate-900">
                     {item.month}
                   </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-500"
                       style={{
@@ -133,7 +140,7 @@ export default function AdminDashboard() {
                       }}
                     />
                   </div>
-                  <div className="text-right text-sm font-semibold text-slate-800">
+                  <div className="text-right text-[0.8rem] font-semibold text-slate-800">
                     {formatCurrency(item.total)}
                   </div>
                 </div>
@@ -142,20 +149,20 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="card p-6">
+        <div className="card p-5 xl:p-5">
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-sky-100 p-3 text-sky-700">
-              <Wallet size={20} />
+            <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
+              <Wallet size={18} />
             </div>
             <div>
               <h3 className="section-title">Breakdown kanal pembayaran</h3>
-              <p className="text-sm text-slate-500">
+              <p className="text-[0.82rem] text-slate-500">
                 Akumulasi pemasukan berdasarkan kanal.
               </p>
             </div>
           </div>
 
-          <div className="mt-5 space-y-3">
+          <div className="mt-4 space-y-2.5">
             {loading ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 Memuat data kanal...
@@ -168,9 +175,9 @@ export default function AdminDashboard() {
               data.channelBreakdown.map((item) => (
                 <div
                   key={item.payment_channel}
-                  className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5"
                 >
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-[0.82rem] font-semibold text-slate-900">
                     {item.payment_channel}
                   </div>
                   <div className="badge-green">
@@ -183,16 +190,16 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <div className="space-y-4">
-          <div className="card p-6">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
-                <Clock3 size={20} />
+          <div className="card p-5 xl:p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="rounded-xl bg-amber-100 p-2.5 text-amber-700">
+                <Clock3 size={18} />
               </div>
               <div>
                 <h3 className="section-title">Jatuh tempo terdekat</h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-[0.82rem] text-slate-500">
                   Tagihan yang perlu segera ditindaklanjuti.
                 </p>
               </div>
@@ -219,14 +226,14 @@ export default function AdminDashboard() {
         </div>
 
         <div className="space-y-4">
-          <div className="card p-6">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-2xl bg-sky-100 p-3 text-sky-700">
-                <ShieldCheck size={20} />
+          <div className="card p-5 xl:p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
+                <ShieldCheck size={18} />
               </div>
               <div>
                 <h3 className="section-title">Transaksi terbaru</h3>
-                <p className="text-sm text-slate-500">
+                <p className="text-[0.82rem] text-slate-500">
                   Pencatatan otomatis transaksi yang masuk.
                 </p>
               </div>

@@ -32,7 +32,7 @@ body {
 }
 
 .dp-navbar__inner {
-  @apply mx-auto flex h-[50px] w-full max-w-[1600px] items-center justify-between px-4;
+  @apply mx-auto flex h-[50px] w-full max-w-[1920px] items-center justify-between px-4 xl:px-5;
 }
 
 .dp-brand {
@@ -48,11 +48,11 @@ body {
 }
 
 .dp-sidebar {
-  @apply fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] overflow-y-auto border-r border-slate-700 bg-[#18212c] px-0 py-0;
+  @apply fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[212px] overflow-y-auto border-r border-slate-700 bg-[#18212c] px-0 py-0;
 }
 
 .dp-nav-link {
-  @apply mx-0 flex items-center gap-2.5 px-3 py-1.5 text-[14px] text-slate-100 transition hover:bg-[#243142];
+  @apply mx-0 flex items-center gap-2.5 px-3 py-1.5 text-[13px] text-slate-100 transition hover:bg-[#243142];
 }
 
 .dp-nav-link.is-active {
@@ -60,7 +60,13 @@ body {
 }
 
 .dp-content {
-  @apply ml-0 p-3 pt-4 md:p-4 xl:ml-[228px];
+  @apply ml-0 p-3 pt-4 md:p-4 xl:ml-[212px] xl:px-5;
+  font-size: 0.9rem;
+}
+
+.dp-content main {
+  width: 100%;
+  max-width: 1920px;
 }
 
 .card {
@@ -72,7 +78,7 @@ body {
 }
 
 .input {
-  @apply w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[14px] outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
+  @apply w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[13px] outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
 }
 
 .textarea {
@@ -80,7 +86,7 @@ body {
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-[0.98rem] font-normal transition disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-[0.9rem] font-normal transition disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-primary {
@@ -116,11 +122,11 @@ body {
 }
 
 .section-title {
-  @apply text-[1.12rem] font-bold text-slate-900;
+  @apply text-[1rem] font-bold text-slate-900;
 }
 
 .label {
-  @apply mb-1.5 block text-[0.95rem] font-medium text-slate-600;
+  @apply mb-1.5 block text-[0.86rem] font-medium text-slate-600;
 }
 
 .page-grid {
@@ -137,7 +143,7 @@ body {
 
 @media (max-width: 1279px) {
   .dp-sidebar {
-    @apply top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] border-r border-b-0 border-slate-700 transition-transform duration-200 ease-in-out;
+    @apply top-[50px] z-30 h-[calc(100vh-50px)] w-[212px] border-r border-b-0 border-slate-700 transition-transform duration-200 ease-in-out;
   }
 
   .dp-sidebar.is-closed {
