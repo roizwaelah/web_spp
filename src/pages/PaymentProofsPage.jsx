@@ -5,6 +5,15 @@ import Table from "../components/Table";
 import { fetchRoute, openRouteFile } from "../api";
 import { formatCurrency } from "../utils";
 import { useAuth } from "../context/AuthContext";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
+
+const initialReviewModal = {
+  open: false,
+  proofId: null,
+  status: "approved",
+  notes: "",
+};
 
 export default function PaymentProofsPage() {
   const [rows, setRows] = useState([]);
@@ -16,8 +25,13 @@ export default function PaymentProofsPage() {
     class_id: "",
     student_id: "",
   });
+  const [reviewModal, setReviewModal] = useState(initialReviewModal);
+  const [submittingReview, setSubmittingReview] = useState(false);
   const { user } = useAuth();
+  const { confirm } = useUI();
   const isAdmin = user?.role === "admin";
+
+  useToastMessage(message, setMessage);
 
   const load = () =>
     Promise.all([
@@ -47,6 +61,7 @@ export default function PaymentProofsPage() {
       .catch((error) => {
         setMessage(error?.response?.data?.message || "Gagal memuat bukti pembayaran");
       });
+
   useEffect(() => {
     load();
   }, [filter.status, filter.class_id, filter.student_id]);
@@ -69,29 +84,51 @@ export default function PaymentProofsPage() {
   const statusLabel = (status) =>
     status === "approved" ? "Disetujui" : status === "rejected" ? "Ditolak" : "Menunggu";
 
-  const review = async (proof_id, status) => {
-    const notes = prompt(
-      status === "approved"
-        ? "Catatan approval (opsional)"
-        : "Alasan penolakan",
-    );
-    if (notes === null) return;
+  const openReviewModal = (proofId, status) => {
+    setReviewModal({
+      open: true,
+      proofId,
+      status,
+      notes: "",
+    });
+  };
+
+  const closeReviewModal = () => {
+    if (submittingReview) return;
+    setReviewModal(initialReviewModal);
+  };
+
+  const submitReview = async (event) => {
+    event.preventDefault();
     try {
+      setSubmittingReview(true);
       await fetchRoute("admin/payment-proofs/review", {
         method: "POST",
-        data: { proof_id, status, notes },
+        data: {
+          proof_id: reviewModal.proofId,
+          status: reviewModal.status,
+          notes: reviewModal.notes,
+        },
       });
-      setMessage(
-        `Bukti pembayaran ${status === "approved" ? "disetujui" : "ditolak"}`,
-      );
+      setMessage(`Bukti pembayaran ${reviewModal.status === "approved" ? "disetujui" : "ditolak"}`);
+      setReviewModal(initialReviewModal);
       load();
     } catch (error) {
       setMessage(error?.response?.data?.message || "Gagal memproses review");
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
   const remove = async (id) => {
-    if (!confirm("Hapus bukti pembayaran ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus bukti pembayaran",
+      description: "File bukti pembayaran yang dihapus tidak bisa dipulihkan dari aplikasi.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
     try {
       await fetchRoute("admin/payment-proofs", {
         method: "DELETE",
@@ -107,7 +144,6 @@ export default function PaymentProofsPage() {
   const previewProof = async (id) => {
     try {
       await openRouteFile("admin/payment-proofs/file", { id });
-      setMessage("");
     } catch (error) {
       const fallbackMessage =
         error?.response?.status === 401
@@ -124,11 +160,6 @@ export default function PaymentProofsPage() {
     >
       <div className="space-y-4">
         <div className="card p-3">
-          {message && (
-            <div className="mb-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <div className="grid gap-4 md:grid-cols-3">
             <select
               className="input"
@@ -167,104 +198,131 @@ export default function PaymentProofsPage() {
             </select>
           </div>
         </div>
-      <Table
-        columns={[
-          { key: "student_name", title: "Siswa" },
-          { key: "class_name", title: "Kelas" },
-          { key: "bill_name", title: "Tagihan" },
-          { key: "period", title: "Periode" },
-          {
-            key: "amount",
-            title: "Nominal",
-            render: (row) => formatCurrency(row.amount),
-          },
-          {
-            key: "proof_file_name",
-            title: "File Bukti",
-            render: (row) => (
-              <button
-                className="btn-secondary px-3 py-2"
-                onClick={() => previewProof(row.id)}
-              >
-                <Eye size={16} /> Lihat
-              </button>
-            ),
-          },
-          {
-            key: "status",
-            title: "Status",
-            render: (row) => (
-              <span
-                className={
-                  row.status === "approved"
-                    ? "badge-green"
-                    : row.status === "rejected"
-                      ? "badge-red"
-                    : "badge-amber"
-                }
-              >
-                {statusLabel(row.status)}
-              </span>
-            ),
-          },
-          {
-            key: "bill_status",
-            title: "Status Tagihan",
-            render: (row) => (
-              <span className={row.bill_status === "paid" ? "badge-green" : "badge-amber"}>
-                {row.bill_status === "paid" ? "Lunas" : "Belum Lunas"}
-              </span>
-            ),
-          },
-          {
-            key: "actions",
-            title: "Aksi",
-            render: (row) => {
-              if (row.status === "pending") {
-                return (
-                  <div className="flex gap-2">
-                    <button
-                      className="btn-primary px-3 py-2"
-                      onClick={() => review(row.id, "approved")}
-                    >
-                      <CheckCircle2 size={16} /> Setujui
-                    </button>
-                    <button
-                      className="btn-danger px-3 py-2"
-                      onClick={() => review(row.id, "rejected")}
-                    >
-                      <XCircle size={16} /> Tolak
-                    </button>
-                    {isAdmin && (
-                      <button
-                        className="btn-secondary px-3 py-2"
-                        onClick={() => remove(row.id)}
-                      >
-                        <Trash2 size={16} /> Hapus
-                      </button>
-                    )}
-                  </div>
-                );
-              }
-
-              if (isAdmin && row.status === "rejected") {
-                return (
-                  <button
-                    className="btn-secondary px-3 py-2"
-                    onClick={() => remove(row.id)}
-                  >
-                    <Trash2 size={16} /> Hapus
-                  </button>
-                );
-              }
-
-              return <span className="text-sm text-slate-500">Sudah direview</span>;
+        <Table
+          columns={[
+            { key: "student_name", title: "Siswa" },
+            { key: "class_name", title: "Kelas" },
+            { key: "bill_name", title: "Tagihan" },
+            { key: "period", title: "Periode" },
+            {
+              key: "amount",
+              title: "Nominal",
+              render: (row) => formatCurrency(row.amount),
             },
-          },
-        ]}
-        rows={rows}
-      />
+            {
+              key: "proof_file_name",
+              title: "File Bukti",
+              render: (row) => (
+                <button className="btn-secondary px-3 py-2" onClick={() => previewProof(row.id)}>
+                  <Eye size={16} /> Lihat
+                </button>
+              ),
+            },
+            {
+              key: "status",
+              title: "Status",
+              render: (row) => (
+                <span
+                  className={
+                    row.status === "approved"
+                      ? "badge-green"
+                      : row.status === "rejected"
+                        ? "badge-red"
+                        : "badge-amber"
+                  }
+                >
+                  {statusLabel(row.status)}
+                </span>
+              ),
+            },
+            {
+              key: "bill_status",
+              title: "Status Tagihan",
+              render: (row) => (
+                <span className={row.bill_status === "paid" ? "badge-green" : "badge-amber"}>
+                  {row.bill_status === "paid" ? "Lunas" : "Belum Lunas"}
+                </span>
+              ),
+            },
+            {
+              key: "actions",
+              title: "Aksi",
+              render: (row) => {
+                if (row.status === "pending") {
+                  return (
+                    <div className="flex gap-2">
+                      <button className="btn-primary px-3 py-2" onClick={() => openReviewModal(row.id, "approved")}>
+                        <CheckCircle2 size={16} /> Setujui
+                      </button>
+                      <button className="btn-danger px-3 py-2" onClick={() => openReviewModal(row.id, "rejected")}>
+                        <XCircle size={16} /> Tolak
+                      </button>
+                      {isAdmin && (
+                        <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
+                          <Trash2 size={16} /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (isAdmin && row.status === "rejected") {
+                  return (
+                    <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
+                      <Trash2 size={16} /> Hapus
+                    </button>
+                  );
+                }
+
+                return <span className="text-sm text-slate-500">Sudah direview</span>;
+              },
+            },
+          ]}
+          rows={rows}
+        />
       </div>
+
+      {reviewModal.open && (
+        <div className="modal-shell" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
+          <button type="button" className="modal-backdrop" aria-label="Tutup modal" onClick={closeReviewModal} />
+          <div className="modal-card">
+            <div className={`modal-icon is-${reviewModal.status === "approved" ? "default" : "danger"}`}>
+              {reviewModal.status === "approved" ? "OK" : "!"}
+            </div>
+            <div className="space-y-2">
+              <h3 id="review-modal-title" className="section-title">
+                {reviewModal.status === "approved" ? "Setujui bukti pembayaran" : "Tolak bukti pembayaran"}
+              </h3>
+              <p className="text-sm text-slate-500">
+                {reviewModal.status === "approved"
+                  ? "Tambahkan catatan jika perlu. Kosongkan jika tidak ada."
+                  : "Isi alasan penolakan agar orang tua tahu apa yang perlu diperbaiki."}
+              </p>
+            </div>
+            <form className="space-y-4" onSubmit={submitReview}>
+              <textarea
+                className="textarea"
+                value={reviewModal.notes}
+                onChange={(e) => setReviewModal((current) => ({ ...current, notes: e.target.value }))}
+                placeholder={reviewModal.status === "approved" ? "Catatan approval (opsional)" : "Alasan penolakan"}
+                required={reviewModal.status === "rejected"}
+              />
+              <div className="modal-actions">
+                <button type="button" className="btn-secondary" onClick={closeReviewModal}>
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className={reviewModal.status === "approved" ? "btn-primary" : "btn-danger"}
+                  disabled={submittingReview}
+                >
+                  {submittingReview ? "Menyimpan..." : reviewModal.status === "approved" ? "Setujui" : "Tolak"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

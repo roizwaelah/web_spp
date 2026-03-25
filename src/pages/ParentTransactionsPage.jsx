@@ -3,12 +3,15 @@ import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ParentTransactionsPage() {
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState(null);
+
+  useToastMessage(message, setMessage);
 
   useEffect(() => {
     const load = async () => {
@@ -47,15 +50,6 @@ export default function ParentTransactionsPage() {
 
   return (
     <Layout title="Riwayat Pembayaran" subtitle="Seluruh transaksi yang pernah dilakukan orang tua / wali siswa.">
-      {message.text && (
-        <div
-          className={`mb-4 rounded-2xl px-4 py-3 text-sm ${
-            message.type === "error" ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
       <Table
         emptyText={loading ? "Memuat riwayat pembayaran..." : "Belum ada riwayat pembayaran"}
         columns={[

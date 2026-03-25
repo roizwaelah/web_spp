@@ -4,12 +4,17 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ClassesListPage() {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState("");
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
+  const { confirm } = useUI();
+
+  useToastMessage(message, setMessage);
 
   const load = () =>
     fetchRoute("admin/classes")
@@ -25,7 +30,13 @@ export default function ClassesListPage() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm("Hapus kelas ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus kelas",
+      description: "Data kelas ini akan dihapus permanen.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await fetchRoute("admin/classes", { method: "DELETE", data: { id } });
       setMessage("Kelas berhasil dihapus");
@@ -60,11 +71,6 @@ export default function ClassesListPage() {
     >
       <div className="space-y-4">
         <div className="card p-3 space-y-4">
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <input
             className="input"
             placeholder="Cari nama kelas / jenjang"

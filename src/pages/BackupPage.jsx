@@ -3,10 +3,15 @@ import { Download, HardDriveDownload, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function BackupPage() {
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState("");
+  const { confirm } = useUI();
+
+  useToastMessage(message, setMessage);
 
   const load = () =>
     fetchRoute("admin/backups")
@@ -40,7 +45,13 @@ export default function BackupPage() {
   };
 
   const removeBackup = async (id) => {
-    if (!confirm("Hapus file backup ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus file backup",
+      description: "File backup yang dihapus tidak bisa dipulihkan dari aplikasi.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await fetchRoute("admin/backups", {
         method: "DELETE",
@@ -63,11 +74,6 @@ export default function BackupPage() {
         </button>
       }
     >
-      {message && (
-        <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-          {message}
-        </div>
-      )}
       <Table
         columns={[
           { key: "filename", title: "Nama file" },

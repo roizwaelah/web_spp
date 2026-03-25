@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const initialForm = {
   name: "",
@@ -15,6 +16,8 @@ export default function StaffAccountPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useToastMessage(message, setMessage);
 
   useEffect(() => {
     fetchRoute("me")
@@ -62,11 +65,6 @@ export default function StaffAccountPage() {
       <div className="card p-5">
         <h3 className="section-title">Profil login</h3>
         <form className="mt-4 space-y-4" onSubmit={submit}>
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           {loading && (
             <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
               Memuat akun...

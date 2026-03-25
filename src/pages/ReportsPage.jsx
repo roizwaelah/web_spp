@@ -4,6 +4,7 @@ import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatCurrency } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ReportsPage() {
   const [filter, setFilter] = useState({
@@ -19,6 +20,8 @@ export default function ReportsPage() {
   const [summary, setSummary] = useState({ count: 0, total: 0, successful: 0, pending: 0 });
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
+
+  useToastMessage(message, setMessage);
 
   const load = async () => {
     try {
@@ -123,11 +126,6 @@ export default function ReportsPage() {
     >
       <div className="space-y-4">
         <div className="card p-4">
-          {message && (
-            <div className="mb-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <div className="grid gap-4 xl:grid-cols-1">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <div>

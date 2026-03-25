@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
 import { roleLabel } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const initialForm = {
   id: null,
@@ -23,6 +24,8 @@ export default function UsersEditPage() {
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
+
+  useToastMessage(message, setMessage);
 
   const selectedUser = useMemo(
     () => rows.find((item) => String(item.id) === String(id)),
@@ -136,11 +139,6 @@ export default function UsersEditPage() {
       <div className="card p-5">
         <h3 className="section-title">{form.id ? "Edit user" : "Tambah user"}</h3>
         <form className="mt-4 space-y-4" onSubmit={submit}>
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           {loading && (
             <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
               Memuat data user...

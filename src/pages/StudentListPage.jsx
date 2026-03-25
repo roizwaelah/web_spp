@@ -4,6 +4,8 @@ import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function StudentListPage() {
   const [students, setStudents] = useState([]);
@@ -11,6 +13,9 @@ export default function StudentListPage() {
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
   const navigate = useNavigate();
+  const { confirm } = useUI();
+
+  useToastMessage(message, setMessage);
 
   const load = async () => {
     try {
@@ -26,7 +31,13 @@ export default function StudentListPage() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm("Hapus data siswa ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus data siswa",
+      description: "Data siswa ini akan dihapus beserta relasi yang bergantung padanya.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await fetchRoute("admin/students", { method: "DELETE", data: { id } });
       setMessage("Siswa berhasil dihapus");
@@ -75,13 +86,6 @@ export default function StudentListPage() {
     >
       <div className="space-y-4">
         <div className="card p-3 flex flex-col md:flex-row md:items-end gap-4">
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 md:max-w-xs">
-              {message}
-            </div>
-          )}
-
-          {/* Tambahkan md:flex, md:items-end, dan gap di sini */}
           <div className="flex-1 flex flex-col md:flex-row md:items-end gap-4">
             <div className="flex-1">
               <label className="label">Pencarian</label>

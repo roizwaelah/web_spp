@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatDate } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const channelLabel = (channel) => {
   if (channel === "whatsapp") return "WhatsApp";
@@ -14,6 +15,8 @@ export default function ParentNotificationsPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  useToastMessage({ type: "error", text: message }, setMessage);
 
   useEffect(() => {
     const load = async () => {
@@ -34,11 +37,6 @@ export default function ParentNotificationsPage() {
 
   return (
     <Layout title="Notifikasi Orang Tua" subtitle="Riwayat pengingat jatuh tempo dan notifikasi transaksi via WhatsApp / sistem.">
-      {message && (
-        <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {message}
-        </div>
-      )}
       <Table
         emptyText={loading ? "Memuat notifikasi..." : "Belum ada notifikasi"}
         columns={[

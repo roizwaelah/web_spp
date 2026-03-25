@@ -3,6 +3,7 @@ import { CalendarCheck2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function BillsEditPage() {
   const [meta, setMeta] = useState({ students: [] });
@@ -13,6 +14,8 @@ export default function BillsEditPage() {
   });
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
+
+  useToastMessage(message, setMessage);
 
   useEffect(() => {
     fetchRoute("admin/meta")
@@ -66,11 +69,6 @@ export default function BillsEditPage() {
         </div>
 
         <form className="space-y-4" onSubmit={submit}>
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <div>
             <label className="label">Periode</label>
             <input

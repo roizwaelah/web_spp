@@ -6,6 +6,8 @@ import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
 import { useAuth } from "../context/AuthContext";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function BillsListPage() {
   const [rows, setRows] = useState([]);
@@ -20,6 +22,9 @@ export default function BillsListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const { confirm } = useUI();
+
+  useToastMessage(message, setMessage);
 
   const load = async () => {
     try {
@@ -56,7 +61,13 @@ export default function BillsListPage() {
   }, [filter.status, filter.class_id, filter.student_id]);
 
   const remove = async (id) => {
-    if (!confirm("Hapus tagihan ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus tagihan",
+      description: "Tagihan yang sudah punya transaksi atau bukti bayar tidak akan bisa dihapus.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await fetchRoute("admin/bills", { method: "DELETE", data: { id } });
       setMessage("Tagihan berhasil dihapus");
@@ -98,11 +109,6 @@ export default function BillsListPage() {
     >
       <div className="space-y-4">
         <div className="card p-3">
-          {message && (
-            <div className="mb-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <div className="grid gap-4 md:grid-cols-3">
             <select
               className="input"

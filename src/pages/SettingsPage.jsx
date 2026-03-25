@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const defaults = {
   school_name: "",
@@ -19,6 +20,8 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useToastMessage(message, setMessage);
 
   useEffect(() => {
     fetchRoute("admin/settings")
@@ -55,11 +58,6 @@ export default function SettingsPage() {
         <div className="card p-6">
           <h3 className="section-title">Profil madrasah</h3>
           <div className="mt-4 space-y-4">
-            {message && (
-              <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-                {message}
-              </div>
-            )}
             {loading && (
               <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
                 Memuat pengaturan...

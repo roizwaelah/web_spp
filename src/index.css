@@ -141,6 +141,70 @@ body {
   @apply overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm;
 }
 
+.toast-stack {
+  @apply pointer-events-none fixed right-3 top-[62px] z-[80] flex w-[min(360px,calc(100vw-1.5rem))] flex-col gap-2 xl:right-5;
+}
+
+.toast-card {
+  @apply pointer-events-auto flex items-start gap-3 rounded-md border px-4 py-3 shadow-lg backdrop-blur;
+}
+
+.toast-card.is-success {
+  @apply border-emerald-200 bg-emerald-50/95 text-emerald-900;
+}
+
+.toast-card.is-error {
+  @apply border-rose-200 bg-rose-50/95 text-rose-900;
+}
+
+.toast-card.is-info {
+  @apply border-sky-200 bg-sky-50/95 text-sky-900;
+}
+
+.toast-card__body {
+  @apply min-w-0 flex-1;
+}
+
+.toast-card__title {
+  @apply text-sm font-semibold leading-tight;
+}
+
+.toast-card__message {
+  @apply text-sm leading-snug;
+}
+
+.toast-card__close {
+  @apply rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-white/70 hover:text-slate-800;
+}
+
+.modal-shell {
+  @apply fixed inset-0 z-[90] flex items-center justify-center p-4;
+}
+
+.modal-backdrop {
+  @apply absolute inset-0 bg-slate-900/45 backdrop-blur-[2px];
+}
+
+.modal-card {
+  @apply relative z-10 flex w-full max-w-md flex-col gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-2xl;
+}
+
+.modal-icon {
+  @apply inline-flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold;
+}
+
+.modal-icon.is-default {
+  @apply bg-sky-100 text-sky-700;
+}
+
+.modal-icon.is-danger {
+  @apply bg-rose-100 text-rose-700;
+}
+
+.modal-actions {
+  @apply flex justify-end gap-3;
+}
+
 @media (max-width: 1279px) {
   .dp-sidebar {
     @apply top-[50px] z-30 h-[calc(100vh-50px)] w-[212px] border-r border-b-0 border-slate-700 transition-transform duration-200 ease-in-out;

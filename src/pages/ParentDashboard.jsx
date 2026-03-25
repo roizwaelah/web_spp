@@ -3,11 +3,14 @@ import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
 import { fetchRoute } from "../api";
 import { formatCurrency } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ParentDashboard() {
   const [data, setData] = useState({ summary: {}, student: {}, settings: {} });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  useToastMessage({ type: "error", text: message }, setMessage);
 
   useEffect(() => {
     const load = async () => {
@@ -32,11 +35,6 @@ export default function ParentDashboard() {
 
   return (
     <Layout title="Portal Orang Tua" subtitle="Pantau tagihan anak, pembayaran, dan notifikasi sekolah secara mandiri.">
-      {message && (
-        <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {message}
-        </div>
-      )}
       <div className="card p-6">
         <h3 className="text-xl font-bold text-slate-900">
           {loading ? "Memuat data siswa..." : data.student?.name || "-"}

@@ -6,6 +6,8 @@ import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatCurrency } from "../utils";
 import { useAuth } from "../context/AuthContext";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function FinanceListPage() {
   const [rows, setRows] = useState([]);
@@ -13,6 +15,9 @@ export default function FinanceListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const { confirm } = useUI();
+
+  useToastMessage(message, setMessage);
 
   const load = () =>
     fetchRoute("admin/finance-posts")
@@ -28,7 +33,13 @@ export default function FinanceListPage() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm("Hapus pos keuangan ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus pos keuangan",
+      description: "Pos keuangan yang sudah dipakai tagihan tidak akan bisa dihapus.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await fetchRoute("admin/finance-posts", { method: "DELETE", data: { id } });
       setMessage("Pos keuangan berhasil dihapus");
@@ -52,14 +63,6 @@ export default function FinanceListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-3">
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
-        </div>
-
         <Table
           columns={[
             { key: "name", title: "Pos keuangan" },

@@ -6,6 +6,8 @@ import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { staffMenuItems } from "../access";
 import { roleLabel } from "../utils";
+import { useUI } from "../context/UIContext";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const menuLabelMap = Object.fromEntries(
   staffMenuItems.map((item) => [item.accessKey, item.label]),
@@ -17,6 +19,9 @@ export default function UsersListPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { confirm } = useUI();
+
+  useToastMessage(message, setMessage);
 
   const load = () =>
     (setLoading(true),
@@ -34,7 +39,13 @@ export default function UsersListPage() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm("Hapus user ini?")) return;
+    const confirmed = await confirm({
+      title: "Hapus user",
+      description: "User yang dihapus tidak akan bisa login lagi.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await fetchRoute("admin/users", { method: "DELETE", data: { id } });
       setMessage("User berhasil dihapus");
@@ -69,11 +80,6 @@ export default function UsersListPage() {
     >
       <div className="space-y-4">
         <div className="card space-y-4 p-3">
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <input
             className="input"
             placeholder="Cari nama, email, role, atau siswa"

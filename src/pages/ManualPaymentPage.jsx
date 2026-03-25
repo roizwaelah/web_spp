@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const initialForm = {
   class_id: "",
@@ -23,6 +24,8 @@ export default function ManualPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
+
+  useToastMessage(message, setMessage);
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -171,16 +174,6 @@ export default function ManualPaymentPage() {
         </div>
 
         <form className="space-y-4" onSubmit={submit}>
-          {message.text && (
-            <div
-              className={`rounded-2xl px-4 py-3 text-sm ${
-                message.type === "error" ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
-
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="label">Filter kelas</label>

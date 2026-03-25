@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const initialForm = {
   id: null,
@@ -24,6 +25,8 @@ export default function StudentEditPage() {
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
   const { id } = useParams();
+
+  useToastMessage(message, setMessage);
 
   const selectedStudent = useMemo(
     () => students.find((item) => String(item.id) === String(id)),
@@ -102,10 +105,6 @@ export default function StudentEditPage() {
       <div className="card p-5">
         <h3 className="section-title">{form.id ? "Edit siswa" : "Tambah siswa"}</h3>
         <form className="mt-4 space-y-4" onSubmit={submit}>
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">{message}</div>
-          )}
-
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="label">NIS</label>

@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ParentBillsPage() {
   const [bills, setBills] = useState([]);
@@ -10,6 +11,8 @@ export default function ParentBillsPage() {
   const [fileMap, setFileMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyBillId, setBusyBillId] = useState(null);
+
+  useToastMessage(message, setMessage);
 
   const load = async () => {
     setLoading(true);
@@ -102,15 +105,6 @@ export default function ParentBillsPage() {
       title="Tagihan Saya"
       subtitle="Lakukan pembayaran otomatis atau unggah bukti transfer manual untuk diverifikasi admin."
     >
-      {message.text && (
-        <div
-          className={`rounded-2xl px-4 py-3 text-sm ${
-            message.type === "error" ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
       <Table
         emptyText={loading ? "Memuat tagihan..." : "Belum ada tagihan"}
         columns={[

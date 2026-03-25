@@ -10,6 +10,7 @@ import StatCard from "../components/StatCard";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const INITIAL_DASHBOARD_DATA = {
   summary: {},
@@ -35,6 +36,8 @@ export default function AdminDashboard() {
   const [data, setData] = useState(INITIAL_DASHBOARD_DATA);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+
+  useToastMessage(message, setMessage);
 
   const loadDashboard = () => {
     setLoading(true);
@@ -71,12 +74,6 @@ export default function AdminDashboard() {
       }
       subtitle="Pantau ringkasan operasional, performa pembayaran, tagihan aktif, dan bukti bayar pending."
     >
-      {message && (
-        <div className="mb-6 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-          {message}
-        </div>
-      )}
-
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Siswa"

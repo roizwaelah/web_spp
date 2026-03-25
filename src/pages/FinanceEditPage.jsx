@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
+import { useToastMessage } from "../hooks/useToastMessage";
 
 const initialForm = {
   id: null,
@@ -22,6 +23,8 @@ export default function FinanceEditPage() {
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
   const { id } = useParams();
+
+  useToastMessage(message, setMessage);
 
   const selectedPost = useMemo(
     () => rows.find((item) => String(item.id) === String(id)),
@@ -105,11 +108,6 @@ export default function FinanceEditPage() {
           {form.id ? "Edit pos keuangan" : "Tambah pos keuangan"}
         </h3>
         <form className="mt-4 space-y-4" onSubmit={submit}>
-          {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-              {message}
-            </div>
-          )}
           <div>
             <label className="label">Nama pos</label>
             <input
