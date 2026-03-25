@@ -107,25 +107,32 @@ export default function Layout({ title, subtitle, actions, children }) {
         <aside className="glass p-3 xl:fixed xl:left-4 xl:top-4 xl:h-[calc(100vh-2rem)] xl:w-[250px] xl:overflow-y-auto">
           <h1 className="p-4 text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
 
-          <div className="mt-3 space-y-2">
-            {items.map((item) => {
-              const Icon = item.icon;
-              const active = location.pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[0.95rem] font-medium transition ${
-                    active
-                      ? "bg-slate-800 text-slate-100 shadow-sm"
-                      : "text-slate-700 hover:bg-slate-200/60"
-                  }`}
-                >
-                  <Icon size={17} />
-                  {item.label}
-                </Link>
-              );
-            })}
+          <div className="mt-3 space-y-4">
+            {sections.map((section) => (
+              <div key={section.section} className="space-y-2">
+                <p className="px-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  {section.section}
+                </p>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = location.pathname === item.to;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[0.95rem] font-medium transition ${
+                        active
+                          ? "bg-slate-800 text-slate-100 shadow-sm"
+                          : "text-slate-700 hover:bg-slate-200/60"
+                      }`}
+                    >
+                      <Icon size={17} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-3">
