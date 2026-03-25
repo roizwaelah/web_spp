@@ -6,57 +6,94 @@ import { formatCurrency, formatDate } from "../utils";
 
 export default function ParentBillsPage() {
   const [bills, setBills] = useState([]);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState({ type: "", text: "" });
   const [fileMap, setFileMap] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busyBillId, setBusyBillId] = useState(null);
 
-  const load = () =>
-    fetchRoute("parent/bills").then(({ data }) =>
-      setBills(Array.isArray(data) ? data : []),
-    );
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await fetchRoute("parent/bills");
+      setBills(Array.isArray(data) ? data : []);
+      setMessage((current) => (current.type === "error" ? { type: "", text: "" } : current));
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal memuat tagihan",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
   }, []);
 
   const pay = async (billId, channel) => {
     try {
+      setBusyBillId(billId);
       const { data } = await fetchRoute("parent/payments", {
         method: "POST",
         data: { bill_id: billId, payment_channel: channel },
       });
-      setMessage(data.message);
-      load();
+      setMessage({ type: "success", text: data.message });
+      await load();
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Gagal memproses pembayaran");
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal memproses pembayaran",
+      });
+    } finally {
+      setBusyBillId(null);
     }
   };
 
   const uploadProof = async (billId) => {
     const file = fileMap[billId];
-    if (!file) return alert("Pilih file bukti terlebih dahulu.");
+    if (!file) {
+      setMessage({ type: "error", text: "Pilih file bukti terlebih dahulu." });
+      return;
+    }
+
     const data = new FormData();
     data.append("bill_id", billId);
     data.append("notes", "Upload bukti dari portal orang tua");
     data.append("file", file);
+
     try {
+      setBusyBillId(billId);
       const res = await fetchRoute("parent/payment-proofs", {
         method: "POST",
         data,
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setMessage(res.data.message);
+      setMessage({ type: "success", text: res.data.message });
       setFileMap((prev) => ({ ...prev, [billId]: null }));
-      load();
+      await load();
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Gagal mengunggah bukti pembayaran");
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal mengunggah bukti pembayaran",
+      });
+    } finally {
+      setBusyBillId(null);
     }
   };
 
   const downloadReceipt = async (billId) => {
     try {
+      setBusyBillId(billId);
       await downloadRouteFile("parent/receipt", { bill_id: billId }, "bukti-pembayaran.html");
-      setMessage("");
+      setMessage({ type: "", text: "" });
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Gagal mengunduh bukti pembayaran");
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal mengunduh bukti pembayaran",
+      });
+    } finally {
+      setBusyBillId(null);
     }
   };
 
@@ -65,12 +102,17 @@ export default function ParentBillsPage() {
       title="Tagihan Saya"
       subtitle="Lakukan pembayaran otomatis atau unggah bukti transfer manual untuk diverifikasi admin."
     >
-      {message && (
-        <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-          {message}
+      {message.text && (
+        <div
+          className={`rounded-2xl px-4 py-3 text-sm ${
+            message.type === "error" ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"
+          }`}
+        >
+          {message.text}
         </div>
       )}
       <Table
+        emptyText={loading ? "Memuat tagihan..." : "Belum ada tagihan"}
         columns={[
           { key: "bill_name", title: "Tagihan" },
           { key: "period", title: "Periode" },
@@ -88,11 +130,7 @@ export default function ParentBillsPage() {
             key: "status",
             title: "Status",
             render: (row) => (
-              <span
-                className={
-                  row.status === "paid" ? "badge-green" : "badge-amber"
-                }
-              >
+              <span className={row.status === "paid" ? "badge-green" : "badge-amber"}>
                 {row.status === "paid" ? "Lunas" : "Belum Lunas"}
               </span>
             ),
@@ -127,27 +165,26 @@ export default function ParentBillsPage() {
             render: (row) => {
               const proofPending = row.proof_status === "pending";
               const proofApproved = row.proof_status === "approved";
+              const isBusy = busyBillId === row.id;
+              const selectedFileName = fileMap[row.id]?.name;
 
               return row.status === "paid" || proofApproved ? (
                 <button
                   className="btn-secondary"
+                  disabled={isBusy}
                   onClick={() => downloadReceipt(row.id)}
                 >
-                  Cetak bukti
+                  {isBusy ? "Memproses..." : "Cetak bukti"}
                 </button>
               ) : (
                 <div className="space-y-3">
                   {!proofPending ? (
                     <div className="flex flex-wrap gap-2">
-                      {[
-                        "Transfer Bank",
-                        "QRIS",
-                        "Virtual Account",
-                        "E-Wallet",
-                      ].map((channel) => (
+                      {["Transfer Bank", "QRIS", "Virtual Account", "E-Wallet"].map((channel) => (
                         <button
                           key={channel}
                           className="btn-secondary text-xs"
+                          disabled={isBusy}
                           onClick={() => pay(row.id, channel)}
                         >
                           {channel}
@@ -168,7 +205,7 @@ export default function ParentBillsPage() {
                         type="file"
                         accept=".jpg,.jpeg,.png,.pdf"
                         className="input"
-                        disabled={proofPending}
+                        disabled={proofPending || isBusy}
                         onChange={(e) =>
                           setFileMap((prev) => ({
                             ...prev,
@@ -178,12 +215,15 @@ export default function ParentBillsPage() {
                       />
                       <button
                         className="btn-primary"
-                        disabled={proofPending}
+                        disabled={proofPending || isBusy}
                         onClick={() => uploadProof(row.id)}
                       >
-                        {proofPending ? "Menunggu Review" : "Kirim"}
+                        {proofPending ? "Menunggu Review" : isBusy ? "Memproses..." : "Kirim"}
                       </button>
                     </div>
+                    <p className="text-xs text-slate-500">
+                      {selectedFileName || "Format file: JPG, PNG, atau PDF"}
+                    </p>
                   </div>
                 </div>
               );

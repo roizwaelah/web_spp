@@ -29,11 +29,15 @@ if ($route === 'parent/payments' && $method === 'POST') {
     $student = parent_user_student($user);
     $input = json_input();
     ensure_required($input, ['bill_id', 'payment_channel']);
+    $allowedChannels = ['Transfer Bank', 'QRIS', 'Virtual Account', 'E-Wallet'];
+    if (!in_array($input['payment_channel'], $allowedChannels, true)) response(['message' => 'Kanal pembayaran tidak valid'], 422);
     $stmt = $pdo->prepare("SELECT * FROM bills WHERE id=? AND student_id=? LIMIT 1");
     $stmt->execute([$input['bill_id'], $student['id']]);
     $bill = $stmt->fetch();
     if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
     if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas']);
+    $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
+    if ($pendingProof) response(['message' => 'Bukti pembayaran untuk tagihan ini masih menunggu review admin'], 422);
 
     $tx = create_transaction_and_mark_paid((int) $bill['id'], (int) $student['id'], $input['payment_channel'], (float) $bill['amount'], payment_instruction($input['payment_channel']), 'paid');
     queue_whatsapp_notification((int) $student['id'], 'Pembayaran Berhasil', "Pembayaran {$bill['bill_name']} sebesar " . idr($bill['amount']) . " berhasil diterima. Ref: {$tx['reference_no']}");
@@ -89,6 +93,7 @@ if ($route === 'parent/receipt' && $method === 'GET') {
 
     $transactionId = query('transaction_id');
     $billId = query('bill_id');
+    if (!$transactionId && !$billId) response(['message' => 'ID transaksi atau tagihan wajib diisi'], 422);
     if ($transactionId) {
         $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period FROM transactions t JOIN bills b ON b.id=t.bill_id WHERE t.id=? AND t.student_id=? LIMIT 1");
         $stmt->execute([$transactionId, $student['id']]);
@@ -99,10 +104,15 @@ if ($route === 'parent/receipt' && $method === 'GET') {
         $row = $stmt->fetch();
     }
     if (!$row) response(['message' => 'Bukti pembayaran tidak ditemukan'], 404);
+    $settings = list_settings();
+    $receiptTitle = trim((string) ($settings['school_name'] ?? 'SPP Madrasah'));
+    $receiptFooter = trim((string) ($settings['receipt_footer'] ?? ''));
+    $statusLabel = $row['status'] === 'paid' ? 'LUNAS' : strtoupper((string) $row['status']);
 
     header('Content-Type: text/html; charset=utf-8');
+    header('Content-Disposition: attachment; filename="bukti-pembayaran-' . ($row['reference_no'] ?: $row['id']) . '.html"');
     echo "<html><head><title>Bukti Pembayaran</title><style>body{font-family:Arial,sans-serif;padding:30px;background:#f8fafc}.card{max-width:650px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:28px}.title{color:#047857;font-size:28px;font-weight:700}.row{margin:10px 0;color:#334155}.label{font-weight:700;display:inline-block;width:170px}</style></head><body>";
-    echo "<div class='card'><div class='title'>Bukti Pembayaran SPP Madrasah</div>";
+    echo "<div class='card'><div class='title'>Bukti Pembayaran " . htmlspecialchars($receiptTitle) . "</div>";
     echo "<div class='row'><span class='label'>Nama Siswa</span>" . htmlspecialchars($student['name']) . "</div>";
     echo "<div class='row'><span class='label'>Tagihan</span>" . htmlspecialchars($row['bill_name']) . "</div>";
     echo "<div class='row'><span class='label'>Periode</span>" . htmlspecialchars($row['period']) . "</div>";
@@ -110,8 +120,11 @@ if ($route === 'parent/receipt' && $method === 'GET') {
     echo "<div class='row'><span class='label'>Nominal</span>" . idr($row['amount_paid']) . "</div>";
     echo "<div class='row'><span class='label'>Referensi</span>" . htmlspecialchars($row['reference_no']) . "</div>";
     echo "<div class='row'><span class='label'>Tanggal</span>" . htmlspecialchars($row['payment_date']) . "</div>";
-    echo "<div class='row'><span class='label'>Status</span>" . strtoupper(htmlspecialchars($row['status'])) . "</div>";
-    echo "<div class='row' style='margin-top:24px'>Dokumen ini dicetak otomatis oleh sistem SPP Madrasah.</div>";
+    echo "<div class='row'><span class='label'>Status</span>" . htmlspecialchars($statusLabel) . "</div>";
+    echo "<div class='row' style='margin-top:24px'>Dokumen ini dicetak otomatis oleh sistem " . htmlspecialchars($receiptTitle) . ".</div>";
+    if ($receiptFooter !== '') {
+        echo "<div class='row'>" . nl2br(htmlspecialchars($receiptFooter)) . "</div>";
+    }
     echo "</div></body></html>";
     exit;
 }
