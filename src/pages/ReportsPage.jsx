@@ -17,9 +17,9 @@ export default function ReportsPage() {
   const load = async () => {
     const qs = new URLSearchParams(filter).toString()
     const { data } = await fetchRoute(`admin/reports?${qs}`)
-    setRows(data.rows)
-    setSummary(data.summary)
-    setByChannel(data.byChannel)
+    setRows(Array.isArray(data?.rows) ? data.rows : [])
+    setSummary(data?.summary || {})
+    setByChannel(data?.byChannel || {})
   }
 
   useEffect(() => { load() }, [])

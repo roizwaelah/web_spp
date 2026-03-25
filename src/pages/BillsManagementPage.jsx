@@ -16,8 +16,10 @@ export default function BillsManagementPage() {
       fetchRoute('admin/meta'),
       fetchRoute(`admin/bills${filter.status || filter.student_id ? `?${new URLSearchParams({ status: filter.status, student_id: filter.student_id }).toString()}` : ''}`),
     ])
-    setMeta(metaRes.data)
-    setRows(rowsRes.data)
+    setMeta({
+      students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+    })
+    setRows(Array.isArray(rowsRes.data) ? rowsRes.data : [])
   }
 
   useEffect(() => { load() }, [filter.status, filter.student_id])

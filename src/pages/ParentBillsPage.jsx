@@ -9,7 +9,7 @@ export default function ParentBillsPage() {
   const [message, setMessage] = useState('')
   const [fileMap, setFileMap] = useState({})
 
-  const load = () => fetchRoute('parent/bills').then(({ data }) => setBills(data))
+  const load = () => fetchRoute('parent/bills').then(({ data }) => setBills(Array.isArray(data) ? data : []))
   useEffect(() => { load() }, [])
 
   const pay = async (billId, channel) => {

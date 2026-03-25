@@ -6,7 +6,7 @@ import { formatCurrency } from '../utils'
 
 export default function ParentTransactionsPage() {
   const [rows, setRows] = useState([])
-  useEffect(() => { fetchRoute('parent/transactions').then(({ data }) => setRows(data)) }, [])
+  useEffect(() => { fetchRoute('parent/transactions').then(({ data }) => setRows(Array.isArray(data) ? data : [])) }, [])
 
   return (
     <Layout title="Riwayat Pembayaran" subtitle="Seluruh transaksi yang pernah dilakukan orang tua / wali siswa.">

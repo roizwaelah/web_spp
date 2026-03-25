@@ -52,7 +52,7 @@ const menus = {
 export default function Layout({ title, subtitle, actions, children }) {
   const { user, logout } = useAuth()
   const location = useLocation()
-  const items = menus[user?.role || 'admin']
+  const items = menus[user?.role] || menus.admin
 
   return (
     <div className="min-h-screen">

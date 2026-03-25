@@ -31,8 +31,11 @@ export default function StudentsPage() {
       fetchRoute('admin/meta'),
       fetchRoute('admin/students'),
     ])
-    setMeta(metaRes.data)
-    setStudents(studentsRes.data)
+    setMeta({
+      classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
+      years: Array.isArray(metaRes.data?.years) ? metaRes.data.years : [],
+    })
+    setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : [])
   }
 
   useEffect(() => { load() }, [])
