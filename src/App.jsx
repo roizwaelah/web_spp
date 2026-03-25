@@ -6,7 +6,8 @@ import StudentListPage from './pages/StudentListPage'
 import StudentEditPage from './pages/StudentEditPage'
 import ClassesListPage from './pages/ClassesListPage'
 import ClassesEditPage from './pages/ClassesEditPage'
-import AcademicYearsPage from './pages/AcademicYearsPage'
+import AcademicListPage from './pages/AcademicListPage'
+import AcademicEditPage from './pages/AcademicEditPage'
 import FinancePostsPage from './pages/FinancePostsPage'
 import BillsManagementPage from './pages/BillsManagementPage'
 import PaymentProofsPage from './pages/PaymentProofsPage'
@@ -31,7 +32,10 @@ export default function App() {
       <Route path="/admin/kelas/list" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesListPage /></ProtectedRoute>} />
       <Route path="/admin/kelas/edit" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesEditPage /></ProtectedRoute>} />
       <Route path="/admin/kelas/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesEditPage /></ProtectedRoute>} />
-      <Route path="/admin/tahun-ajaran" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicYearsPage /></ProtectedRoute>} />
+      <Route path="/admin/tahun-ajaran" element={<Navigate to="/admin/tahun-ajaran/list" replace />} />
+      <Route path="/admin/tahun-ajaran/list" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicListPage /></ProtectedRoute>} />
+      <Route path="/admin/tahun-ajaran/edit" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicEditPage /></ProtectedRoute>} />
+      <Route path="/admin/tahun-ajaran/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicEditPage /></ProtectedRoute>} />
       <Route path="/admin/pos-keuangan" element={<ProtectedRoute role={['admin', 'bendahara']}><FinancePostsPage /></ProtectedRoute>} />
       <Route path="/admin/tagihan" element={<ProtectedRoute role={['admin', 'bendahara']}><BillsManagementPage /></ProtectedRoute>} />
       <Route path="/admin/bukti-pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']}><PaymentProofsPage /></ProtectedRoute>} />
