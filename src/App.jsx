@@ -2,8 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/LandingPage'
 import AdminDashboard from './pages/AdminDashboard'
-import StudentsPage from './pages/StudentsPage'
-import AddStudentPage from './pages/AddStudentPage'
+import StudentListPage from './pages/StudentListPage'
+import StudentEditPage from './pages/StudentEditPage'
 import ClassesPage from './pages/ClassesPage'
 import AcademicYearsPage from './pages/AcademicYearsPage'
 import FinancePostsPage from './pages/FinancePostsPage'
@@ -22,8 +22,10 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/admin" element={<ProtectedRoute role={['admin', 'bendahara']}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/siswa" element={<ProtectedRoute role={['admin', 'bendahara']}><StudentsPage /></ProtectedRoute>} />
-      <Route path="/admin/siswa/tambah" element={<ProtectedRoute role={['admin', 'bendahara']}><AddStudentPage /></ProtectedRoute>} />
+      <Route path="/admin/siswa" element={<Navigate to="/admin/siswa/list" replace />} />
+      <Route path="/admin/siswa/list" element={<ProtectedRoute role={['admin', 'bendahara']}><StudentListPage /></ProtectedRoute>} />
+      <Route path="/admin/siswa/edit" element={<ProtectedRoute role="admin"><StudentEditPage /></ProtectedRoute>} />
+      <Route path="/admin/siswa/edit/:id" element={<ProtectedRoute role="admin"><StudentEditPage /></ProtectedRoute>} />
       <Route path="/admin/kelas" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesPage /></ProtectedRoute>} />
       <Route path="/admin/tahun-ajaran" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicYearsPage /></ProtectedRoute>} />
       <Route path="/admin/pos-keuangan" element={<ProtectedRoute role={['admin', 'bendahara']}><FinancePostsPage /></ProtectedRoute>} />
