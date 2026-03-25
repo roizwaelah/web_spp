@@ -4,7 +4,8 @@ import LandingPage from './pages/LandingPage'
 import AdminDashboard from './pages/AdminDashboard'
 import StudentListPage from './pages/StudentListPage'
 import StudentEditPage from './pages/StudentEditPage'
-import ClassesPage from './pages/ClassesPage'
+import ClassesListPage from './pages/ClassesListPage'
+import ClassesEditPage from './pages/ClassesEditPage'
 import AcademicYearsPage from './pages/AcademicYearsPage'
 import FinancePostsPage from './pages/FinancePostsPage'
 import BillsManagementPage from './pages/BillsManagementPage'
@@ -26,7 +27,10 @@ export default function App() {
       <Route path="/admin/siswa/list" element={<ProtectedRoute role={['admin', 'bendahara']}><StudentListPage /></ProtectedRoute>} />
       <Route path="/admin/siswa/edit" element={<ProtectedRoute role="admin"><StudentEditPage /></ProtectedRoute>} />
       <Route path="/admin/siswa/edit/:id" element={<ProtectedRoute role="admin"><StudentEditPage /></ProtectedRoute>} />
-      <Route path="/admin/kelas" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesPage /></ProtectedRoute>} />
+      <Route path="/admin/kelas" element={<Navigate to="/admin/kelas/list" replace />} />
+      <Route path="/admin/kelas/list" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesListPage /></ProtectedRoute>} />
+      <Route path="/admin/kelas/edit" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesEditPage /></ProtectedRoute>} />
+      <Route path="/admin/kelas/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesEditPage /></ProtectedRoute>} />
       <Route path="/admin/tahun-ajaran" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicYearsPage /></ProtectedRoute>} />
       <Route path="/admin/pos-keuangan" element={<ProtectedRoute role={['admin', 'bendahara']}><FinancePostsPage /></ProtectedRoute>} />
       <Route path="/admin/tagihan" element={<ProtectedRoute role={['admin', 'bendahara']}><BillsManagementPage /></ProtectedRoute>} />
