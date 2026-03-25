@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -25,6 +25,7 @@ export default function StudentsPage() {
   const [filter, setFilter] = useState("");
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
+  const formCardRef = useRef(null);
 
   const load = async () => {
     const [metaRes, studentsRes] = await Promise.all([
@@ -85,13 +86,23 @@ export default function StudentsPage() {
     [students, filter],
   );
 
+  const openCreateForm = () => {
+    setForm(initialForm);
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <Layout
       title="Manajemen Data Siswa"
       subtitle="CRUD lengkap siswa, edit/hapus data, relasi kelas dan tahun ajaran, serta impor Excel/CSV."
+      actions={
+        <button className="btn-primary" onClick={openCreateForm}>
+          <Plus size={18} /> Tambah siswa
+        </button>
+      }
     >
       <div className="page-grid">
-        <div className="card p-6">
+        <div className="card p-5" ref={formCardRef}>
           <h3 className="section-title">
             {form.id ? "Edit siswa" : "Tambah siswa"}
           </h3>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -22,6 +22,7 @@ export default function FinancePostsPage() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
+  const formCardRef = useRef(null);
 
   const load = async () => {
     const [metaRes, rowsRes] = await Promise.all([
@@ -66,13 +67,23 @@ export default function FinancePostsPage() {
     [form.applies_to],
   );
 
+  const openCreateForm = () => {
+    setForm(initialForm);
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <Layout
       title="Manajemen Pos Keuangan"
       subtitle="Atur jenis pembayaran SPP, uang gedung, seragam, dan tagihan khusus per kelas atau per siswa."
+      actions={
+        <button className="btn-primary" onClick={openCreateForm}>
+          <Plus size={18} /> Tambah pos
+        </button>
+      }
     >
       <div className="page-grid">
-        <div className="card p-6">
+        <div className="card p-5" ref={formCardRef}>
           <h3 className="section-title">
             {form.id ? "Edit pos keuangan" : "Tambah pos keuangan"}
           </h3>

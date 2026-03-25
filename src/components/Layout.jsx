@@ -103,41 +103,32 @@ export default function Layout({ title, subtitle, actions, children }) {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto grid w-full max-w-[1700px] gap-6 px-4 py-6 xl:grid-cols-[260px_1fr] 2xl:px-8">
-        <aside className="glass h-fit p-4">
-          <h1 className="p-5 text-[1.35rem] font-bold text-sky-700">SPP Online</h1>
+      <div className="mx-auto w-full max-w-[1500px] px-3 py-4 xl:px-4">
+        <aside className="glass p-3 xl:fixed xl:left-4 xl:top-4 xl:h-[calc(100vh-2rem)] xl:w-[250px] xl:overflow-y-auto">
+          <h1 className="p-4 text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
 
-          <div className="mt-4 space-y-4">
-            {sections.map((section) => (
-              <div key={section.section}>
-                <p className="px-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  {section.section}
-                </p>
-                <div className="mt-2 space-y-2">
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = location.pathname === item.to;
-                    return (
-                      <Link
-                        key={`${section.section}-${item.to}-${item.label}`}
-                        to={item.to}
-                        className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-[0.98rem] font-medium transition ${
-                          active
-                            ? "bg-slate-800 text-slate-100 shadow-sm"
-                            : "text-slate-700 hover:bg-slate-200/60"
-                        }`}
-                      >
-                        <Icon size={18} />
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <div className="mt-3 space-y-2">
+            {items.map((item) => {
+              const Icon = item.icon;
+              const active = location.pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[0.95rem] font-medium transition ${
+                    active
+                      ? "bg-slate-800 text-slate-100 shadow-sm"
+                      : "text-slate-700 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <Icon size={17} />
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
 
-          <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-[0.92rem] text-slate-500">Masuk sebagai</p>
             <p className="mt-1 font-semibold text-slate-900">{user?.name}</p>
             <p className="text-[0.92rem] text-slate-500">{user?.email}</p>
@@ -148,17 +139,17 @@ export default function Layout({ title, subtitle, actions, children }) {
           </div>
         </aside>
 
-        <main className="space-y-6">
-          <header className="glass p-6 xl:p-8">
+        <main className="mt-4 space-y-4 xl:ml-[270px] xl:mt-0">
+          <header className="glass p-4 xl:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-700">
                   Sistem SPP
                 </p>
-                <h2 className="mt-2 text-3xl font-bold text-slate-900 xl:text-4xl">
+                <h2 className="mt-1 text-2xl font-bold text-slate-900 xl:text-3xl">
                   {title}
                 </h2>
-                <p className="mt-2 max-w-4xl text-sm text-slate-500">{subtitle}</p>
+                <p className="mt-1 max-w-4xl text-sm text-slate-500">{subtitle}</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="badge-green">Sistem aktif</span>

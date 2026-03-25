@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { CalendarCheck2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarCheck2, Plus } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -15,6 +15,7 @@ export default function BillsManagementPage() {
     due_date: "",
   });
   const [message, setMessage] = useState("");
+  const createCardRef = useRef(null);
 
   const load = async () => {
     const [metaRes, rowsRes] = await Promise.all([
@@ -50,13 +51,22 @@ export default function BillsManagementPage() {
 
   const filteredRows = useMemo(() => rows, [rows]);
 
+  const openCreateSection = () => {
+    createCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <Layout
       title="Manajemen Tagihan"
       subtitle="Generate tagihan otomatis per periode, filter status, dan pantau bukti pembayaran tiap tagihan."
+      actions={
+        <button className="btn-primary" onClick={openCreateSection}>
+          <Plus size={18} /> Buat tagihan
+        </button>
+      }
     >
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-        <div className="card p-6">
+        <div className="card p-5" ref={createCardRef}>
           {message && (
             <div className="mb-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
               {message}

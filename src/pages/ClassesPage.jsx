@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -10,6 +10,7 @@ export default function ClassesPage() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
+  const formCardRef = useRef(null);
 
   const load = () =>
     fetchRoute("admin/classes").then(({ data }) =>
@@ -39,13 +40,23 @@ export default function ClassesPage() {
     load();
   };
 
+  const openCreateForm = () => {
+    setForm(initialForm);
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <Layout
       title="Master Kelas"
       subtitle="Kelola struktur kelas madrasah secara terpisah dari data siswa."
+      actions={
+        <button className="btn-primary" onClick={openCreateForm}>
+          <Plus size={18} /> Tambah kelas
+        </button>
+      }
     >
       <div className="page-grid">
-        <div className="card p-6">
+        <div className="card p-5" ref={formCardRef}>
           <h3 className="section-title">
             {form.id ? "Edit kelas" : "Tambah kelas"}
           </h3>
