@@ -8,7 +8,8 @@ import ClassesListPage from './pages/ClassesListPage'
 import ClassesEditPage from './pages/ClassesEditPage'
 import AcademicListPage from './pages/AcademicListPage'
 import AcademicEditPage from './pages/AcademicEditPage'
-import FinancePostsPage from './pages/FinancePostsPage'
+import FinanceListPage from './pages/FinanceListPage'
+import FinanceEditPage from './pages/FinanceEditPage'
 import BillsManagementPage from './pages/BillsManagementPage'
 import PaymentProofsPage from './pages/PaymentProofsPage'
 import ReportsPage from './pages/ReportsPage'
@@ -36,7 +37,10 @@ export default function App() {
       <Route path="/admin/tahun-ajaran/list" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicListPage /></ProtectedRoute>} />
       <Route path="/admin/tahun-ajaran/edit" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicEditPage /></ProtectedRoute>} />
       <Route path="/admin/tahun-ajaran/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicEditPage /></ProtectedRoute>} />
-      <Route path="/admin/pos-keuangan" element={<ProtectedRoute role={['admin', 'bendahara']}><FinancePostsPage /></ProtectedRoute>} />
+      <Route path="/admin/pos-keuangan" element={<Navigate to="/admin/pos-keuangan/list" replace />} />
+      <Route path="/admin/pos-keuangan/list" element={<ProtectedRoute role={['admin', 'bendahara']}><FinanceListPage /></ProtectedRoute>} />
+      <Route path="/admin/pos-keuangan/edit" element={<ProtectedRoute role={['admin', 'bendahara']}><FinanceEditPage /></ProtectedRoute>} />
+      <Route path="/admin/pos-keuangan/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']}><FinanceEditPage /></ProtectedRoute>} />
       <Route path="/admin/tagihan" element={<ProtectedRoute role={['admin', 'bendahara']}><BillsManagementPage /></ProtectedRoute>} />
       <Route path="/admin/bukti-pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']}><PaymentProofsPage /></ProtectedRoute>} />
       <Route path="/admin/laporan" element={<ProtectedRoute role={['admin', 'bendahara']}><ReportsPage /></ProtectedRoute>} />

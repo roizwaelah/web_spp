@@ -29,7 +29,7 @@ const menus = {
         { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
         { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange },
-        { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
+        { to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard },
         { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
         {
           to: "/admin/bukti-pembayaran",
@@ -50,7 +50,7 @@ const menus = {
         { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
         { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange },
-        { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
+        { to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard },
         { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
         {
           to: "/admin/bukti-pembayaran",
@@ -151,7 +151,10 @@ export default function Layout({ title, subtitle, actions, children }) {
                         location.pathname === "/admin/kelas/edit")) ||
                     (item.to === "/admin/tahun-ajaran/list" &&
                       (location.pathname.startsWith("/admin/tahun-ajaran/edit/") ||
-                        location.pathname === "/admin/tahun-ajaran/edit"));
+                        location.pathname === "/admin/tahun-ajaran/edit")) ||
+                    (item.to === "/admin/pos-keuangan/list" &&
+                      (location.pathname.startsWith("/admin/pos-keuangan/edit/") ||
+                        location.pathname === "/admin/pos-keuangan/edit"));
                   return (
                     <Link
                       key={item.to}
