@@ -53,6 +53,7 @@ export default defineConfig({
       "/index.php": {
         target: "http://localhost:8000",
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },
