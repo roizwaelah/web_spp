@@ -3,6 +3,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/LandingPage'
 import AdminDashboard from './pages/AdminDashboard'
 import StudentsPage from './pages/StudentsPage'
+import AddStudentPage from './pages/AddStudentPage'
 import ClassesPage from './pages/ClassesPage'
 import AcademicYearsPage from './pages/AcademicYearsPage'
 import FinancePostsPage from './pages/FinancePostsPage'
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/admin" element={<ProtectedRoute role={['admin', 'bendahara']}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/siswa" element={<ProtectedRoute role={['admin', 'bendahara']}><StudentsPage /></ProtectedRoute>} />
+      <Route path="/admin/siswa/tambah" element={<ProtectedRoute role={['admin', 'bendahara']}><AddStudentPage /></ProtectedRoute>} />
       <Route path="/admin/kelas" element={<ProtectedRoute role={['admin', 'bendahara']}><ClassesPage /></ProtectedRoute>} />
       <Route path="/admin/tahun-ajaran" element={<ProtectedRoute role={['admin', 'bendahara']}><AcademicYearsPage /></ProtectedRoute>} />
       <Route path="/admin/pos-keuangan" element={<ProtectedRoute role={['admin', 'bendahara']}><FinancePostsPage /></ProtectedRoute>} />
