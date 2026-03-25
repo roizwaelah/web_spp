@@ -47,8 +47,8 @@ export default function ClassesPage() {
 
   return (
     <Layout
-      title="Master Kelas"
-      subtitle="Kelola struktur kelas madrasah secara terpisah dari data siswa."
+      title="Data Kelas"
+      subtitle="Kelola data kelas dari satu halaman. Akses Tambah Kelas tersedia di dalam menu Data Kelas ini."
       actions={
         <button className="btn-primary" onClick={openCreateForm}>
           <Plus size={18} /> Tambah kelas
