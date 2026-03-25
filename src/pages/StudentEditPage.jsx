@@ -82,7 +82,7 @@ export default function StudentEditPage() {
 
   return (
     <Layout
-      title="StudentEditPage"
+      title="Tambah/Edit Siswa"
       subtitle="Form tambah atau edit data siswa."
       actions={
         <button className="btn-secondary" onClick={() => navigate("/admin/siswa/list")}>
