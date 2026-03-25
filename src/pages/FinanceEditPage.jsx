@@ -29,16 +29,20 @@ export default function FinanceEditPage() {
   );
 
   const load = async () => {
-    const [metaRes, rowsRes] = await Promise.all([
-      fetchRoute("admin/meta"),
-      fetchRoute("admin/finance-posts"),
-    ]);
+    try {
+      const [metaRes, rowsRes] = await Promise.all([
+        fetchRoute("admin/meta"),
+        fetchRoute("admin/finance-posts"),
+      ]);
 
-    setMeta({
-      classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
-      students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
-    });
-    setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
+      setMeta({
+        classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
+        students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+      });
+      setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memuat pos keuangan");
+    }
   };
 
   useEffect(() => {
@@ -66,13 +70,18 @@ export default function FinanceEditPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (form.id) {
-      await fetchRoute("admin/finance-posts", { method: "PUT", data: form });
-      setMessage("Pos keuangan diperbarui");
-    } else {
-      await fetchRoute("admin/finance-posts", { method: "POST", data: form });
-      setMessage("Pos keuangan ditambahkan");
-      setForm(initialForm);
+    try {
+      if (form.id) {
+        await fetchRoute("admin/finance-posts", { method: "PUT", data: form });
+        setMessage("Pos keuangan berhasil diperbarui");
+      } else {
+        await fetchRoute("admin/finance-posts", { method: "POST", data: form });
+        setMessage("Pos keuangan berhasil ditambahkan");
+        setForm(initialForm);
+      }
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menyimpan pos keuangan");
     }
   };
 

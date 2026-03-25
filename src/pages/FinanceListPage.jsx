@@ -5,16 +5,23 @@ import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatCurrency } from "../utils";
+import { useAuth } from "../context/AuthContext";
 
 export default function FinanceListPage() {
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const load = () =>
-    fetchRoute("admin/finance-posts").then(({ data }) =>
-      setRows(Array.isArray(data) ? data : []),
-    );
+    fetchRoute("admin/finance-posts")
+      .then(({ data }) => {
+        setRows(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat pos keuangan");
+      });
 
   useEffect(() => {
     load();
@@ -22,9 +29,13 @@ export default function FinanceListPage() {
 
   const remove = async (id) => {
     if (!confirm("Hapus pos keuangan ini?")) return;
-    await fetchRoute("admin/finance-posts", { method: "DELETE", data: { id } });
-    setMessage("Pos keuangan dihapus");
-    load();
+    try {
+      await fetchRoute("admin/finance-posts", { method: "DELETE", data: { id } });
+      setMessage("Pos keuangan berhasil dihapus");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus pos keuangan");
+    }
   };
 
   return (
@@ -85,12 +96,14 @@ export default function FinanceListPage() {
                   >
                     <Pencil size={16} />
                   </button>
-                  <button
-                    className="btn-danger px-3 py-2"
-                    onClick={() => remove(row.id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {isAdmin && (
+                    <button
+                      className="btn-danger px-3 py-2"
+                      onClick={() => remove(row.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               ),
             },
