@@ -51,12 +51,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    if (!token || user) return
+    const needsRefresh = !user || (user.role !== 'parent' && user.menu_access == null)
+    if (!token || !needsRefresh) return
     fetchRoute('me').then(({ data }) => {
       setUser(data.user)
       persistUser(data.user)
     }).catch(() => logout())
-  }, [])
+  }, [user])
 
   const value = useMemo(() => ({ user, login, logout, loading }), [user, loading])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

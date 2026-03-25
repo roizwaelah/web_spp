@@ -4,21 +4,24 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
-import { formatDate } from "../utils";
+import { staffMenuItems } from "../access";
+import { roleLabel } from "../utils";
 
-export default function AcademicListPage() {
+const menuLabelMap = Object.fromEntries(
+  staffMenuItems.map((item) => [item.accessKey, item.label]),
+);
+
+export default function UsersListPage() {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState("");
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
   const load = () =>
-    fetchRoute("admin/academic-years")
-      .then(({ data }) => {
-        setRows(Array.isArray(data) ? data : []);
-      })
+    fetchRoute("admin/users")
+      .then(({ data }) => setRows(Array.isArray(data) ? data : []))
       .catch((error) => {
-        setMessage(error?.response?.data?.message || "Gagal memuat tahun ajaran");
+        setMessage(error?.response?.data?.message || "Gagal memuat data user");
       });
 
   useEffect(() => {
@@ -26,23 +29,20 @@ export default function AcademicListPage() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm("Hapus tahun ajaran ini?")) return;
+    if (!confirm("Hapus user ini?")) return;
     try {
-      await fetchRoute("admin/academic-years", {
-        method: "DELETE",
-        data: { id },
-      });
-      setMessage("Tahun ajaran berhasil dihapus");
+      await fetchRoute("admin/users", { method: "DELETE", data: { id } });
+      setMessage("User berhasil dihapus");
       load();
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Gagal menghapus tahun ajaran");
+      setMessage(error?.response?.data?.message || "Gagal menghapus user");
     }
   };
 
   const filteredRows = useMemo(
     () =>
       rows.filter((row) =>
-        `${row.name} ${row.start_date} ${row.end_date}`
+        `${row.name} ${row.email} ${row.role} ${row.student_name || ""}`
           .toLowerCase()
           .includes(filter.toLowerCase()),
       ),
@@ -51,19 +51,19 @@ export default function AcademicListPage() {
 
   return (
     <Layout
-      title="Tahun Ajaran"
-      subtitle="Daftar periode akademik aktif dan riwayat tahun ajaran."
+      title="Users"
+      subtitle="Kelola akun user, peran, dan menu yang boleh diakses oleh setiap akun staff."
       actions={
         <button
           className="btn-primary"
-          onClick={() => navigate("/admin/tahun-ajaran/edit")}
+          onClick={() => navigate("/admin/users/edit")}
         >
-          <Plus size={18} /> Tambah tahun ajaran
+          <Plus size={18} /> Tambah user
         </button>
       }
     >
       <div className="space-y-4">
-        <div className="card p-4 space-y-4">
+        <div className="card space-y-4 p-3">
           {message && (
             <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
               {message}
@@ -71,7 +71,7 @@ export default function AcademicListPage() {
           )}
           <input
             className="input"
-            placeholder="Cari nama / tanggal tahun ajaran"
+            placeholder="Cari nama, email, role, atau siswa"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -79,26 +79,27 @@ export default function AcademicListPage() {
 
         <Table
           columns={[
-            { key: "name", title: "Tahun Ajaran" },
+            { key: "name", title: "Nama" },
+            { key: "email", title: "Email" },
             {
-              key: "start_date",
-              title: "Mulai",
-              render: (row) => formatDate(row.start_date),
+              key: "role",
+              title: "Role",
+              render: (row) => roleLabel(row.role),
             },
             {
-              key: "end_date",
-              title: "Selesai",
-              render: (row) => formatDate(row.end_date),
+              key: "student",
+              title: "Terkait siswa",
+              render: (row) => row.student_name || "-",
             },
-            { key: "total_students", title: "Jumlah siswa" },
             {
-              key: "is_active",
-              title: "Status",
-              render: (row) => (
-                <span className={row.is_active ? "badge-green" : "badge-slate"}>
-                  {row.is_active ? "aktif" : "arsip"}
-                </span>
-              ),
+              key: "menu_access",
+              title: "Akses menu",
+              render: (row) =>
+                row.role === "parent"
+                  ? "Portal orang tua"
+                  : (row.menu_access || [])
+                      .map((menuKey) => menuLabelMap[menuKey] || menuKey)
+                      .join(", ") || "-",
             },
             {
               key: "actions",
@@ -107,7 +108,7 @@ export default function AcademicListPage() {
                 <div className="flex gap-2">
                   <button
                     className="btn-secondary px-3 py-2"
-                    onClick={() => navigate(`/admin/tahun-ajaran/edit/${row.id}`)}
+                    onClick={() => navigate(`/admin/users/edit/${row.id}`)}
                   >
                     <Pencil size={16} />
                   </button>
@@ -122,6 +123,7 @@ export default function AcademicListPage() {
             },
           ]}
           rows={filteredRows}
+          emptyText="Belum ada user"
         />
       </div>
     </Layout>

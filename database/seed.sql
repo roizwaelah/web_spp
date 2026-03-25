@@ -19,6 +19,28 @@ INSERT INTO users (id, name, email, password, role, student_id, created_at) VALU
 (3, 'Petugas Bendahara', 'bendahara@madrasah.id', '$2y$12$GLCM4.SuuS0ECEqBYD24ZOGbpLlUY/PrWRPCrPeMSC85uBFvuQcpK', 'bendahara', NULL, NOW())
 ON DUPLICATE KEY UPDATE name=VALUES(name), password=VALUES(password), role=VALUES(role), student_id=VALUES(student_id);
 
+INSERT INTO user_menu_access (user_id, menu_key, created_at) VALUES
+(1, 'dashboard', NOW()),
+(1, 'students', NOW()),
+(1, 'classes', NOW()),
+(1, 'academic_years', NOW()),
+(1, 'finance_posts', NOW()),
+(1, 'bills', NOW()),
+(1, 'payment_proofs', NOW()),
+(1, 'reports', NOW()),
+(1, 'backups', NOW()),
+(1, 'settings', NOW()),
+(1, 'users', NOW()),
+(3, 'dashboard', NOW()),
+(3, 'students', NOW()),
+(3, 'classes', NOW()),
+(3, 'academic_years', NOW()),
+(3, 'finance_posts', NOW()),
+(3, 'bills', NOW()),
+(3, 'payment_proofs', NOW()),
+(3, 'reports', NOW())
+ON DUPLICATE KEY UPDATE created_at=VALUES(created_at);
+
 INSERT INTO finance_posts (id, name, description, amount, applies_to, class_id, student_id, billing_type, is_active, created_at) VALUES
 (1, 'SPP Bulanan', 'Tagihan bulanan pendidikan', 250000, 'class', 1, NULL, 'monthly', 1, NOW()),
 (2, 'Uang Gedung', 'Biaya fasilitas sekolah', 1500000, 'class', 1, NULL, 'one_time', 1, NOW()),

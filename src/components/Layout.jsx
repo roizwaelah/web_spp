@@ -1,84 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Bell,
-  BookOpenCheck,
-  CalendarRange,
-  CreditCard,
-  DatabaseBackup,
-  FileCheck2,
-  FileSpreadsheet,
   Home,
-  Layers3,
   LogOut,
   Menu,
-  ReceiptText,
-  Settings,
-  Users,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { roleLabel } from "../utils";
-
-const menus = {
-  admin: [
-    {
-      section: "Menu Utama",
-      items: [
-        { to: "/admin", label: "Dashboard", icon: Home },
-        { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
-        { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
-        { to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange },
-        { to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard },
-        { to: "/admin/tagihan/list", label: "Tagihan", icon: ReceiptText },
-        {
-          to: "/admin/bukti-pembayaran",
-          label: "Bukti Pembayaran",
-          icon: FileCheck2,
-        },
-        { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
-        { to: "/admin/backup", label: "Backup", icon: DatabaseBackup },
-        { to: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
-      ],
-    },
-  ],
-  bendahara: [
-    {
-      section: "Menu Utama",
-      items: [
-        { to: "/admin", label: "Dashboard", icon: Home },
-        { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
-        { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
-        { to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange },
-        { to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard },
-        { to: "/admin/tagihan/list", label: "Tagihan", icon: ReceiptText },
-        {
-          to: "/admin/bukti-pembayaran",
-          label: "Bukti Pembayaran",
-          icon: FileCheck2,
-        },
-        { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
-      ],
-    },
-  ],
-  parent: [
-    {
-      section: "Menu Utama",
-      items: [
-        { to: "/orang-tua", label: "Ringkasan", icon: Home },
-        { to: "/orang-tua/tagihan", label: "Tagihan", icon: BookOpenCheck },
-        { to: "/orang-tua/transaksi", label: "Riwayat", icon: CreditCard },
-        { to: "/orang-tua/notifikasi", label: "Notifikasi", icon: Bell },
-      ],
-    },
-  ],
-};
+import { getHomePath, getMenuSections, isMenuItemActive } from "../access";
 
 export default function Layout({ title, subtitle, actions, children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const sections = menus[user?.role] || menus.admin;
+  const sections = getMenuSections(user);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const homePath = getHomePath(user);
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -125,9 +61,9 @@ export default function Layout({ title, subtitle, actions, children }) {
       <aside className={`dp-sidebar ${isSidebarOpen ? "is-open" : "is-closed"}`}>
         <div className="space-y-4 pt-2">
           <Link
-            to={user?.role === "parent" ? "/orang-tua" : "/admin"}
+            to={homePath}
             onClick={() => setIsSidebarOpen(false)}
-            className={`dp-nav-link ${location.pathname === (user?.role === "parent" ? "/orang-tua" : "/admin") ? "is-active" : ""}`}
+            className={`dp-nav-link ${location.pathname === homePath ? "is-active" : ""}`}
           >
             <Home size={17} />
             Dashboard
@@ -141,29 +77,12 @@ export default function Layout({ title, subtitle, actions, children }) {
                 .filter((item) => item.label !== "Dashboard" && item.label !== "Ringkasan")
                 .map((item) => {
                   const Icon = item.icon;
-                  const active =
-                    location.pathname === item.to ||
-                    (item.to === "/admin/siswa/list" &&
-                      (location.pathname.startsWith("/admin/siswa/edit/") ||
-                        location.pathname === "/admin/siswa/edit")) ||
-                    (item.to === "/admin/kelas/list" &&
-                      (location.pathname.startsWith("/admin/kelas/edit/") ||
-                        location.pathname === "/admin/kelas/edit")) ||
-                    (item.to === "/admin/tahun-ajaran/list" &&
-                      (location.pathname.startsWith("/admin/tahun-ajaran/edit/") ||
-                        location.pathname === "/admin/tahun-ajaran/edit")) ||
-                    (item.to === "/admin/pos-keuangan/list" &&
-                      (location.pathname.startsWith("/admin/pos-keuangan/edit/") ||
-                        location.pathname === "/admin/pos-keuangan/edit")) ||
-                    (item.to === "/admin/tagihan/list" &&
-                      (location.pathname.startsWith("/admin/tagihan/edit/") ||
-                        location.pathname === "/admin/tagihan/edit"));
                   return (
                     <Link
                       key={item.to}
                       to={item.to}
                       onClick={() => setIsSidebarOpen(false)}
-                      className={`dp-nav-link ${active ? "is-active" : ""}`}
+                      className={`dp-nav-link ${isMenuItemActive(item, location.pathname) ? "is-active" : ""}`}
                     >
                       <Icon size={17} />
                       {item.label}

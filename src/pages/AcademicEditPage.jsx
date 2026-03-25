@@ -24,9 +24,13 @@ export default function AcademicEditPage() {
   );
 
   const load = () =>
-    fetchRoute("admin/academic-years").then(({ data }) =>
-      setRows(Array.isArray(data) ? data : []),
-    );
+    fetchRoute("admin/academic-years")
+      .then(({ data }) => {
+        setRows(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat tahun ajaran");
+      });
 
   useEffect(() => {
     load();
@@ -49,14 +53,18 @@ export default function AcademicEditPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-
-    if (form.id) {
-      await fetchRoute("admin/academic-years", { method: "PUT", data: form });
-      setMessage("Tahun ajaran diperbarui");
-    } else {
-      await fetchRoute("admin/academic-years", { method: "POST", data: form });
-      setMessage("Tahun ajaran ditambahkan");
-      setForm(initialForm);
+    try {
+      if (form.id) {
+        await fetchRoute("admin/academic-years", { method: "PUT", data: form });
+        setMessage("Tahun ajaran berhasil diperbarui");
+      } else {
+        await fetchRoute("admin/academic-years", { method: "POST", data: form });
+        setMessage("Tahun ajaran berhasil ditambahkan");
+        setForm(initialForm);
+      }
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menyimpan tahun ajaran");
     }
   };
 

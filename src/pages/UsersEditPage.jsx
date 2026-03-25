@@ -1,0 +1,257 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import Layout from "../components/Layout";
+import { fetchRoute } from "../api";
+import { roleLabel } from "../utils";
+
+const initialForm = {
+  id: null,
+  name: "",
+  email: "",
+  password: "",
+  role: "bendahara",
+  student_id: "",
+  menu_access: ["dashboard"],
+};
+
+export default function UsersEditPage() {
+  const [rows, setRows] = useState([]);
+  const [meta, setMeta] = useState({ roles: [], students: [], menuOptions: [] });
+  const [form, setForm] = useState(initialForm);
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  const selectedUser = useMemo(
+    () => rows.find((item) => String(item.id) === String(id)),
+    [rows, id],
+  );
+
+  const load = () =>
+    Promise.all([fetchRoute("admin/users"), fetchRoute("admin/meta")])
+      .then(([usersRes, metaRes]) => {
+        setRows(Array.isArray(usersRes.data) ? usersRes.data : []);
+        setMeta(metaRes.data || { roles: [], students: [], menuOptions: [] });
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat data user");
+      });
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (!id || !selectedUser) {
+      setForm(initialForm);
+      return;
+    }
+
+    setForm({
+      id: selectedUser.id,
+      name: selectedUser.name || "",
+      email: selectedUser.email || "",
+      password: "",
+      role: selectedUser.role || "bendahara",
+      student_id: selectedUser.student_id || "",
+      menu_access: selectedUser.menu_access?.length
+        ? selectedUser.menu_access
+        : ["dashboard"],
+    });
+  }, [id, selectedUser]);
+
+  const isParent = form.role === "parent";
+  const isBendahara = form.role === "bendahara";
+  const effectiveMenuAccess = isParent
+    ? []
+    : Array.from(
+        new Set(
+          ["dashboard", ...(form.menu_access || [])].filter(
+            (menuKey) =>
+              !(
+                isBendahara &&
+                ["backups", "settings", "users"].includes(menuKey)
+              ),
+          ),
+        ),
+      );
+
+  const toggleMenu = (menuKey) => {
+    setForm((current) => {
+      const hasMenu = current.menu_access.includes(menuKey);
+      return {
+        ...current,
+        menu_access: hasMenu
+          ? current.menu_access.filter((item) => item !== menuKey)
+          : [...current.menu_access, menuKey],
+      };
+    });
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      ...form,
+      student_id: isParent && form.student_id ? Number(form.student_id) : null,
+      menu_access: effectiveMenuAccess,
+    };
+
+    try {
+      if (payload.id) {
+        await fetchRoute("admin/users", { method: "PUT", data: payload });
+        setMessage("User berhasil diperbarui");
+      } else {
+        await fetchRoute("admin/users", { method: "POST", data: payload });
+        setMessage("User berhasil ditambahkan");
+        setForm(initialForm);
+      }
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menyimpan data user");
+    }
+  };
+
+  return (
+    <Layout
+      title="Tambah/Edit User"
+      subtitle="Atur akun login dan menu apa saja yang dapat dibuka oleh user staff."
+      actions={
+        <button
+          className="btn-secondary"
+          onClick={() => navigate("/admin/users/list")}
+        >
+          Kembali ke Daftar
+        </button>
+      }
+    >
+      <div className="card p-5">
+        <h3 className="section-title">{form.id ? "Edit user" : "Tambah user"}</h3>
+        <form className="mt-4 space-y-4" onSubmit={submit}>
+          {message && (
+            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              {message}
+            </div>
+          )}
+
+          <div>
+            <label className="label">Nama user</label>
+            <input
+              className="input"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">Email</label>
+            <input
+              className="input"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">
+              Password {form.id ? "(kosongkan jika tidak diubah)" : ""}
+            </label>
+            <input
+              type="password"
+              className="input"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="label">Role</label>
+            <select
+              className="input"
+              value={form.role}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  role: e.target.value,
+                  student_id: e.target.value === "parent" ? form.student_id : "",
+                  menu_access:
+                    e.target.value === "parent" ? [] : effectiveMenuAccess,
+                })
+              }
+            >
+              {(meta.roles || []).map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label || roleLabel(role.value)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {isParent && (
+            <div>
+              <label className="label">Hubungkan ke siswa</label>
+              <select
+                className="input"
+                value={form.student_id}
+                onChange={(e) => setForm({ ...form, student_id: e.target.value })}
+              >
+                <option value="">Pilih siswa</option>
+                {(meta.students || []).map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} ({student.nis})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {!isParent && (
+            <div className="space-y-3 rounded-3xl border border-slate-200 p-4">
+              <div>
+                <p className="label">Akses menu staff</p>
+                <p className="text-sm text-slate-500">
+                  Menu `Dashboard` selalu aktif untuk akun staff.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {(meta.menuOptions || []).map((menu) => {
+                  const checked = effectiveMenuAccess.includes(menu.key);
+                  const locked =
+                    menu.key === "dashboard" ||
+                    (isBendahara &&
+                      ["backups", "settings", "users"].includes(menu.key));
+                  return (
+                    <label
+                      key={menu.key}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked}
+                        onChange={() => toggleMenu(menu.key)}
+                      />
+                      <span>{menu.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button className="btn-primary flex-1">
+              {form.id ? "Update user" : "Simpan user"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setForm(initialForm)}
+            >
+              Reset
+            </button>
+          </div>
+        </form>
+      </div>
+    </Layout>
+  );
+}

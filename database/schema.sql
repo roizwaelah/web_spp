@@ -41,6 +41,14 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT fk_users_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_menu_access (
+  user_id INT NOT NULL,
+  menu_key VARCHAR(50) NOT NULL,
+  created_at DATETIME NULL,
+  PRIMARY KEY (user_id, menu_key),
+  CONSTRAINT fk_user_menu_access_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS finance_posts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,

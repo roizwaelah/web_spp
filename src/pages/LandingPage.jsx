@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { roleLabel } from "../utils";
+import { getDefaultRouteForUser } from "../access";
 
 export default function LandingPage() {
   const { login, loading } = useAuth();
@@ -25,7 +25,7 @@ export default function LandingPage() {
     setError("");
     try {
       const user = await login(form.email, form.password);
-      navigate(user.role === "parent" ? "/orang-tua" : "/admin");
+      navigate(getDefaultRouteForUser(user));
     } catch (err) {
       setError(err?.response?.data?.message || "Login gagal");
     }

@@ -18,6 +18,14 @@ $pdo = db();
 if (!is_dir(__DIR__ . '/storage/backups')) @mkdir(__DIR__ . '/storage/backups', 0777, true);
 if (!is_dir(__DIR__ . '/storage/payment-proofs')) @mkdir(__DIR__ . '/storage/payment-proofs', 0777, true);
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS user_menu_access (
+    user_id INT NOT NULL,
+    menu_key VARCHAR(50) NOT NULL,
+    created_at DATETIME NULL,
+    PRIMARY KEY (user_id, menu_key),
+    CONSTRAINT fk_user_menu_access_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)");
+
 function setting_value(string $key, string $default = ''): string {
     return scalar('SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1', [$key]) ?: $default;
 }
@@ -62,6 +70,43 @@ function student_row(int $studentId): ?array {
 
 function validate_role_access(array $user, array $roles): void {
     if (!in_array($user['role'], $roles, true)) response(['message' => 'Forbidden'], 403);
+}
+
+function validate_menu_access(array $user, array $menuKeys, ?array $roles = ['admin', 'bendahara']): void {
+    if ($roles) validate_role_access($user, $roles);
+    if ($user['role'] === 'parent') response(['message' => 'Forbidden'], 403);
+    $currentAccess = $user['menu_access'] ?? [];
+    foreach ($menuKeys as $menuKey) {
+        if (in_array($menuKey, $currentAccess, true)) return;
+    }
+    response(['message' => 'Anda tidak punya akses ke menu ini'], 403);
+}
+
+function save_user_menu_access(int $userId, string $role, array $menuKeys): array {
+    $normalized = normalize_menu_access($menuKeys);
+    if (!in_array($role, ['admin', 'bendahara'], true)) $normalized = [];
+    if ($role === 'bendahara') {
+        $normalized = array_values(array_diff($normalized, admin_only_menu_keys()));
+    }
+    if ($role === 'admin' && !in_array('dashboard', $normalized, true)) $normalized[] = 'dashboard';
+    if ($role === 'bendahara' && !in_array('dashboard', $normalized, true)) $normalized[] = 'dashboard';
+    sort($normalized);
+
+    $delete = db()->prepare('DELETE FROM user_menu_access WHERE user_id = ?');
+    $delete->execute([$userId]);
+
+    if ($normalized) {
+        $insert = db()->prepare('INSERT INTO user_menu_access (user_id, menu_key, created_at) VALUES (?, ?, NOW())');
+        foreach ($normalized as $menuKey) {
+            $insert->execute([$userId, $menuKey]);
+        }
+    }
+
+    return $normalized;
+}
+
+function build_user_payload(array $user): array {
+    return hydrate_auth_user($user);
 }
 
 function save_uploaded_file(string $field, string $folder, array $allowedExt = ['jpg', 'jpeg', 'png', 'pdf']): ?array {
@@ -125,13 +170,7 @@ if ($route === 'login' && $method === 'POST') {
     log_activity((int) $user['id'], 'login', 'auth', (int) $user['id'], 'Pengguna login ke sistem');
     response([
         'token' => generate_token($payload),
-        'user' => [
-            'id' => (int) $user['id'],
-            'name' => $user['name'],
-            'email' => $user['email'],
-            'role' => $user['role'],
-            'student_id' => $user['student_id'] ? (int) $user['student_id'] : null,
-        ]
+        'user' => build_user_payload($user)
     ]);
 }
 
@@ -151,12 +190,13 @@ if ($route === 'admin/meta' && $method === 'GET') {
             ['value' => 'bendahara', 'label' => 'Bendahara / TU'],
             ['value' => 'parent', 'label' => 'Orang Tua'],
         ],
+        'menuOptions' => staff_menu_definitions(),
     ]);
 }
 
 if ($route === 'admin/dashboard' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['dashboard']);
 
     $summary = [
         'students' => (int) scalar('SELECT COUNT(*) FROM students'),
@@ -194,7 +234,7 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
 
 if ($route === 'admin/classes' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['classes']);
     $rows = $pdo->query("SELECT c.*, COUNT(s.id) total_students
         FROM classes c
         LEFT JOIN students s ON s.class_id = c.id
@@ -205,7 +245,7 @@ if ($route === 'admin/classes' && $method === 'GET') {
 
 if ($route === 'admin/classes' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['classes']);
     $input = json_input();
     ensure_required($input, ['name']);
     if (scalar('SELECT id FROM classes WHERE name = ? LIMIT 1', [$input['name']])) {
@@ -219,7 +259,7 @@ if ($route === 'admin/classes' && $method === 'POST') {
 
 if ($route === 'admin/classes' && $method === 'PUT') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['classes']);
     $input = json_input();
     ensure_required($input, ['id', 'name']);
     if (!scalar('SELECT id FROM classes WHERE id = ? LIMIT 1', [$input['id']])) {
@@ -236,7 +276,7 @@ if ($route === 'admin/classes' && $method === 'PUT') {
 
 if ($route === 'admin/classes' && $method === 'DELETE') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['classes'], ['admin']);
     $input = json_input();
     ensure_required($input, ['id']);
     if (!scalar('SELECT id FROM classes WHERE id = ? LIMIT 1', [$input['id']])) {
@@ -258,7 +298,7 @@ if ($route === 'admin/classes' && $method === 'DELETE') {
 
 if ($route === 'admin/academic-years' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['academic_years']);
     $rows = $pdo->query("SELECT ay.*, COUNT(s.id) total_students
         FROM academic_years ay
         LEFT JOIN students s ON s.academic_year_id = ay.id
@@ -269,9 +309,15 @@ if ($route === 'admin/academic-years' && $method === 'GET') {
 
 if ($route === 'admin/academic-years' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['academic_years']);
     $input = json_input();
     ensure_required($input, ['name']);
+    if (!empty($input['start_date']) && !empty($input['end_date']) && $input['end_date'] < $input['start_date']) {
+        response(['message' => 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai'], 422);
+    }
+    if (scalar('SELECT id FROM academic_years WHERE name = ? LIMIT 1', [$input['name']])) {
+        response(['message' => 'Nama tahun ajaran sudah digunakan'], 422);
+    }
     if (!empty($input['is_active'])) $pdo->exec("UPDATE academic_years SET is_active=0");
     $stmt = $pdo->prepare("INSERT INTO academic_years (name, start_date, end_date, is_active, created_at) VALUES (?, ?, ?, ?, NOW())");
     $stmt->execute([$input['name'], $input['start_date'] ?? null, $input['end_date'] ?? null, isset($input['is_active']) ? (int) !!$input['is_active'] : 0]);
@@ -281,9 +327,18 @@ if ($route === 'admin/academic-years' && $method === 'POST') {
 
 if ($route === 'admin/academic-years' && $method === 'PUT') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['academic_years']);
     $input = json_input();
     ensure_required($input, ['id', 'name']);
+    if (!scalar('SELECT id FROM academic_years WHERE id = ? LIMIT 1', [$input['id']])) {
+        response(['message' => 'Data tahun ajaran tidak ditemukan'], 404);
+    }
+    if (!empty($input['start_date']) && !empty($input['end_date']) && $input['end_date'] < $input['start_date']) {
+        response(['message' => 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai'], 422);
+    }
+    if (scalar('SELECT id FROM academic_years WHERE name = ? AND id <> ? LIMIT 1', [$input['name'], $input['id']])) {
+        response(['message' => 'Nama tahun ajaran sudah digunakan'], 422);
+    }
     if (!empty($input['is_active'])) {
         $stmt = $pdo->prepare("UPDATE academic_years SET is_active=0 WHERE id <> ?");
         $stmt->execute([$input['id']]);
@@ -296,9 +351,16 @@ if ($route === 'admin/academic-years' && $method === 'PUT') {
 
 if ($route === 'admin/academic-years' && $method === 'DELETE') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['academic_years'], ['admin']);
     $input = json_input();
     ensure_required($input, ['id']);
+    if (!scalar('SELECT id FROM academic_years WHERE id = ? LIMIT 1', [$input['id']])) {
+        response(['message' => 'Data tahun ajaran tidak ditemukan'], 404);
+    }
+    $totalStudents = (int) scalar('SELECT COUNT(*) FROM students WHERE academic_year_id = ?', [$input['id']]);
+    if ($totalStudents > 0) {
+        response(['message' => 'Tahun ajaran tidak bisa dihapus karena masih dipakai oleh data siswa'], 422);
+    }
     $stmt = $pdo->prepare("DELETE FROM academic_years WHERE id=?");
     $stmt->execute([$input['id']]);
     log_activity((int) $user['id'], 'delete', 'academic_year', (int) $input['id'], 'Menghapus tahun ajaran');
@@ -307,7 +369,7 @@ if ($route === 'admin/academic-years' && $method === 'DELETE') {
 
 if ($route === 'admin/students' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['students']);
     $rows = $pdo->query("SELECT s.*, c.name class_name, ay.name academic_year,
             (SELECT COUNT(*) FROM bills b WHERE b.student_id=s.id AND b.status='unpaid') active_bills
         FROM students s
@@ -319,7 +381,7 @@ if ($route === 'admin/students' && $method === 'GET') {
 
 if ($route === 'admin/students' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['students']);
     $input = json_input();
     ensure_required($input, ['nis', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone', 'user_email']);
 
@@ -347,7 +409,7 @@ if ($route === 'admin/students' && $method === 'POST') {
 
 if ($route === 'admin/students' && $method === 'PUT') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['students']);
     $input = json_input();
     ensure_required($input, ['id', 'nis', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone', 'user_email']);
 
@@ -381,7 +443,7 @@ if ($route === 'admin/students' && $method === 'PUT') {
 
 if ($route === 'admin/students' && $method === 'DELETE') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['students'], ['admin']);
     $input = json_input();
     ensure_required($input, ['id']);
     if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['id']])) {
@@ -399,7 +461,7 @@ if ($route === 'admin/students' && $method === 'DELETE') {
 
 if ($route === 'admin/students/import' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['students'], ['admin']);
     if (empty($_FILES['file']['tmp_name'])) response(['message' => 'File tidak ditemukan'], 422);
     $ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
     $rows = [];
@@ -456,7 +518,7 @@ if ($route === 'admin/students/import' && $method === 'POST') {
 
 if ($route === 'admin/finance-posts' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['finance_posts']);
     $rows = $pdo->query("SELECT fp.*, c.name class_name, s.name student_name
         FROM finance_posts fp
         LEFT JOIN classes c ON c.id = fp.class_id
@@ -467,7 +529,7 @@ if ($route === 'admin/finance-posts' && $method === 'GET') {
 
 if ($route === 'admin/finance-posts' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['finance_posts']);
     $input = json_input();
     ensure_required($input, ['name', 'amount', 'applies_to', 'billing_type']);
     $stmt = $pdo->prepare("INSERT INTO finance_posts (name, description, amount, applies_to, class_id, student_id, billing_type, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
@@ -482,7 +544,7 @@ if ($route === 'admin/finance-posts' && $method === 'POST') {
 
 if ($route === 'admin/finance-posts' && $method === 'PUT') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['finance_posts']);
     $input = json_input();
     ensure_required($input, ['id', 'name', 'amount', 'applies_to', 'billing_type']);
     $stmt = $pdo->prepare("UPDATE finance_posts SET name=?, description=?, amount=?, applies_to=?, class_id=?, student_id=?, billing_type=?, is_active=? WHERE id=?");
@@ -497,7 +559,7 @@ if ($route === 'admin/finance-posts' && $method === 'PUT') {
 
 if ($route === 'admin/finance-posts' && $method === 'DELETE') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['finance_posts'], ['admin']);
     $input = json_input();
     ensure_required($input, ['id']);
     $stmt = $pdo->prepare("DELETE FROM finance_posts WHERE id=?");
@@ -508,7 +570,7 @@ if ($route === 'admin/finance-posts' && $method === 'DELETE') {
 
 if ($route === 'admin/bills' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['bills']);
     $status = query('status', '');
     $studentId = query('student_id', '');
     $conditions = [];
@@ -529,7 +591,7 @@ if ($route === 'admin/bills' && $method === 'GET') {
 
 if ($route === 'admin/bills/generate' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['bills']);
     $input = json_input();
     $period = $input['period'] ?? date('Y-m');
     $studentFilter = $input['student_id'] ?? null;
@@ -565,7 +627,7 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
 
 if ($route === 'admin/payment-proofs' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['payment_proofs']);
     $rows = $pdo->query("SELECT pp.*, s.name student_name, s.nis, b.bill_name, b.period, b.amount
         FROM payment_proofs pp
         JOIN students s ON s.id = pp.student_id
@@ -576,7 +638,7 @@ if ($route === 'admin/payment-proofs' && $method === 'GET') {
 
 if ($route === 'admin/payment-proofs/review' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['payment_proofs']);
     $input = json_input();
     ensure_required($input, ['proof_id', 'status']);
     $proofStmt = $pdo->prepare("SELECT pp.*, b.status bill_status, b.amount, b.bill_name, s.parent_phone, s.name student_name
@@ -616,7 +678,7 @@ if ($route === 'admin/payment-proofs/review' && $method === 'POST') {
 
 if ($route === 'admin/reports' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['reports']);
     $start = query('start_date', date('Y-m-01'));
     $end = query('end_date', date('Y-m-d'));
     $stmt = $pdo->prepare("SELECT t.*, b.bill_name, s.name student_name, c.name class_name
@@ -647,7 +709,7 @@ if ($route === 'admin/reports' && $method === 'GET') {
 
 if ($route === 'admin/reports/export' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_menu_access($user, ['reports']);
     $start = query('start_date', date('Y-m-01'));
     $end = query('end_date', date('Y-m-d'));
     $stmt = $pdo->prepare("SELECT t.payment_date, s.name student_name, c.name class_name, b.bill_name, t.payment_channel, t.amount_paid, t.reference_no, t.status
@@ -669,17 +731,163 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
     exit;
 }
 
+if ($route === 'admin/users' && $method === 'GET') {
+    $user = require_auth();
+    validate_menu_access($user, ['users'], ['admin']);
+    $rows = $pdo->query("SELECT u.id, u.name, u.email, u.role, u.student_id, u.created_at, s.name student_name, s.nis student_nis
+        FROM users u
+        LEFT JOIN students s ON s.id = u.student_id
+        ORDER BY u.id DESC")->fetchAll();
+
+    $result = array_map(function (array $row) {
+        $row['id'] = (int) $row['id'];
+        $row['student_id'] = $row['student_id'] ? (int) $row['student_id'] : null;
+        $row['menu_access'] = user_menu_access((int) $row['id'], (string) $row['role']);
+        return $row;
+    }, $rows);
+
+    response($result);
+}
+
+if ($route === 'admin/users' && $method === 'POST') {
+    $user = require_auth();
+    validate_menu_access($user, ['users'], ['admin']);
+    $input = json_input();
+    ensure_required($input, ['name', 'email', 'password', 'role']);
+
+    $role = (string) $input['role'];
+    if (!in_array($role, ['admin', 'bendahara', 'parent'], true)) response(['message' => 'Role user tidak valid'], 422);
+    if (scalar('SELECT id FROM users WHERE email = ? LIMIT 1', [$input['email']])) {
+        response(['message' => 'Email user sudah digunakan'], 422);
+    }
+
+    $studentId = null;
+    if ($role === 'parent') {
+        if (empty($input['student_id'])) response(['message' => 'Akun orang tua wajib dihubungkan ke siswa'], 422);
+        $studentId = (int) $input['student_id'];
+        if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$studentId])) {
+            response(['message' => 'Data siswa untuk akun orang tua tidak ditemukan'], 404);
+        }
+        if (scalar("SELECT id FROM users WHERE role = 'parent' AND student_id = ? LIMIT 1", [$studentId])) {
+            response(['message' => 'Siswa tersebut sudah memiliki akun orang tua'], 422);
+        }
+    }
+
+    $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+    $stmt->execute([
+        trim((string) $input['name']),
+        trim((string) $input['email']),
+        password_hash((string) $input['password'], PASSWORD_DEFAULT),
+        $role,
+        $studentId,
+    ]);
+    $userId = (int) $pdo->lastInsertId();
+    save_user_menu_access($userId, $role, $input['menu_access'] ?? []);
+
+    log_activity((int) $user['id'], 'create', 'user', $userId, 'Menambah user ' . $input['email']);
+    response(['message' => 'User berhasil ditambahkan']);
+}
+
+if ($route === 'admin/users' && $method === 'PUT') {
+    $user = require_auth();
+    validate_menu_access($user, ['users'], ['admin']);
+    $input = json_input();
+    ensure_required($input, ['id', 'name', 'email', 'role']);
+
+    $targetId = (int) $input['id'];
+    $role = (string) $input['role'];
+    if (!in_array($role, ['admin', 'bendahara', 'parent'], true)) response(['message' => 'Role user tidak valid'], 422);
+
+    $stmtCurrent = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+    $stmtCurrent->execute([$targetId]);
+    $current = $stmtCurrent->fetch();
+    if (!$current) response(['message' => 'Data user tidak ditemukan'], 404);
+
+    if (scalar('SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1', [$input['email'], $targetId])) {
+        response(['message' => 'Email user sudah digunakan'], 422);
+    }
+
+    if ((int) $user['id'] === $targetId && $role !== 'admin') {
+        response(['message' => 'Akun Anda sendiri tidak boleh diubah menjadi non-admin'], 422);
+    }
+
+    $studentId = null;
+    if ($role === 'parent') {
+        if (empty($input['student_id'])) response(['message' => 'Akun orang tua wajib dihubungkan ke siswa'], 422);
+        $studentId = (int) $input['student_id'];
+        if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$studentId])) {
+            response(['message' => 'Data siswa untuk akun orang tua tidak ditemukan'], 404);
+        }
+        if (scalar("SELECT id FROM users WHERE role = 'parent' AND student_id = ? AND id <> ? LIMIT 1", [$studentId, $targetId])) {
+            response(['message' => 'Siswa tersebut sudah memiliki akun orang tua'], 422);
+        }
+    }
+
+    $menuAccess = $input['menu_access'] ?? [];
+    if ((int) $user['id'] === $targetId && $role === 'admin' && !in_array('users', normalize_menu_access($menuAccess), true)) {
+        response(['message' => 'Akun Anda sendiri harus tetap memiliki akses menu Users'], 422);
+    }
+
+    $passwordSql = '';
+    $params = [
+        trim((string) $input['name']),
+        trim((string) $input['email']),
+        $role,
+        $studentId,
+    ];
+    if (!empty($input['password'])) {
+        $passwordSql = ', password = ?';
+        $params[] = password_hash((string) $input['password'], PASSWORD_DEFAULT);
+    }
+    $params[] = $targetId;
+
+    $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ?, role = ?, student_id = ?{$passwordSql} WHERE id = ?");
+    $stmt->execute($params);
+    save_user_menu_access($targetId, $role, $menuAccess);
+
+    log_activity((int) $user['id'], 'update', 'user', $targetId, 'Memperbarui user ' . $input['email']);
+    response(['message' => 'User berhasil diperbarui']);
+}
+
+if ($route === 'admin/users' && $method === 'DELETE') {
+    $user = require_auth();
+    validate_menu_access($user, ['users'], ['admin']);
+    $input = json_input();
+    ensure_required($input, ['id']);
+
+    $targetId = (int) $input['id'];
+    if ((int) $user['id'] === $targetId) {
+        response(['message' => 'Akun Anda sendiri tidak bisa dihapus'], 422);
+    }
+
+    $stmtTarget = $pdo->prepare('SELECT id, role FROM users WHERE id = ? LIMIT 1');
+    $stmtTarget->execute([$targetId]);
+    $target = $stmtTarget->fetch();
+    if (!$target) response(['message' => 'Data user tidak ditemukan'], 404);
+
+    if ($target['role'] === 'admin') {
+        $totalAdmin = (int) scalar("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+        if ($totalAdmin <= 1) response(['message' => 'Admin terakhir tidak boleh dihapus'], 422);
+    }
+
+    $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
+    $stmt->execute([$targetId]);
+
+    log_activity((int) $user['id'], 'delete', 'user', $targetId, 'Menghapus user');
+    response(['message' => 'User berhasil dihapus']);
+}
+
 if ($route === 'admin/backups' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['backups'], ['admin']);
     $rows = $pdo->query("SELECT id, filename, ROUND(size_bytes/1024,2) size_kb, DATE_FORMAT(created_at, '%d-%m-%Y %H:%i') created_at FROM backups ORDER BY id DESC")->fetchAll();
     response($rows);
 }
 
 if ($route === 'admin/backups' && $method === 'POST') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
-    $tables = ['academic_years','classes','students','users','finance_posts','bills','transactions','notifications','payment_proofs','settings','audit_logs'];
+    validate_menu_access($user, ['backups'], ['admin']);
+    $tables = ['academic_years','classes','students','users','user_menu_access','finance_posts','bills','transactions','notifications','payment_proofs','settings','audit_logs'];
     $content = "-- Backup SPP Madrasah Enterprise
 -- Generated at: " . date('Y-m-d H:i:s') . "
 
@@ -707,7 +915,7 @@ if ($route === 'admin/backups' && $method === 'POST') {
 
 if ($route === 'admin/backups/download' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['backups'], ['admin']);
     $id = query('id');
     ensure_required(['id' => $id], ['id']);
     $stmt = $pdo->prepare("SELECT * FROM backups WHERE id=? LIMIT 1");
@@ -722,13 +930,13 @@ if ($route === 'admin/backups/download' && $method === 'GET') {
 
 if ($route === 'admin/settings' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['settings'], ['admin']);
     response(list_settings());
 }
 
 if ($route === 'admin/settings' && $method === 'PUT') {
     $user = require_auth();
-    validate_role_access($user, ['admin']);
+    validate_menu_access($user, ['settings'], ['admin']);
     $input = json_input();
     foreach ($input as $key => $value) {
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, NOW())

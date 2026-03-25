@@ -30,6 +30,69 @@ function decode_token(string $token): ?array {
     return $payload;
 }
 
+function staff_menu_definitions(): array {
+    return [
+        ['key' => 'dashboard', 'label' => 'Dashboard'],
+        ['key' => 'students', 'label' => 'Data Siswa'],
+        ['key' => 'classes', 'label' => 'Data Kelas'],
+        ['key' => 'academic_years', 'label' => 'Tahun Ajaran'],
+        ['key' => 'finance_posts', 'label' => 'Pos Keuangan'],
+        ['key' => 'bills', 'label' => 'Tagihan'],
+        ['key' => 'payment_proofs', 'label' => 'Bukti Pembayaran'],
+        ['key' => 'reports', 'label' => 'Laporan'],
+        ['key' => 'backups', 'label' => 'Backup'],
+        ['key' => 'settings', 'label' => 'Pengaturan'],
+        ['key' => 'users', 'label' => 'Users'],
+    ];
+}
+
+function default_menu_access_for_role(string $role): array {
+    return match ($role) {
+        'admin' => array_column(staff_menu_definitions(), 'key'),
+        'bendahara' => ['dashboard', 'students', 'classes', 'academic_years', 'finance_posts', 'bills', 'payment_proofs', 'reports'],
+        default => [],
+    };
+}
+
+function admin_only_menu_keys(): array {
+    return ['backups', 'settings', 'users'];
+}
+
+function normalize_menu_access(array $menuKeys): array {
+    $allowedKeys = array_column(staff_menu_definitions(), 'key');
+    $normalized = [];
+    foreach ($menuKeys as $menuKey) {
+        $menuKey = trim((string) $menuKey);
+        if ($menuKey === '' || !in_array($menuKey, $allowedKeys, true)) continue;
+        $normalized[$menuKey] = true;
+    }
+    return array_keys($normalized);
+}
+
+function user_menu_access(int $userId, string $role): array {
+    if (!in_array($role, ['admin', 'bendahara'], true)) return [];
+    try {
+        $stmt = db()->prepare('SELECT menu_key FROM user_menu_access WHERE user_id = ? ORDER BY menu_key ASC');
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll();
+        if (!$rows) return default_menu_access_for_role($role);
+        return normalize_menu_access(array_column($rows, 'menu_key'));
+    } catch (Throwable $e) {
+        return default_menu_access_for_role($role);
+    }
+}
+
+function hydrate_auth_user(array $user): array {
+    return [
+        'id' => (int) $user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+        'student_id' => $user['student_id'] ? (int) $user['student_id'] : null,
+        'menu_access' => user_menu_access((int) $user['id'], (string) $user['role']),
+    ];
+}
+
 function auth_user(): ?array {
     $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
     if (!preg_match('/Bearer\s+(.*)$/i', $header, $matches)) return null;
@@ -37,7 +100,9 @@ function auth_user(): ?array {
     if (!$payload) return null;
     $stmt = db()->prepare('SELECT id, name, email, role, student_id FROM users WHERE id = ? LIMIT 1');
     $stmt->execute([$payload['id']]);
-    return $stmt->fetch() ?: null;
+    $user = $stmt->fetch();
+    if (!$user) return null;
+    return hydrate_auth_user($user);
 }
 
 function require_auth($role = null): array {
