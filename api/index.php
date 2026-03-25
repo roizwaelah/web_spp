@@ -29,8 +29,12 @@ function ensure_required(array $input, array $required): void {
 }
 
 function log_activity(?int $userId, string $action, string $entityType, ?int $entityId = null, ?string $description = null): void {
-    $stmt = db()->prepare("INSERT INTO audit_logs (user_id, action, entity_type, entity_id, description, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-    $stmt->execute([$userId, $action, $entityType, $entityId, $description]);
+    try {
+        $stmt = db()->prepare("INSERT INTO audit_logs (user_id, action, entity_type, entity_id, description, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([$userId, $action, $entityType, $entityId, $description]);
+    } catch (Throwable $e) {
+        error_log('Failed to write audit log: ' . $e->getMessage());
+    }
 }
 
 function finance_posts_for_student(int $studentId): array {
