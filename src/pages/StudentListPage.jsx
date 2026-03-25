@@ -62,33 +62,38 @@ export default function StudentListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-6 space-y-4">
+        <div className="card p-3 flex flex-col md:flex-row md:items-end gap-4">
           {message && (
-            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
+            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 md:max-w-xs">
               {message}
             </div>
           )}
-          <input
-            className="input"
-            placeholder="Cari nama / NIS / orang tua / kelas"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-          <div className="rounded-3xl bg-slate-50 p-4">
-            <div className="mb-3 flex items-center gap-2 font-semibold text-slate-800">
-              <Upload size={18} /> Impor Excel / CSV
+
+          {/* Tambahkan md:flex, md:items-end, dan gap di sini */}
+          <div className="flex-1 flex flex-col md:flex-row md:items-end gap-4">
+            <div className="flex-1">
+              <label className="label">Pencarian</label>
+              <input
+                className="input w-full"
+                placeholder="Cari nama / NIS / orang tua / kelas"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
             </div>
-            <div className="flex flex-col gap-3 md:flex-row">
+
+            <div className="w-full md:w-64">
+              <label className="label">Impor Excel / CSV</label>
               <input
                 type="file"
-                className="input"
+                className="input w-full"
                 accept=".csv,.xlsx,.xls"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
-              <button type="button" className="btn-secondary" onClick={importStudents}>
-                Impor
-              </button>
             </div>
+
+            <button type="button" className="btn-primary whitespace-nowrap" onClick={importStudents}>
+              Impor
+            </button>
           </div>
         </div>
 

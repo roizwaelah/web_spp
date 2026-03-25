@@ -44,7 +44,7 @@ export default function BillsListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-6">
+        <div className="card p-3">
           <div className="grid gap-4 md:grid-cols-2">
             <select
               className="input"

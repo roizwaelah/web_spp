@@ -36,25 +36,29 @@ export default function ReportsPage() {
     >
       <div className="space-y-4">
           <div className="card p-4">
-            <div className="grid gap-4 xl:grid-cols-[1fr_auto]">
-              <input
-                className="input"
-                placeholder="Cari tanggal / siswa / kelas / tagihan / kanal / referensi / status"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[180px_180px_auto_auto]">
+            <div className="grid gap-4 xl:grid-cols-1"> {/* Ubah ke 1 kolom agar grid dalam mengambil ruang penuh */}
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_180px_180px_auto_auto]"> 
+                {/* Pencarian (1fr agar fleksibel), 2 Tanggal (fixed), 2 Tombol (auto) */}
+                
+                <div>
+                  <label className="label">Pencarian</label>
+                  <input className="input" placeholder="Cari tanggal / siswa / kelas / tagihan / kanal / referensi / status" value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+
                 <div>
                   <label className="label">Tanggal mulai</label>
                   <input type="date" className="input" value={filter.start_date} onChange={(e) => setFilter({ ...filter, start_date: e.target.value })} />
                 </div>
+
                 <div>
                   <label className="label">Tanggal akhir</label>
                   <input type="date" className="input" value={filter.end_date} onChange={(e) => setFilter({ ...filter, end_date: e.target.value })} />
                 </div>
-                <button className="btn-primary self-end" onClick={load}>Terapkan filter</button>
+
+                <button className="btn-primary self-end" onClick={load}>Terapkan</button>
+                
                 <a className="btn-secondary self-end justify-center" href={fileUrl('admin/reports/export', filter)} target="_blank" rel="noreferrer">
-                  <Download size={18} /> Export CSV
+                  <Download size={18} /> Export
                 </a>
               </div>
             </div>

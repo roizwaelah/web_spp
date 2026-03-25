@@ -29,7 +29,7 @@ export default function FinanceListPage() {
 
   return (
     <Layout
-      title="Manajemen Pos Keuangan"
+      title="Pos Keuangan"
       subtitle="Daftar pos keuangan untuk SPP, uang gedung, seragam, dan tagihan khusus per kelas atau per siswa."
       actions={
         <button
@@ -41,7 +41,7 @@ export default function FinanceListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-6">
+        <div className="card p-3">
           {message && (
             <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
               {message}

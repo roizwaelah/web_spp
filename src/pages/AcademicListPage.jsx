@@ -43,7 +43,7 @@ export default function AcademicListPage() {
 
   return (
     <Layout
-      title="Master Tahun Ajaran"
+      title="Tahun Ajaran"
       subtitle="Daftar periode akademik aktif dan riwayat tahun ajaran."
       actions={
         <button

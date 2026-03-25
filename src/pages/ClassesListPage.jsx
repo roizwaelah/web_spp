@@ -51,7 +51,7 @@ export default function ClassesListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-6 space-y-4">
+        <div className="card p-3 space-y-4">
           {message && (
             <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
               {message}
