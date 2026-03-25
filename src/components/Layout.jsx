@@ -2,64 +2,104 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Bell,
   BookOpenCheck,
+  CalendarPlus2,
   CalendarRange,
   CreditCard,
   DatabaseBackup,
   FileCheck2,
+  FilePlus2,
   FileSpreadsheet,
   Home,
   Layers3,
   LogOut,
   ReceiptText,
   Settings,
+  SquarePlus,
   Users,
+  UserPlus,
+  WalletCards,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { roleLabel } from "../utils";
 
 const menus = {
   admin: [
-    { to: "/admin", label: "Dashboard", icon: Home },
-    { to: "/admin/siswa", label: "Data Siswa", icon: Users },
-    { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
-    { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
-    { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
-    { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
     {
-      to: "/admin/bukti-pembayaran",
-      label: "Bukti Pembayaran",
-      icon: FileCheck2,
+      section: "Menu Utama",
+      items: [
+        { to: "/admin", label: "Dashboard", icon: Home },
+        { to: "/admin/siswa", label: "Data Siswa", icon: Users },
+        { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
+        { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
+        { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
+        { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
+        {
+          to: "/admin/bukti-pembayaran",
+          label: "Bukti Pembayaran",
+          icon: FileCheck2,
+        },
+        { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
+        { to: "/admin/backup", label: "Backup", icon: DatabaseBackup },
+        { to: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
+      ],
     },
-    { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
-    { to: "/admin/backup", label: "Backup", icon: DatabaseBackup },
-    { to: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
+    {
+      section: "Tambah / Buat",
+      items: [
+        { to: "/admin/siswa", label: "Tambah Siswa", icon: UserPlus },
+        { to: "/admin/kelas", label: "Tambah Kelas", icon: SquarePlus },
+        { to: "/admin/tahun-ajaran", label: "Buat Tahun Ajaran", icon: CalendarPlus2 },
+        { to: "/admin/pos-keuangan", label: "Tambah Pos Keuangan", icon: WalletCards },
+        { to: "/admin/tagihan", label: "Buat Tagihan", icon: FilePlus2 },
+      ],
+    },
   ],
   bendahara: [
-    { to: "/admin", label: "Dashboard", icon: Home },
-    { to: "/admin/siswa", label: "Data Siswa", icon: Users },
-    { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
-    { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
-    { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
-    { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
     {
-      to: "/admin/bukti-pembayaran",
-      label: "Bukti Pembayaran",
-      icon: FileCheck2,
+      section: "Menu Utama",
+      items: [
+        { to: "/admin", label: "Dashboard", icon: Home },
+        { to: "/admin/siswa", label: "Data Siswa", icon: Users },
+        { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
+        { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
+        { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
+        { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
+        {
+          to: "/admin/bukti-pembayaran",
+          label: "Bukti Pembayaran",
+          icon: FileCheck2,
+        },
+        { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
+      ],
     },
-    { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
+    {
+      section: "Tambah / Buat",
+      items: [
+        { to: "/admin/siswa", label: "Tambah Siswa", icon: UserPlus },
+        { to: "/admin/kelas", label: "Tambah Kelas", icon: SquarePlus },
+        { to: "/admin/tahun-ajaran", label: "Buat Tahun Ajaran", icon: CalendarPlus2 },
+        { to: "/admin/pos-keuangan", label: "Tambah Pos Keuangan", icon: WalletCards },
+        { to: "/admin/tagihan", label: "Buat Tagihan", icon: FilePlus2 },
+      ],
+    },
   ],
   parent: [
-    { to: "/orang-tua", label: "Ringkasan", icon: Home },
-    { to: "/orang-tua/tagihan", label: "Tagihan", icon: BookOpenCheck },
-    { to: "/orang-tua/transaksi", label: "Riwayat", icon: CreditCard },
-    { to: "/orang-tua/notifikasi", label: "Notifikasi", icon: Bell },
+    {
+      section: "Menu Utama",
+      items: [
+        { to: "/orang-tua", label: "Ringkasan", icon: Home },
+        { to: "/orang-tua/tagihan", label: "Tagihan", icon: BookOpenCheck },
+        { to: "/orang-tua/transaksi", label: "Riwayat", icon: CreditCard },
+        { to: "/orang-tua/notifikasi", label: "Notifikasi", icon: Bell },
+      ],
+    },
   ],
 };
 
 export default function Layout({ title, subtitle, actions, children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const items = menus[user?.role] || menus.admin;
+  const sections = menus[user?.role] || menus.admin;
 
   return (
     <div className="min-h-screen">
