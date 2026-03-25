@@ -91,10 +91,10 @@ export default function StudentsPage() {
   return (
     <Layout
       title="Manajemen Data Siswa"
-      subtitle="CRUD lengkap siswa, edit/hapus data, relasi kelas dan tahun ajaran, serta impor Excel/CSV."
+      subtitle="Data lengkap siswa, edit/hapus data, relasi kelas dan tahun ajaran, serta impor Excel/CSV."
       actions={
         <button className="btn-primary" onClick={() => navigate("/admin/siswa/tambah")}>
-          <Plus size={18} /> Halaman tambah siswa
+          <Plus size={18} /> Tambah Siswa
         </button>
       }
     >

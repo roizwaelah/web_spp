@@ -23,7 +23,6 @@ const menus = {
       section: "Menu Utama",
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
-        { to: "/admin/siswa/tambah", label: "Tambah Siswa", icon: Users },
         { to: "/admin/siswa", label: "Data Siswa", icon: Users },
         { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
@@ -45,7 +44,6 @@ const menus = {
       section: "Menu Utama",
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
-        { to: "/admin/siswa/tambah", label: "Tambah Siswa", icon: Users },
         { to: "/admin/siswa", label: "Data Siswa", icon: Users },
         { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
