@@ -58,13 +58,7 @@ export default function Layout({ title, subtitle, actions, children }) {
     <div className="min-h-screen">
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[280px_1fr]">
         <aside className="glass h-fit p-4">
-          <div className="rounded-3xl bg-gradient-to-br from-emerald-700 via-teal-700 to-sky-700 p-5 text-white shadow-lg">
-            <div className="mb-5 inline-flex rounded-2xl bg-white/15 p-3">
-              <Landmark size={24} />
-            </div>
-            <h1 className="text-[1.35rem] font-bold">SPP Madrasah Enterprise</h1>
-            <p className="mt-2 text-[0.96rem] text-emerald-50/95">Portal keuangan sekolah modern untuk admin, bendahara, dan orang tua.</p>
-          </div>
+          <h1 className="text-[1.35rem] font-bold text-sky-700 p-5">SPP Online</h1>
 
           <div className="mt-4 space-y-2">
             {items.map((item) => {
