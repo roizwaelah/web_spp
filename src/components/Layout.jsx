@@ -35,7 +35,7 @@ export default function Layout({ title, subtitle, actions, children }) {
               {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <h1 className="dp-brand">
-              <span className="dp-brand__dp">dp</span>Panel
+              <span className="dp-brand__dp">spp</span>Panel
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">

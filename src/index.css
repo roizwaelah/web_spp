@@ -40,7 +40,7 @@ body {
 }
 
 .dp-brand__dp {
-  @apply italic text-[#35c244];
+  @apply italic text-[#2e7ab8];
 }
 
 .dp-logout-btn {
