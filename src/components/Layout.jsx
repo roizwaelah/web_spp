@@ -26,7 +26,7 @@ const menus = {
       section: "Menu Utama",
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
-        { to: "/admin/siswa", label: "Data Siswa", icon: Users },
+        { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
         { to: "/admin/kelas", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
@@ -47,7 +47,7 @@ const menus = {
       section: "Menu Utama",
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
-        { to: "/admin/siswa", label: "Data Siswa", icon: Users },
+        { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
         { to: "/admin/kelas", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
@@ -141,7 +141,11 @@ export default function Layout({ title, subtitle, actions, children }) {
                 .filter((item) => item.label !== "Dashboard" && item.label !== "Ringkasan")
                 .map((item) => {
                   const Icon = item.icon;
-                  const active = location.pathname === item.to;
+                  const active =
+                    location.pathname === item.to ||
+                    (item.to === "/admin/siswa/list" &&
+                      (location.pathname.startsWith("/admin/siswa/edit/") ||
+                        location.pathname === "/admin/siswa/edit"));
                   return (
                     <Link
                       key={item.to}
