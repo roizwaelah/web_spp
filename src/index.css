@@ -36,7 +36,7 @@ body {
 }
 
 .input {
-  @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-[0.98rem] outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100;
+  @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-[0.98rem] outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
 }
 
 .textarea {
@@ -48,7 +48,7 @@ body {
 }
 
 .btn-primary {
-  @apply btn bg-emerald-600 text-white hover:bg-emerald-700;
+  @apply btn bg-sky-600 text-white hover:bg-sky-700;
 }
 
 .btn-secondary {
@@ -64,7 +64,7 @@ body {
 }
 
 .badge-green {
-  @apply badge bg-emerald-100 text-emerald-700;
+  @apply badge bg-sky-100 text-sky-700;
 }
 
 .badge-amber {
