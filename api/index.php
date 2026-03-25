@@ -203,7 +203,7 @@ if ($route === 'admin/classes' && $method === 'POST') {
     $input = json_input();
     ensure_required($input, ['name']);
     $stmt = $pdo->prepare("INSERT INTO classes (name, grade_level, is_active) VALUES (?, ?, ?)");
-    $stmt->execute([$input['name'], $input['grade_level'] ?: null, isset($input['is_active']) ? (int) !!$input['is_active'] : 1]);
+    $stmt->execute([$input['name'], $input['grade_level'] ?? null, isset($input['is_active']) ? (int) !!$input['is_active'] : 1]);
     log_activity((int) $user['id'], 'create', 'class', (int) $pdo->lastInsertId(), 'Menambah kelas ' . $input['name']);
     response(['message' => 'Kelas berhasil ditambahkan']);
 }
@@ -214,7 +214,7 @@ if ($route === 'admin/classes' && $method === 'PUT') {
     $input = json_input();
     ensure_required($input, ['id', 'name']);
     $stmt = $pdo->prepare("UPDATE classes SET name=?, grade_level=?, is_active=? WHERE id=?");
-    $stmt->execute([$input['name'], $input['grade_level'] ?: null, isset($input['is_active']) ? (int) !!$input['is_active'] : 1, $input['id']]);
+    $stmt->execute([$input['name'], $input['grade_level'] ?? null, isset($input['is_active']) ? (int) !!$input['is_active'] : 1, $input['id']]);
     log_activity((int) $user['id'], 'update', 'class', (int) $input['id'], 'Memperbarui kelas ' . $input['name']);
     response(['message' => 'Kelas berhasil diperbarui']);
 }
@@ -248,7 +248,7 @@ if ($route === 'admin/academic-years' && $method === 'POST') {
     ensure_required($input, ['name']);
     if (!empty($input['is_active'])) $pdo->exec("UPDATE academic_years SET is_active=0");
     $stmt = $pdo->prepare("INSERT INTO academic_years (name, start_date, end_date, is_active, created_at) VALUES (?, ?, ?, ?, NOW())");
-    $stmt->execute([$input['name'], $input['start_date'] ?: null, $input['end_date'] ?: null, isset($input['is_active']) ? (int) !!$input['is_active'] : 0]);
+    $stmt->execute([$input['name'], $input['start_date'] ?? null, $input['end_date'] ?? null, isset($input['is_active']) ? (int) !!$input['is_active'] : 0]);
     log_activity((int) $user['id'], 'create', 'academic_year', (int) $pdo->lastInsertId(), 'Menambah tahun ajaran ' . $input['name']);
     response(['message' => 'Tahun ajaran berhasil ditambahkan']);
 }
@@ -263,7 +263,7 @@ if ($route === 'admin/academic-years' && $method === 'PUT') {
         $stmt->execute([$input['id']]);
     }
     $stmt = $pdo->prepare("UPDATE academic_years SET name=?, start_date=?, end_date=?, is_active=? WHERE id=?");
-    $stmt->execute([$input['name'], $input['start_date'] ?: null, $input['end_date'] ?: null, isset($input['is_active']) ? (int) !!$input['is_active'] : 0, $input['id']]);
+    $stmt->execute([$input['name'], $input['start_date'] ?? null, $input['end_date'] ?? null, isset($input['is_active']) ? (int) !!$input['is_active'] : 0, $input['id']]);
     log_activity((int) $user['id'], 'update', 'academic_year', (int) $input['id'], 'Memperbarui tahun ajaran');
     response(['message' => 'Tahun ajaran berhasil diperbarui']);
 }
@@ -300,7 +300,7 @@ if ($route === 'admin/students' && $method === 'POST') {
     $stmt->execute([
         $input['nis'], $input['name'], $input['class_id'], $input['academic_year_id'],
         $input['parent_name'], $input['parent_phone'], $input['user_email'],
-        $input['address'] ?: null, $input['status'] ?: 'active'
+        $input['address'] ?? null, $input['status'] ?? 'active'
     ]);
     $studentId = (int) $pdo->lastInsertId();
 
@@ -320,7 +320,7 @@ if ($route === 'admin/students' && $method === 'PUT') {
     $stmt->execute([
         $input['nis'], $input['name'], $input['class_id'], $input['academic_year_id'],
         $input['parent_name'], $input['parent_phone'], $input['user_email'],
-        $input['address'] ?: null, $input['status'] ?: 'active', $input['id']
+        $input['address'] ?? null, $input['status'] ?? 'active', $input['id']
     ]);
     $u = $pdo->prepare("UPDATE users SET name=?, email=? WHERE student_id=? AND role='parent'");
     $u->execute([$input['parent_name'], $input['user_email'], $input['id']]);
@@ -418,8 +418,8 @@ if ($route === 'admin/finance-posts' && $method === 'POST') {
     ensure_required($input, ['name', 'amount', 'applies_to', 'billing_type']);
     $stmt = $pdo->prepare("INSERT INTO finance_posts (name, description, amount, applies_to, class_id, student_id, billing_type, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
-        $input['name'], $input['description'] ?: null, $input['amount'], $input['applies_to'],
-        $input['class_id'] ?: null, $input['student_id'] ?: null,
+        $input['name'], $input['description'] ?? null, $input['amount'], $input['applies_to'],
+        $input['class_id'] ?? null, $input['student_id'] ?? null,
         $input['billing_type'], isset($input['is_active']) ? (int) !!$input['is_active'] : 1
     ]);
     log_activity((int) $user['id'], 'create', 'finance_post', (int) $pdo->lastInsertId(), 'Menambah pos keuangan');
@@ -433,8 +433,8 @@ if ($route === 'admin/finance-posts' && $method === 'PUT') {
     ensure_required($input, ['id', 'name', 'amount', 'applies_to', 'billing_type']);
     $stmt = $pdo->prepare("UPDATE finance_posts SET name=?, description=?, amount=?, applies_to=?, class_id=?, student_id=?, billing_type=?, is_active=? WHERE id=?");
     $stmt->execute([
-        $input['name'], $input['description'] ?: null, $input['amount'], $input['applies_to'],
-        $input['class_id'] ?: null, $input['student_id'] ?: null,
+        $input['name'], $input['description'] ?? null, $input['amount'], $input['applies_to'],
+        $input['class_id'] ?? null, $input['student_id'] ?? null,
         $input['billing_type'], isset($input['is_active']) ? (int) !!$input['is_active'] : 1, $input['id']
     ]);
     log_activity((int) $user['id'], 'update', 'finance_post', (int) $input['id'], 'Memperbarui pos keuangan');
