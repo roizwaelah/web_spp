@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -17,6 +17,7 @@ export default function AcademicYearsPage() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
+  const formCardRef = useRef(null);
 
   const load = () =>
     fetchRoute("admin/academic-years").then(({ data }) =>
@@ -49,13 +50,23 @@ export default function AcademicYearsPage() {
     load();
   };
 
+  const openCreateForm = () => {
+    setForm(initialForm);
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <Layout
       title="Master Tahun Ajaran"
       subtitle="Kelola periode akademik aktif dan riwayat tahun ajaran."
+      actions={
+        <button className="btn-primary" onClick={openCreateForm}>
+          <Plus size={18} /> Tambah tahun ajaran
+        </button>
+      }
     >
       <div className="page-grid">
-        <div className="card p-6">
+        <div className="card p-5" ref={formCardRef}>
           <h3 className="section-title">
             {form.id ? "Edit tahun ajaran" : "Tambah tahun ajaran"}
           </h3>

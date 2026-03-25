@@ -88,7 +88,7 @@ body {
 }
 
 .page-grid {
-  @apply grid gap-6 xl:grid-cols-[420px_1fr];
+  @apply grid gap-4 xl:grid-cols-[minmax(360px,430px)_1fr];
 }
 
 .kpi {
