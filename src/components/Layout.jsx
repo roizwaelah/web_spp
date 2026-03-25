@@ -2,22 +2,17 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Bell,
   BookOpenCheck,
-  CalendarPlus2,
   CalendarRange,
   CreditCard,
   DatabaseBackup,
   FileCheck2,
-  FilePlus2,
   FileSpreadsheet,
   Home,
   Layers3,
   LogOut,
   ReceiptText,
   Settings,
-  SquarePlus,
   Users,
-  UserPlus,
-  WalletCards,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { roleLabel } from "../utils";
@@ -82,61 +77,67 @@ export default function Layout({ title, subtitle, actions, children }) {
   const sections = menus[user?.role] || menus.admin;
 
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto w-full max-w-[1500px] px-3 py-4 xl:px-4">
-        <nav className="glass mb-4 flex flex-wrap items-center justify-between gap-3 p-4 xl:p-5">
+    <div className="min-h-screen bg-[#eff2f6]">
+      <div className="dp-navbar">
+        <div className="dp-navbar__inner">
           <div className="flex items-center gap-3">
-            <h1 className="text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
-            <div className="badge-green">{roleLabel(user?.role)}</div>
+            <h1 className="dp-brand">
+              <span className="dp-brand__dp">dp</span>Panel
+            </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              User aktif: <span className="font-semibold text-slate-900">{user?.name}</span>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <p className="text-emerald-400">Halo, <span className="font-semibold text-white">{user?.name}</span></p>
+            <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-600 text-[11px] font-semibold text-white">
+              {user?.name?.slice(0, 2).toUpperCase()}
             </div>
-            <button onClick={logout} className="btn-danger">
-              <LogOut size={16} /> Keluar
+            <button onClick={logout} className="dp-logout-btn">
+              <LogOut size={15} /> Keluar
             </button>
           </div>
-        </nav>
+        </div>
+      </div>
 
-        <aside className="glass border-0 p-3 xl:fixed xl:left-4 xl:top-[108px] xl:h-[calc(100vh-7.75rem)] xl:w-[250px] xl:overflow-y-auto">
-          <div>
-            <p className="px-2 text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Navigasi
-            </p>
-          </div>
+      <aside className="dp-sidebar">
+        <div className="space-y-4 pt-2">
+          <Link
+            to={user?.role === "parent" ? "/orang-tua" : "/admin"}
+            className={`dp-nav-link ${location.pathname === (user?.role === "parent" ? "/orang-tua" : "/admin") ? "is-active" : ""}`}
+          >
+            <Home size={17} />
+            Dashboard
+          </Link>
+        </div>
 
-          <div className="mt-3 space-y-4">
-            {sections.map((section) => (
-              <div key={section.section} className="space-y-2">
-                <p className="px-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                  {section.section}
-                </p>
-                {section.items.map((item) => {
+        <div className="mt-4 space-y-4">
+          {sections.map((section) => (
+            <div key={section.section} className="space-y-2">
+              <p className="dp-section-title">{section.section}</p>
+              {section.items
+                .filter((item) => item.label !== "Dashboard" && item.label !== "Ringkasan")
+                .map((item) => {
                   const Icon = item.icon;
                   const active = location.pathname === item.to;
                   return (
                     <Link
                       key={item.to}
                       to={item.to}
-                      className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[0.95rem] font-medium transition ${
-                        active
-                          ? "bg-slate-800 text-slate-100 shadow-sm"
-                          : "text-slate-700 hover:bg-slate-200/60"
-                      }`}
+                      className={`dp-nav-link ${active ? "is-active" : ""}`}
                     >
                       <Icon size={17} />
                       {item.label}
                     </Link>
                   );
                 })}
-              </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 border-t border-slate-800/90 pt-4">
+          <div className="px-3 text-xs text-slate-400">Role: {roleLabel(user?.role)}</div>
+        </div>
+      </aside>
 
-        </aside>
-
-        <main className="mt-4 space-y-4 xl:ml-[270px] xl:mt-0">
+      <div className="dp-content">
+        <main className="space-y-4">
           <header className="glass p-4 xl:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>

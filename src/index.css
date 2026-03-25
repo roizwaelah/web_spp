@@ -27,12 +27,52 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.dp-navbar {
+  @apply sticky top-0 z-40 border-b border-slate-700 bg-[#161b22];
+}
+
+.dp-navbar__inner {
+  @apply mx-auto flex h-[50px] w-full max-w-[1600px] items-center justify-between px-4;
+}
+
+.dp-brand {
+  @apply text-[1.85rem] font-bold leading-none text-[#f8b400];
+}
+
+.dp-brand__dp {
+  @apply italic text-[#35c244];
+}
+
+.dp-logout-btn {
+  @apply inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-slate-300 transition hover:bg-slate-700 hover:text-white;
+}
+
+.dp-sidebar {
+  @apply fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] overflow-y-auto border-r border-slate-700 bg-[#18212c] px-0 py-2;
+}
+
+.dp-section-title {
+  @apply px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500;
+}
+
+.dp-nav-link {
+  @apply mx-0 flex items-center gap-2.5 px-3 py-2.5 text-[0.98rem] text-slate-100 transition hover:bg-[#243142];
+}
+
+.dp-nav-link.is-active {
+  @apply bg-[#2e7ab8] font-semibold;
+}
+
+.dp-content {
+  @apply ml-0 p-3 pt-4 md:p-4 xl:ml-[228px];
+}
+
 .card {
   @apply rounded-3xl bg-slate-50/95 shadow-sm ring-1 ring-slate-200/80 backdrop-blur;
 }
 
 .glass {
-  @apply rounded-3xl border border-slate-200/80 bg-slate-100/70 backdrop-blur-xl;
+  @apply rounded-2xl border border-slate-300/80 bg-slate-100/80 backdrop-blur-xl;
 }
 
 .input {
@@ -97,4 +137,14 @@ body {
 
 .table-wrap {
   @apply overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm;
+}
+
+@media (max-width: 1279px) {
+  .dp-sidebar {
+    @apply static h-auto w-full border-r-0 border-b border-slate-700;
+  }
+
+  .dp-content {
+    @apply ml-0;
+  }
 }
