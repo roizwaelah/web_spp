@@ -110,10 +110,12 @@ JWT_SECRET=super-secret-key
 php -S localhost:8000 -t api
 ```
 
+> Pastikan menggunakan `-t api`. Jika tidak, endpoint `/index.php` akan 404.
+
 API default frontend diarahkan ke:
 
 ```env
-VITE_API_URL=http://localhost:8000/index.php?route=
+VITE_API_URL=/index.php?route=
 ```
 
 ## Impor Excel
