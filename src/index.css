@@ -88,7 +88,7 @@ body {
 }
 
 .btn-secondary {
-  @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200;
+  @apply btn bg-slate-100 text-sky-700 hover:bg-slate-200;
 }
 
 .btn-danger {
@@ -112,7 +112,7 @@ body {
 }
 
 .badge-slate {
-  @apply badge bg-slate-100 text-slate-700;
+  @apply badge bg-slate-100 text-slate-800;
 }
 
 .section-title {

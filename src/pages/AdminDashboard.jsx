@@ -109,7 +109,7 @@ export default function AdminDashboard() {
                   key={item.month}
                   className="grid grid-cols-[80px_1fr_120px] items-center gap-3"
                 >
-                  <div className="text-sm font-semibold text-slate-700">
+                  <div className="text-sm font-semibold text-slate-900">
                     {item.month}
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-slate-100">
@@ -153,7 +153,7 @@ export default function AdminDashboard() {
                   key={item.payment_channel}
                   className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3"
                 >
-                  <div className="text-sm font-semibold text-slate-700">
+                  <div className="text-sm font-semibold text-slate-900">
                     {item.payment_channel}
                   </div>
                   <div className="badge-green">

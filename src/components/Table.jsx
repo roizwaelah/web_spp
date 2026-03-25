@@ -21,7 +21,7 @@ export default function Table({ columns, rows, emptyText = 'Belum ada data' }) {
             ) : safeRows.map((row, idx) => (
               <tr key={row.id || idx} className="hover:bg-slate-50/80">
                 {safeColumns.map((column) => (
-                  <td key={column.key} className="px-4 py-3 align-top text-slate-700">
+                  <td key={column.key} className="px-4 py-3 align-top text-slate-900">
                     {column.render ? column.render(row) : row[column.key]}
                   </td>
                 ))}
