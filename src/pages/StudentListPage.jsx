@@ -13,8 +13,12 @@ export default function StudentListPage() {
   const navigate = useNavigate();
 
   const load = async () => {
-    const studentsRes = await fetchRoute("admin/students");
-    setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+    try {
+      const studentsRes = await fetchRoute("admin/students");
+      setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memuat data siswa");
+    }
   };
 
   useEffect(() => {
@@ -23,22 +27,30 @@ export default function StudentListPage() {
 
   const remove = async (id) => {
     if (!confirm("Hapus data siswa ini?")) return;
-    await fetchRoute("admin/students", { method: "DELETE", data: { id } });
-    setMessage("Siswa berhasil dihapus");
-    load();
+    try {
+      await fetchRoute("admin/students", { method: "DELETE", data: { id } });
+      setMessage("Siswa berhasil dihapus");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus siswa");
+    }
   };
 
   const importStudents = async () => {
     if (!file) return;
     const data = new FormData();
     data.append("file", file);
-    await fetchRoute("admin/students/import", {
-      method: "POST",
-      data,
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    setMessage("Impor data berhasil");
-    load();
+    try {
+      await fetchRoute("admin/students/import", {
+        method: "POST",
+        data,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMessage("Impor data berhasil");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal impor data siswa");
+    }
   };
 
   const filtered = useMemo(
