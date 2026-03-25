@@ -57,7 +57,7 @@ export default function AdminDashboard() {
 
   return (
     <Layout
-      title="Dashboard Keuangan"
+      title="Dashboard"
       subtitle="Pantau ringkasan operasional, performa pembayaran, tagihan aktif, dan bukti bayar pending."
       actions={actions}
     >

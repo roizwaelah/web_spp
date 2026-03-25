@@ -164,16 +164,12 @@ export default function Layout({ title, subtitle, actions, children }) {
           <header className="glass p-4 xl:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-700">
-                  Sistem SPP
-                </p>
                 <h2 className="mt-1 text-2xl font-bold text-slate-900 xl:text-3xl">
                   {title}
                 </h2>
                 <p className="mt-1 max-w-4xl text-sm text-slate-500">{subtitle}</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="badge-green">Sistem aktif</span>
                 {actions}
               </div>
             </div>
