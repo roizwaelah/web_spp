@@ -1,0 +1,120 @@
+import { useEffect, useState } from "react";
+import { CalendarCheck2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import Layout from "../components/Layout";
+import { fetchRoute } from "../api";
+
+export default function BillsEditPage() {
+  const [meta, setMeta] = useState({ students: [] });
+  const [form, setForm] = useState({
+    period: new Date().toISOString().slice(0, 7),
+    due_date: "",
+    student_id: "",
+  });
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchRoute("admin/meta").then((metaRes) => {
+      setMeta({
+        students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+      });
+    });
+  }, []);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    await fetchRoute("admin/bills/generate", {
+      method: "POST",
+      data: {
+        period: form.period,
+        due_date: form.due_date || undefined,
+        student_id: form.student_id || undefined,
+      },
+    });
+
+    setMessage("Generate tagihan berhasil");
+  };
+
+  return (
+    <Layout
+      title="Buat Tagihan"
+      subtitle="Generate tagihan otomatis per periode untuk semua siswa atau siswa tertentu."
+      actions={
+        <button className="btn-secondary" onClick={() => navigate("/admin/tagihan/list")}>
+          Kembali ke Daftar
+        </button>
+      }
+    >
+      <div className="card p-5">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="rounded-2xl bg-sky-100 p-3 text-sky-700">
+            <CalendarCheck2 size={20} />
+          </div>
+          <div>
+            <h3 className="section-title">Generate tagihan</h3>
+            <p className="text-sm text-slate-500">Buat tagihan massal untuk satu periode.</p>
+          </div>
+        </div>
+
+        <form className="space-y-4" onSubmit={submit}>
+          {message && (
+            <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              {message}
+            </div>
+          )}
+          <div>
+            <label className="label">Periode</label>
+            <input
+              type="month"
+              className="input"
+              value={form.period}
+              onChange={(e) => setForm({ ...form, period: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Jatuh tempo</label>
+            <input
+              type="date"
+              className="input"
+              value={form.due_date}
+              onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Siswa tertentu (opsional)</label>
+            <select
+              className="input"
+              value={form.student_id}
+              onChange={(e) => setForm({ ...form, student_id: e.target.value })}
+            >
+              <option value="">Semua siswa</option>
+              {meta.students.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} • {item.nis}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex gap-3">
+            <button className="btn-primary flex-1">Generate sekarang</button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() =>
+                setForm({
+                  period: new Date().toISOString().slice(0, 7),
+                  due_date: "",
+                  student_id: "",
+                })
+              }
+            >
+              Reset
+            </button>
+          </div>
+        </form>
+      </div>
+    </Layout>
+  );
+}
