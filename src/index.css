@@ -137,7 +137,15 @@ body {
 
 @media (max-width: 1279px) {
   .dp-sidebar {
-    @apply static h-auto w-full border-r-0 border-b border-slate-700;
+    @apply top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] border-r border-b-0 border-slate-700 transition-transform duration-200 ease-in-out;
+  }
+
+  .dp-sidebar.is-closed {
+    @apply -translate-x-full;
+  }
+
+  .dp-sidebar.is-open {
+    @apply translate-x-0;
   }
 
   .dp-content {
