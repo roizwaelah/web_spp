@@ -6,17 +6,27 @@ import Table from '../components/Table'
 import { fetchRoute } from '../api'
 import { formatCurrency, formatDate } from '../utils'
 
+const INITIAL_DASHBOARD_DATA = {
+  summary: {},
+  monthly: [],
+  channelBreakdown: [],
+  dueSoon: [],
+  latestTransactions: [],
+}
+
+const normalizeDashboardData = (payload) => ({
+  summary: payload?.summary ?? {},
+  monthly: Array.isArray(payload?.monthly) ? payload.monthly : [],
+  channelBreakdown: Array.isArray(payload?.channelBreakdown) ? payload.channelBreakdown : [],
+  dueSoon: Array.isArray(payload?.dueSoon) ? payload.dueSoon : [],
+  latestTransactions: Array.isArray(payload?.latestTransactions) ? payload.latestTransactions : [],
+})
+
 export default function AdminDashboard() {
-  const [data, setData] = useState({
-    summary: {},
-    monthly: [],
-    channelBreakdown: [],
-    dueSoon: [],
-    latestTransactions: [],
-  })
+  const [data, setData] = useState(INITIAL_DASHBOARD_DATA)
 
   useEffect(() => {
-    fetchRoute('admin/dashboard').then(({ data }) => setData(data))
+    fetchRoute('admin/dashboard').then(({ data }) => setData(normalizeDashboardData(data)))
   }, [])
 
   const actions = (
@@ -31,10 +41,10 @@ export default function AdminDashboard() {
   return (
     <Layout title="Dashboard Keuangan" subtitle="Pantau ringkasan operasional, performa pembayaran, tagihan aktif, dan bukti bayar pending." actions={actions}>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Siswa" value={data.summary.students || 0} helper="Terdaftar pada sistem" />
-        <StatCard title="Tagihan Aktif" value={data.summary.activeBills || 0} helper="Belum lunas" />
-        <StatCard title="Bukti Pending" value={data.summary.pendingProofs || 0} helper="Menunggu verifikasi admin" />
-        <StatCard title="Pemasukan Bulan Ini" value={formatCurrency(data.summary.monthIncome || 0)} helper={`Backup terakhir: ${data.summary.lastBackup || '-'}`} />
+        <StatCard title="Total Siswa" value={data.summary?.students || 0} helper="Terdaftar pada sistem" />
+        <StatCard title="Tagihan Aktif" value={data.summary?.activeBills || 0} helper="Belum lunas" />
+        <StatCard title="Bukti Pending" value={data.summary?.pendingProofs || 0} helper="Menunggu verifikasi admin" />
+        <StatCard title="Pemasukan Bulan Ini" value={formatCurrency(data.summary?.monthIncome || 0)} helper={`Backup terakhir: ${data.summary?.lastBackup || '-'}`} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
