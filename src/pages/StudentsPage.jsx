@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Pencil, Trash2, Upload } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -27,7 +26,6 @@ export default function StudentsPage() {
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
   const formCardRef = useRef(null);
-  const navigate = useNavigate();
 
   const load = async () => {
     const [metaRes, studentsRes] = await Promise.all([
@@ -92,11 +90,6 @@ export default function StudentsPage() {
     <Layout
       title="Manajemen Data Siswa"
       subtitle="Data lengkap siswa, edit/hapus data, relasi kelas dan tahun ajaran, serta impor Excel/CSV."
-      actions={
-        <button className="btn-primary" onClick={() => navigate("/admin/siswa/tambah")}>
-          <Plus size={18} /> Tambah Siswa
-        </button>
-      }
     >
       <div className="page-grid">
         <div className="card p-5" ref={formCardRef}>
