@@ -86,9 +86,14 @@ export default function BillsListPage() {
       title="Daftar Tagihan"
       subtitle="Lihat daftar tagihan, filter status pembayaran, dan pantau status bukti pembayaran siswa."
       actions={
-        <button className="btn-primary" onClick={() => navigate("/admin/tagihan/edit")}>
-          <Plus size={18} /> Buat tagihan
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" onClick={() => navigate("/admin/pembayaran-manual")}>
+            Input pembayaran manual
+          </button>
+          <button className="btn-primary" onClick={() => navigate("/admin/tagihan/edit")}>
+            <Plus size={18} /> Buat tagihan
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">

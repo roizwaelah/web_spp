@@ -21,6 +21,7 @@ export const staffMenuItems = [
   { accessKey: "academic_years", to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange, matchPrefixes: ["/admin/tahun-ajaran"] },
   { accessKey: "finance_posts", to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard, matchPrefixes: ["/admin/pos-keuangan"] },
   { accessKey: "bills", to: "/admin/tagihan/list", label: "Tagihan", icon: ReceiptText, matchPrefixes: ["/admin/tagihan"] },
+  { accessKey: "bills", to: "/admin/pembayaran-manual", label: "Pembayaran Manual", icon: CreditCard, matchPrefixes: ["/admin/pembayaran-manual"] },
   { accessKey: "payment_proofs", to: "/admin/bukti-pembayaran", label: "Bukti Pembayaran", icon: FileCheck2, matchPrefixes: ["/admin/bukti-pembayaran"] },
   { accessKey: "reports", to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet, matchPrefixes: ["/admin/laporan"] },
   { accessKey: "backups", to: "/admin/backup", label: "Backup", icon: DatabaseBackup, matchPrefixes: ["/admin/backup"] },

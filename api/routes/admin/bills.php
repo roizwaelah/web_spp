@@ -24,6 +24,63 @@ if ($route === 'admin/bills' && $method === 'GET') {
     response($stmt->fetchAll());
 }
 
+if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
+    $user = require_auth();
+    validate_menu_access($user, ['bills']);
+    $input = json_input();
+    ensure_required($input, ['bill_id', 'payment_channel', 'payment_date']);
+
+    $allowedChannels = ['Tunai', 'Transfer Bank', 'QRIS', 'Virtual Account', 'E-Wallet'];
+    if (!in_array($input['payment_channel'], $allowedChannels, true)) {
+        response(['message' => 'Kanal pembayaran tidak valid'], 422);
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $input['payment_date'])) {
+        response(['message' => 'Tanggal pembayaran harus berformat YYYY-MM-DD'], 422);
+    }
+
+    $billStmt = $pdo->prepare("SELECT b.*, s.name student_name, s.id student_id
+        FROM bills b
+        JOIN students s ON s.id = b.student_id
+        WHERE b.id = ? LIMIT 1");
+    $billStmt->execute([$input['bill_id']]);
+    $bill = $billStmt->fetch();
+    if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
+    if ($bill['status'] === 'paid') response(['message' => 'Tagihan ini sudah lunas'], 422);
+
+    $pendingProof = (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE bill_id = ? AND status = 'pending'", [$bill['id']]);
+    if ($pendingProof > 0) {
+        response(['message' => 'Tagihan ini masih memiliki bukti pembayaran yang menunggu review admin'], 422);
+    }
+
+    $referenceNo = trim((string) ($input['reference_no'] ?? ''));
+    if ($referenceNo !== '' && mb_strlen($referenceNo) > 120) {
+        response(['message' => 'Nomor referensi maksimal 120 karakter'], 422);
+    }
+
+    $notes = trim((string) ($input['notes'] ?? ''));
+    if ($notes !== '' && mb_strlen($notes) > 500) {
+        response(['message' => 'Catatan pembayaran maksimal 500 karakter'], 422);
+    }
+
+    $tx = record_bill_payment((int) $bill['id'], (int) $bill['student_id'], (string) $input['payment_channel'], (float) $bill['amount'], [
+        'payment_date' => (string) $input['payment_date'],
+        'reference_no' => $referenceNo,
+        'notes' => $notes !== '' ? $notes : 'Input pembayaran manual oleh bendahara',
+        'status' => 'paid',
+    ]);
+
+    queue_whatsapp_notification((int) $bill['student_id'], 'Pembayaran Diterima', "Pembayaran {$bill['bill_name']} untuk {$bill['student_name']} telah diterima dengan referensi {$tx['reference_no']}.");
+    try_dispatch_whatsapp_queue();
+    log_activity((int) $user['id'], 'pay', 'bill', (int) $bill['id'], 'Input pembayaran manual via ' . $input['payment_channel']);
+
+    response([
+        'message' => 'Pembayaran manual berhasil disimpan',
+        'reference_no' => $tx['reference_no'],
+        'transaction_id' => $tx['transaction_id'],
+    ]);
+}
+
 if ($route === 'admin/bills' && $method === 'DELETE') {
     $user = require_auth();
     validate_menu_access($user, ['bills'], ['admin']);

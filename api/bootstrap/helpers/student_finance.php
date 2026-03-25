@@ -25,13 +25,36 @@ function student_row(int $studentId): ?array {
 }
 
 function create_transaction_and_mark_paid(int $billId, int $studentId, string $channel, float $amount, string $notes = '', string $status = 'paid'): array {
-    $reference = create_payment_reference($channel);
-    $stmt = db()->prepare("INSERT INTO transactions (bill_id, student_id, payment_channel, amount_paid, payment_date, reference_no, status, notes, created_at) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, NOW())");
-    $stmt->execute([$billId, $studentId, $channel, $amount, $reference, $status, $notes]);
-    if ($status === 'paid') {
-        $stmtBill = db()->prepare("UPDATE bills SET status='paid', paid_at=NOW() WHERE id=?");
-        $stmtBill->execute([$billId]);
+    return record_bill_payment($billId, $studentId, $channel, $amount, [
+        'notes' => $notes,
+        'status' => $status,
+    ]);
+}
+
+function record_bill_payment(int $billId, int $studentId, string $channel, float $amount, array $options = []): array {
+    $reference = trim((string) ($options['reference_no'] ?? ''));
+    if ($reference === '') {
+        $reference = create_payment_reference($channel);
     }
+
+    $paymentDate = trim((string) ($options['payment_date'] ?? ''));
+    if ($paymentDate === '') {
+        $paymentDate = date('Y-m-d H:i:s');
+    } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $paymentDate)) {
+        $paymentDate .= ' 00:00:00';
+    }
+
+    $status = (string) ($options['status'] ?? 'paid');
+    $notes = (string) ($options['notes'] ?? '');
+
+    $stmt = db()->prepare("INSERT INTO transactions (bill_id, student_id, payment_channel, amount_paid, payment_date, reference_no, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->execute([$billId, $studentId, $channel, $amount, $paymentDate, $reference, $status, $notes]);
+
+    if ($status === 'paid') {
+        $stmtBill = db()->prepare("UPDATE bills SET status='paid', paid_at=? WHERE id=?");
+        $stmtBill->execute([$paymentDate, $billId]);
+    }
+
     return ['transaction_id' => (int) db()->lastInsertId(), 'reference_no' => $reference];
 }
 

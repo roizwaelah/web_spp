@@ -12,6 +12,7 @@ import FinanceListPage from './pages/FinanceListPage'
 import FinanceEditPage from './pages/FinanceEditPage'
 import BillsListPage from './pages/BillsListPage'
 import BillsEditPage from './pages/BillsEditPage'
+import ManualPaymentPage from './pages/ManualPaymentPage'
 import PaymentProofsPage from './pages/PaymentProofsPage'
 import ReportsPage from './pages/ReportsPage'
 import BackupPage from './pages/BackupPage'
@@ -48,6 +49,7 @@ export default function App() {
       <Route path="/admin/tagihan" element={<Navigate to="/admin/tagihan/list" replace />} />
       <Route path="/admin/tagihan/list" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><BillsListPage /></ProtectedRoute>} />
       <Route path="/admin/tagihan/edit" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><BillsEditPage /></ProtectedRoute>} />
+      <Route path="/admin/pembayaran-manual" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><ManualPaymentPage /></ProtectedRoute>} />
       <Route path="/admin/bukti-pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="payment_proofs"><PaymentProofsPage /></ProtectedRoute>} />
       <Route path="/admin/laporan" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="reports"><ReportsPage /></ProtectedRoute>} />
       <Route path="/admin/akun" element={<ProtectedRoute role={['admin', 'bendahara']}><StaffAccountPage /></ProtectedRoute>} />
