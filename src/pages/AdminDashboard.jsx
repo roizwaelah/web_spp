@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   BarChart3,
   Clock3,
-  ReceiptText,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
@@ -34,33 +33,43 @@ const normalizeDashboardData = (payload) => ({
 
 export default function AdminDashboard() {
   const [data, setData] = useState(INITIAL_DASHBOARD_DATA);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const loadDashboard = () => {
+    setLoading(true);
+    fetchRoute("admin/dashboard")
+      .then(({ data }) => {
+        setData(normalizeDashboardData(data));
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat dashboard");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    fetchRoute("admin/dashboard").then(({ data }) =>
-      setData(normalizeDashboardData(data)),
-    );
+    loadDashboard();
   }, []);
 
-  const actions = (
-    <button
-      className="btn-primary"
-      onClick={() =>
-        fetchRoute("admin/bills/generate", {
-          method: "POST",
-          data: { period: new Date().toISOString().slice(0, 7) },
-        }).then(() => location.reload())
-      }
-    >
-      <ReceiptText size={18} /> Generate tagihan
-    </button>
+  const maxMonthlyTotal = Math.max(
+    ...data.monthly.map((item) => Number(item.total || 0)),
+    0,
   );
 
   return (
     <Layout
       title="Dashboard"
       subtitle="Pantau ringkasan operasional, performa pembayaran, tagihan aktif, dan bukti bayar pending."
-      actions={actions}
     >
+      {message && (
+        <div className="mb-6 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
+          {message}
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Siswa"
@@ -99,7 +108,11 @@ export default function AdminDashboard() {
           </div>
 
           <div className="mt-6 grid gap-3">
-            {data.monthly.length === 0 ? (
+            {loading ? (
+              <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                Memuat grafik...
+              </div>
+            ) : data.monthly.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 Belum ada data grafik.
               </div>
@@ -116,7 +129,7 @@ export default function AdminDashboard() {
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-500"
                       style={{
-                        width: `${Math.min(100, Number(item.total || 0) / 10000)}%`,
+                        width: `${maxMonthlyTotal > 0 ? Math.max(8, Math.round((Number(item.total || 0) / maxMonthlyTotal) * 100)) : 0}%`,
                       }}
                     />
                   </div>
@@ -143,7 +156,11 @@ export default function AdminDashboard() {
           </div>
 
           <div className="mt-5 space-y-3">
-            {data.channelBreakdown.length === 0 ? (
+            {loading ? (
+              <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                Memuat data kanal...
+              </div>
+            ) : data.channelBreakdown.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 Belum ada data kanal.
               </div>
@@ -181,6 +198,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             <Table
+              emptyText={loading ? "Memuat data jatuh tempo..." : "Belum ada tagihan jatuh tempo"}
               columns={[
                 { key: "student_name", title: "Siswa" },
                 { key: "bill_name", title: "Tagihan" },
@@ -214,6 +232,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             <Table
+              emptyText={loading ? "Memuat transaksi..." : "Belum ada transaksi"}
               columns={[
                 { key: "student_name", title: "Siswa" },
                 { key: "bill_name", title: "Tagihan" },
@@ -229,10 +248,18 @@ export default function AdminDashboard() {
                   render: (row) => (
                     <span
                       className={
-                        row.status === "paid" ? "badge-green" : "badge-amber"
+                        row.status === "paid"
+                          ? "badge-green"
+                          : row.status === "pending"
+                            ? "badge-amber"
+                            : "badge-red"
                       }
                     >
-                      {row.status === "paid" ? "Lunas" : "Belum Lunas"}
+                      {row.status === "paid"
+                        ? "Lunas"
+                        : row.status === "pending"
+                          ? "Menunggu"
+                          : "Gagal"}
                     </span>
                   ),
                 },

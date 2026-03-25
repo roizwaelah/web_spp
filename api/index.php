@@ -30,6 +30,118 @@ function setting_value(string $key, string $default = ''): string {
     return scalar('SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1', [$key]) ?: $default;
 }
 
+function settings_defaults(): array {
+    return [
+        'school_name' => '',
+        'school_address' => '',
+        'bank_account' => '',
+        'qris_text' => '',
+        'payment_gateway_provider' => '',
+        'payment_gateway_key' => '',
+        'whatsapp_gateway_url' => '',
+        'whatsapp_gateway_token' => '',
+        'receipt_footer' => '',
+    ];
+}
+
+function sanitize_settings_payload(array $input): array {
+    $allowed = array_keys(settings_defaults());
+    $clean = [];
+
+    foreach ($input as $key => $value) {
+        if (!in_array($key, $allowed, true)) continue;
+        $clean[$key] = trim((string) ($value ?? ''));
+    }
+
+    if (!$clean) response(['message' => 'Tidak ada pengaturan yang dapat disimpan'], 422);
+
+    if (array_key_exists('school_name', $clean) && $clean['school_name'] === '') {
+        response(['message' => 'Nama madrasah wajib diisi'], 422);
+    }
+
+    if (isset($clean['school_name']) && mb_strlen($clean['school_name']) > 120) {
+        response(['message' => 'Nama madrasah maksimal 120 karakter'], 422);
+    }
+
+    if (isset($clean['school_address']) && mb_strlen($clean['school_address']) > 500) {
+        response(['message' => 'Alamat madrasah maksimal 500 karakter'], 422);
+    }
+
+    if (isset($clean['bank_account']) && mb_strlen($clean['bank_account']) > 500) {
+        response(['message' => 'Rekening bank maksimal 500 karakter'], 422);
+    }
+
+    if (isset($clean['qris_text']) && mb_strlen($clean['qris_text']) > 500) {
+        response(['message' => 'Teks QRIS maksimal 500 karakter'], 422);
+    }
+
+    if (isset($clean['payment_gateway_provider']) && mb_strlen($clean['payment_gateway_provider']) > 120) {
+        response(['message' => 'Provider payment gateway maksimal 120 karakter'], 422);
+    }
+
+    if (isset($clean['payment_gateway_key']) && mb_strlen($clean['payment_gateway_key']) > 255) {
+        response(['message' => 'API key gateway maksimal 255 karakter'], 422);
+    }
+
+    if (isset($clean['whatsapp_gateway_url']) && $clean['whatsapp_gateway_url'] !== '' && filter_var($clean['whatsapp_gateway_url'], FILTER_VALIDATE_URL) === false) {
+        response(['message' => 'URL WhatsApp gateway tidak valid'], 422);
+    }
+
+    if (isset($clean['whatsapp_gateway_url']) && mb_strlen($clean['whatsapp_gateway_url']) > 255) {
+        response(['message' => 'URL WhatsApp gateway maksimal 255 karakter'], 422);
+    }
+
+    if (isset($clean['whatsapp_gateway_token']) && mb_strlen($clean['whatsapp_gateway_token']) > 255) {
+        response(['message' => 'Token WhatsApp maksimal 255 karakter'], 422);
+    }
+
+    if (isset($clean['receipt_footer']) && mb_strlen($clean['receipt_footer']) > 500) {
+        response(['message' => 'Footer kuitansi maksimal 500 karakter'], 422);
+    }
+
+    return $clean;
+}
+
+function validate_user_payload(array $input, bool $isUpdate = false): array {
+    $clean = [
+        'name' => trim((string) ($input['name'] ?? '')),
+        'email' => trim((string) ($input['email'] ?? '')),
+        'password' => (string) ($input['password'] ?? ''),
+        'role' => trim((string) ($input['role'] ?? '')),
+        'student_id' => $input['student_id'] ?? null,
+        'menu_access' => is_array($input['menu_access'] ?? null) ? $input['menu_access'] : [],
+    ];
+
+    if ($clean['name'] === '') response(['message' => 'Nama user wajib diisi'], 422);
+    if (mb_strlen($clean['name']) > 120) response(['message' => 'Nama user maksimal 120 karakter'], 422);
+
+    if ($clean['email'] === '') response(['message' => 'Email wajib diisi'], 422);
+    if (!filter_var($clean['email'], FILTER_VALIDATE_EMAIL)) response(['message' => 'Format email tidak valid'], 422);
+    if (mb_strlen($clean['email']) > 120) response(['message' => 'Email maksimal 120 karakter'], 422);
+
+    if (!in_array($clean['role'], ['admin', 'bendahara', 'parent'], true)) {
+        response(['message' => 'Role user tidak valid'], 422);
+    }
+
+    if (!$isUpdate && trim($clean['password']) === '') {
+        response(['message' => 'Password wajib diisi'], 422);
+    }
+
+    if ($clean['password'] !== '' && mb_strlen($clean['password']) < 6) {
+        response(['message' => 'Password minimal 6 karakter'], 422);
+    }
+
+    if ($clean['password'] !== '' && mb_strlen($clean['password']) > 255) {
+        response(['message' => 'Password maksimal 255 karakter'], 422);
+    }
+
+    if ($clean['role'] !== 'parent') {
+        $clean['student_id'] = null;
+    }
+
+    return $clean;
+}
+
 function ensure_required(array $input, array $required): void {
     foreach ($required as $field) {
         if (!isset($input[$field]) || trim((string) $input[$field]) === '') response(['message' => 'Field wajib: ' . $field], 422);
@@ -140,7 +252,7 @@ function create_transaction_and_mark_paid(int $billId, int $studentId, string $c
 
 function list_settings(): array {
     $rows = db()->query("SELECT setting_key, setting_value FROM settings ORDER BY setting_key ASC")->fetchAll();
-    $result = [];
+    $result = settings_defaults();
     foreach ($rows as $row) $result[$row['setting_key']] = $row['setting_value'];
     return $result;
 }
@@ -176,6 +288,54 @@ if ($route === 'login' && $method === 'POST') {
 
 if ($route === 'me' && $method === 'GET') {
     response(['user' => require_auth()]);
+}
+
+if ($route === 'me' && $method === 'PUT') {
+    $user = require_auth();
+    $input = json_input();
+    $name = trim((string) ($input['name'] ?? ''));
+    $email = trim((string) ($input['email'] ?? ''));
+    $password = (string) ($input['password'] ?? '');
+
+    if ($name === '') response(['message' => 'Nama user wajib diisi'], 422);
+    if (mb_strlen($name) > 120) response(['message' => 'Nama user maksimal 120 karakter'], 422);
+
+    if ($email === '') response(['message' => 'Email wajib diisi'], 422);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) response(['message' => 'Format email tidak valid'], 422);
+    if (mb_strlen($email) > 120) response(['message' => 'Email maksimal 120 karakter'], 422);
+
+    if ($password !== '' && mb_strlen($password) < 6) {
+        response(['message' => 'Password minimal 6 karakter'], 422);
+    }
+
+    if ($password !== '' && mb_strlen($password) > 255) {
+        response(['message' => 'Password maksimal 255 karakter'], 422);
+    }
+
+    if (scalar('SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1', [$email, $user['id']])) {
+        response(['message' => 'Email user sudah digunakan'], 422);
+    }
+
+    $passwordSql = '';
+    $params = [$name, $email];
+    if ($password !== '') {
+        $passwordSql = ', password = ?';
+        $params[] = password_hash($password, PASSWORD_DEFAULT);
+    }
+    $params[] = $user['id'];
+
+    $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ?{$passwordSql} WHERE id = ?");
+    $stmt->execute($params);
+
+    $stmtUser = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+    $stmtUser->execute([$user['id']]);
+    $updated = $stmtUser->fetch();
+
+    log_activity((int) $user['id'], 'update', 'profile', (int) $user['id'], 'Memperbarui akun sendiri');
+    response([
+        'message' => 'Akun berhasil diperbarui',
+        'user' => build_user_payload($updated),
+    ]);
 }
 
 if ($route === 'admin/meta' && $method === 'GET') {
@@ -220,7 +380,7 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
     $dueSoon = $pdo->query("SELECT b.id, b.bill_name, b.period, b.due_date, b.amount, s.name student_name
         FROM bills b
         JOIN students s ON s.id=b.student_id
-        WHERE b.status<>'paid'
+        WHERE b.status<>'paid' AND b.due_date IS NOT NULL
         ORDER BY b.due_date ASC LIMIT 6")->fetchAll();
 
     $latestTransactions = $pdo->query("SELECT t.id, s.name student_name, b.bill_name, b.period, t.amount_paid amount, t.payment_channel, t.status
@@ -920,11 +1080,9 @@ if ($route === 'admin/users' && $method === 'GET') {
 if ($route === 'admin/users' && $method === 'POST') {
     $user = require_auth();
     validate_menu_access($user, ['users'], ['admin']);
-    $input = json_input();
-    ensure_required($input, ['name', 'email', 'password', 'role']);
+    $input = validate_user_payload(json_input());
 
     $role = (string) $input['role'];
-    if (!in_array($role, ['admin', 'bendahara', 'parent'], true)) response(['message' => 'Role user tidak valid'], 422);
     if (scalar('SELECT id FROM users WHERE email = ? LIMIT 1', [$input['email']])) {
         response(['message' => 'Email user sudah digunakan'], 422);
     }
@@ -959,12 +1117,13 @@ if ($route === 'admin/users' && $method === 'POST') {
 if ($route === 'admin/users' && $method === 'PUT') {
     $user = require_auth();
     validate_menu_access($user, ['users'], ['admin']);
-    $input = json_input();
-    ensure_required($input, ['id', 'name', 'email', 'role']);
+    $rawInput = json_input();
+    ensure_required($rawInput, ['id']);
+    $input = validate_user_payload($rawInput, true);
+    $input['id'] = $rawInput['id'];
 
     $targetId = (int) $input['id'];
     $role = (string) $input['role'];
-    if (!in_array($role, ['admin', 'bendahara', 'parent'], true)) response(['message' => 'Role user tidak valid'], 422);
 
     $stmtCurrent = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
     $stmtCurrent->execute([$targetId]);
@@ -1126,7 +1285,7 @@ if ($route === 'admin/settings' && $method === 'GET') {
 if ($route === 'admin/settings' && $method === 'PUT') {
     $user = require_auth();
     validate_menu_access($user, ['settings'], ['admin']);
-    $input = json_input();
+    $input = sanitize_settings_payload(json_input());
     foreach ($input as $key => $value) {
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, NOW())
             ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_at=NOW()");

@@ -15,14 +15,19 @@ export default function UsersListPage() {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   const load = () =>
+    (setLoading(true),
     fetchRoute("admin/users")
       .then(({ data }) => setRows(Array.isArray(data) ? data : []))
       .catch((error) => {
         setMessage(error?.response?.data?.message || "Gagal memuat data user");
-      });
+      })
+      .finally(() => {
+        setLoading(false);
+      }));
 
   useEffect(() => {
     load();
@@ -89,7 +94,10 @@ export default function UsersListPage() {
             {
               key: "student",
               title: "Terkait siswa",
-              render: (row) => row.student_name || "-",
+              render: (row) =>
+                row.student_name
+                  ? `${row.student_name}${row.student_nis ? ` (${row.student_nis})` : ""}`
+                  : "-",
             },
             {
               key: "menu_access",
@@ -123,7 +131,7 @@ export default function UsersListPage() {
             },
           ]}
           rows={filteredRows}
-          emptyText="Belum ada user"
+          emptyText={loading ? "Memuat data user..." : "Belum ada user"}
         />
       </div>
     </Layout>

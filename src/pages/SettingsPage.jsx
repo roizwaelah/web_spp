@@ -17,17 +17,33 @@ const defaults = {
 export default function SettingsPage() {
   const [form, setForm] = useState(defaults);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchRoute("admin/settings").then(({ data }) =>
-      setForm({ ...defaults, ...data }),
-    );
+    fetchRoute("admin/settings")
+      .then(({ data }) => {
+        setForm({ ...defaults, ...data });
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat pengaturan");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const submit = async (e) => {
     e.preventDefault();
-    await fetchRoute("admin/settings", { method: "PUT", data: form });
-    setMessage("Pengaturan berhasil disimpan");
+    setSaving(true);
+    try {
+      await fetchRoute("admin/settings", { method: "PUT", data: form });
+      setMessage("Pengaturan berhasil disimpan");
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menyimpan pengaturan");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -44,11 +60,17 @@ export default function SettingsPage() {
                 {message}
               </div>
             )}
+            {loading && (
+              <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
+                Memuat pengaturan...
+              </div>
+            )}
             <div>
               <label className="label">Nama madrasah</label>
               <input
                 className="input"
                 value={form.school_name}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, school_name: e.target.value })
                 }
@@ -59,6 +81,7 @@ export default function SettingsPage() {
               <textarea
                 className="textarea"
                 value={form.school_address}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, school_address: e.target.value })
                 }
@@ -69,6 +92,7 @@ export default function SettingsPage() {
               <textarea
                 className="textarea"
                 value={form.bank_account}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, bank_account: e.target.value })
                 }
@@ -79,6 +103,7 @@ export default function SettingsPage() {
               <textarea
                 className="textarea"
                 value={form.qris_text}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, qris_text: e.target.value })
                 }
@@ -95,6 +120,7 @@ export default function SettingsPage() {
               <input
                 className="input"
                 value={form.payment_gateway_provider}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, payment_gateway_provider: e.target.value })
                 }
@@ -105,6 +131,7 @@ export default function SettingsPage() {
               <input
                 className="input"
                 value={form.payment_gateway_key}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, payment_gateway_key: e.target.value })
                 }
@@ -115,6 +142,7 @@ export default function SettingsPage() {
               <input
                 className="input"
                 value={form.whatsapp_gateway_url}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, whatsapp_gateway_url: e.target.value })
                 }
@@ -125,6 +153,7 @@ export default function SettingsPage() {
               <input
                 className="input"
                 value={form.whatsapp_gateway_token}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, whatsapp_gateway_token: e.target.value })
                 }
@@ -135,12 +164,15 @@ export default function SettingsPage() {
               <textarea
                 className="textarea"
                 value={form.receipt_footer}
+                disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, receipt_footer: e.target.value })
                 }
               />
             </div>
-            <button className="btn-primary w-full">Simpan pengaturan</button>
+            <button className="btn-primary w-full" disabled={loading || saving}>
+              {saving ? "Menyimpan..." : "Simpan pengaturan"}
+            </button>
           </div>
         </div>
       </form>

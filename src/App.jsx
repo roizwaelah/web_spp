@@ -22,6 +22,7 @@ import ParentTransactionsPage from './pages/ParentTransactionsPage'
 import ParentNotificationsPage from './pages/ParentNotificationsPage'
 import UsersListPage from './pages/UsersListPage'
 import UsersEditPage from './pages/UsersEditPage'
+import StaffAccountPage from './pages/StaffAccountPage'
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
       <Route path="/admin/tagihan/edit" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><BillsEditPage /></ProtectedRoute>} />
       <Route path="/admin/bukti-pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="payment_proofs"><PaymentProofsPage /></ProtectedRoute>} />
       <Route path="/admin/laporan" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="reports"><ReportsPage /></ProtectedRoute>} />
+      <Route path="/admin/akun" element={<ProtectedRoute role={['admin', 'bendahara']}><StaffAccountPage /></ProtectedRoute>} />
       <Route path="/admin/backup" element={<ProtectedRoute role="admin" menuKey="backups"><BackupPage /></ProtectedRoute>} />
       <Route path="/admin/pengaturan" element={<ProtectedRoute role="admin" menuKey="settings"><SettingsPage /></ProtectedRoute>} />
       <Route path="/admin/users" element={<Navigate to="/admin/users/list" replace />} />

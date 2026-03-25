@@ -4,6 +4,7 @@ import {
   Home,
   LogOut,
   Menu,
+  UserCog,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -91,6 +92,19 @@ export default function Layout({ title, subtitle, actions, children }) {
                 })}
             </div>
           ))}
+
+          {user?.role !== "parent" && (
+            <div className="space-y-1">
+              <Link
+                to="/admin/akun"
+                onClick={() => setIsSidebarOpen(false)}
+                className={`dp-nav-link ${location.pathname === "/admin/akun" ? "is-active" : ""}`}
+              >
+                <UserCog size={17} />
+                Edit Akun Saya
+              </Link>
+            </div>
+          )}
         </div>
       </aside>
 

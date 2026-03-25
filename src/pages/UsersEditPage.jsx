@@ -19,6 +19,8 @@ export default function UsersEditPage() {
   const [meta, setMeta] = useState({ roles: [], students: [], menuOptions: [] });
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -28,6 +30,7 @@ export default function UsersEditPage() {
   );
 
   const load = () =>
+    (setLoading(true),
     Promise.all([fetchRoute("admin/users"), fetchRoute("admin/meta")])
       .then(([usersRes, metaRes]) => {
         setRows(Array.isArray(usersRes.data) ? usersRes.data : []);
@@ -35,7 +38,10 @@ export default function UsersEditPage() {
       })
       .catch((error) => {
         setMessage(error?.response?.data?.message || "Gagal memuat data user");
-      });
+      })
+      .finally(() => {
+        setLoading(false);
+      }));
 
   useEffect(() => {
     load();
@@ -97,6 +103,7 @@ export default function UsersEditPage() {
     };
 
     try {
+      setSaving(true);
       if (payload.id) {
         await fetchRoute("admin/users", { method: "PUT", data: payload });
         setMessage("User berhasil diperbarui");
@@ -108,6 +115,8 @@ export default function UsersEditPage() {
       load();
     } catch (error) {
       setMessage(error?.response?.data?.message || "Gagal menyimpan data user");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -132,12 +141,18 @@ export default function UsersEditPage() {
               {message}
             </div>
           )}
+          {loading && (
+            <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
+              Memuat data user...
+            </div>
+          )}
 
           <div>
             <label className="label">Nama user</label>
             <input
               className="input"
               value={form.name}
+              disabled={loading || saving}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
@@ -147,6 +162,7 @@ export default function UsersEditPage() {
             <input
               className="input"
               value={form.email}
+              disabled={loading || saving}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
@@ -159,6 +175,7 @@ export default function UsersEditPage() {
               type="password"
               className="input"
               value={form.password}
+              disabled={loading || saving}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
           </div>
@@ -168,6 +185,7 @@ export default function UsersEditPage() {
             <select
               className="input"
               value={form.role}
+              disabled={loading || saving}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -192,6 +210,7 @@ export default function UsersEditPage() {
               <select
                 className="input"
                 value={form.student_id}
+                disabled={loading || saving}
                 onChange={(e) => setForm({ ...form, student_id: e.target.value })}
               >
                 <option value="">Pilih siswa</option>
@@ -227,7 +246,7 @@ export default function UsersEditPage() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={locked}
+                        disabled={locked || loading || saving}
                         onChange={() => toggleMenu(menu.key)}
                       />
                       <span>{menu.label}</span>
@@ -240,12 +259,29 @@ export default function UsersEditPage() {
 
           <div className="flex gap-3">
             <button className="btn-primary flex-1">
-              {form.id ? "Update user" : "Simpan user"}
+              {saving ? "Menyimpan..." : form.id ? "Update user" : "Simpan user"}
             </button>
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => setForm(initialForm)}
+              disabled={loading || saving}
+              onClick={() =>
+                setForm(
+                  selectedUser
+                    ? {
+                        id: selectedUser.id,
+                        name: selectedUser.name || "",
+                        email: selectedUser.email || "",
+                        password: "",
+                        role: selectedUser.role || "bendahara",
+                        student_id: selectedUser.student_id || "",
+                        menu_access: selectedUser.menu_access?.length
+                          ? selectedUser.menu_access
+                          : ["dashboard"],
+                      }
+                    : initialForm,
+                )
+              }
             >
               Reset
             </button>

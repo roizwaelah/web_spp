@@ -27,6 +27,13 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(loadStoredUser)
   const [loading, setLoading] = useState(false)
 
+  const refreshUser = async () => {
+    const { data } = await fetchRoute('me')
+    setUser(data.user)
+    persistUser(data.user)
+    return data.user
+  }
+
   const login = async (email, password) => {
     setLoading(true)
     try {
@@ -53,13 +60,10 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('token')
     const needsRefresh = !user || (user.role !== 'parent' && user.menu_access == null)
     if (!token || !needsRefresh) return
-    fetchRoute('me').then(({ data }) => {
-      setUser(data.user)
-      persistUser(data.user)
-    }).catch(() => logout())
+    refreshUser().catch(() => logout())
   }, [user])
 
-  const value = useMemo(() => ({ user, login, logout, loading }), [user, loading])
+  const value = useMemo(() => ({ user, login, logout, loading, refreshUser, setUser }), [user, loading])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
