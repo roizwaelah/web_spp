@@ -5,7 +5,7 @@ import { fetchRoute } from '../api'
 
 export default function ParentNotificationsPage() {
   const [rows, setRows] = useState([])
-  useEffect(() => { fetchRoute('parent/notifications').then(({ data }) => setRows(data)) }, [])
+  useEffect(() => { fetchRoute('parent/notifications').then(({ data }) => setRows(Array.isArray(data) ? data : [])) }, [])
 
   return (
     <Layout title="Notifikasi Orang Tua" subtitle="Riwayat pengingat jatuh tempo dan notifikasi transaksi via WhatsApp / sistem.">

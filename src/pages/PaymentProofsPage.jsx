@@ -9,7 +9,7 @@ export default function PaymentProofsPage() {
   const [rows, setRows] = useState([])
   const [message, setMessage] = useState('')
 
-  const load = () => fetchRoute('admin/payment-proofs').then(({ data }) => setRows(data))
+  const load = () => fetchRoute('admin/payment-proofs').then(({ data }) => setRows(Array.isArray(data) ? data : []))
   useEffect(() => { load() }, [])
 
   const review = async (proof_id, status) => {

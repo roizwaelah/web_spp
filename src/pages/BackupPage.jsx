@@ -8,7 +8,7 @@ export default function BackupPage() {
   const [rows, setRows] = useState([])
   const [message, setMessage] = useState('')
 
-  const load = () => fetchRoute('admin/backups').then(({ data }) => setRows(data))
+  const load = () => fetchRoute('admin/backups').then(({ data }) => setRows(Array.isArray(data) ? data : []))
   useEffect(() => { load() }, [])
 
   const createBackup = async () => {

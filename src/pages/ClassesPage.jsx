@@ -11,7 +11,7 @@ export default function ClassesPage() {
   const [form, setForm] = useState(initialForm)
   const [message, setMessage] = useState('')
 
-  const load = () => fetchRoute('admin/classes').then(({ data }) => setRows(data))
+  const load = () => fetchRoute('admin/classes').then(({ data }) => setRows(Array.isArray(data) ? data : []))
   useEffect(() => { load() }, [])
 
   const submit = async (e) => {

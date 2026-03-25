@@ -25,8 +25,11 @@ export default function FinancePostsPage() {
 
   const load = async () => {
     const [metaRes, rowsRes] = await Promise.all([fetchRoute('admin/meta'), fetchRoute('admin/finance-posts')])
-    setMeta(metaRes.data)
-    setRows(rowsRes.data)
+    setMeta({
+      classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
+      students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+    })
+    setRows(Array.isArray(rowsRes.data) ? rowsRes.data : [])
   }
 
   useEffect(() => { load() }, [])
