@@ -48,11 +48,11 @@ body {
 }
 
 .dp-sidebar {
-  @apply fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] overflow-y-auto border-r border-slate-700 bg-[#18212c] px-0 py-2;
+  @apply fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] overflow-y-auto border-r border-slate-700 bg-[#18212c] px-0 py-0;
 }
 
 .dp-nav-link {
-  @apply mx-0 flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-slate-100 transition hover:bg-[#243142];
+  @apply mx-0 flex items-center gap-2.5 px-3 py-1.5 text-[14px] text-slate-100 transition hover:bg-[#243142];
 }
 
 .dp-nav-link.is-active {
@@ -68,11 +68,11 @@ body {
 }
 
 .glass {
-  @apply rounded-2xl border border-slate-300/80 bg-slate-100/80 backdrop-blur-xl;
+  @apply rounded-md border border-slate-300/80 bg-slate-100/80 backdrop-blur-xl;
 }
 
 .input {
-  @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-[0.98rem] outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
+  @apply w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[14px] outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
 }
 
 .textarea {
@@ -80,7 +80,7 @@ body {
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[0.98rem] font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-[0.98rem] font-normal transition disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-primary {

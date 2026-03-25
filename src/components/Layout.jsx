@@ -134,9 +134,9 @@ export default function Layout({ title, subtitle, actions, children }) {
           </Link>
         </div>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-1 space-y-4">
           {sections.map((section) => (
-            <div key={section.section} className="space-y-2">
+            <div key={section.section} className="space-y-1">
               {section.items
                 .filter((item) => item.label !== "Dashboard" && item.label !== "Ringkasan")
                 .map((item) => {
@@ -161,7 +161,7 @@ export default function Layout({ title, subtitle, actions, children }) {
 
       <div className="dp-content">
         <main className="space-y-4">
-          <header className="glass p-4 xl:p-5">
+          <header className="glass p-3 xl:p-3">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="mt-1 text-2xl font-bold text-slate-900 xl:text-3xl">
