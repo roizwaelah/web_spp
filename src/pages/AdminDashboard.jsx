@@ -232,7 +232,7 @@ export default function AdminDashboard() {
                         row.status === "paid" ? "badge-green" : "badge-amber"
                       }
                     >
-                      {row.status}
+                      {row.status === "paid" ? "Lunas" : "Belum Lunas"}
                     </span>
                   ),
                 },

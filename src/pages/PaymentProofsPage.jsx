@@ -1,21 +1,73 @@
-import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Eye, Trash2, XCircle } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
-import { fetchRoute } from "../api";
+import { fetchRoute, openRouteFile } from "../api";
 import { formatCurrency } from "../utils";
+import { useAuth } from "../context/AuthContext";
 
 export default function PaymentProofsPage() {
   const [rows, setRows] = useState([]);
+  const [studentSourceRows, setStudentSourceRows] = useState([]);
+  const [meta, setMeta] = useState({ students: [], classes: [] });
   const [message, setMessage] = useState("");
+  const [filter, setFilter] = useState({
+    status: "",
+    class_id: "",
+    student_id: "",
+  });
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const load = () =>
-    fetchRoute("admin/payment-proofs").then(({ data }) =>
-      setRows(Array.isArray(data) ? data : []),
-    );
+    Promise.all([
+      fetchRoute("admin/meta"),
+      fetchRoute("admin/payment-proofs", {
+        params: {
+          ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.class_id ? { class_id: filter.class_id } : {}),
+        },
+      }),
+      fetchRoute("admin/payment-proofs", {
+        params: {
+          ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.class_id ? { class_id: filter.class_id } : {}),
+          ...(filter.student_id ? { student_id: filter.student_id } : {}),
+        },
+      }),
+    ])
+      .then(([metaRes, studentRowsRes, rowsRes]) => {
+        setMeta({
+          classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
+          students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+        });
+        setStudentSourceRows(Array.isArray(studentRowsRes.data) ? studentRowsRes.data : []);
+        setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat bukti pembayaran");
+      });
   useEffect(() => {
     load();
-  }, []);
+  }, [filter.status, filter.class_id, filter.student_id]);
+
+  const studentOptions = useMemo(() => {
+    const studentMap = new Map();
+    for (const row of studentSourceRows) {
+      if (!row?.student_id) continue;
+      if (!studentMap.has(String(row.student_id))) {
+        studentMap.set(String(row.student_id), {
+          id: String(row.student_id),
+          name: row.student_name || "",
+          nis: row.nis || "",
+        });
+      }
+    }
+    return Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name, "id"));
+  }, [studentSourceRows]);
+
+  const statusLabel = (status) =>
+    status === "approved" ? "Disetujui" : status === "rejected" ? "Ditolak" : "Menunggu";
 
   const review = async (proof_id, status) => {
     const notes = prompt(
@@ -23,14 +75,46 @@ export default function PaymentProofsPage() {
         ? "Catatan approval (opsional)"
         : "Alasan penolakan",
     );
-    await fetchRoute("admin/payment-proofs/review", {
-      method: "POST",
-      data: { proof_id, status, notes },
-    });
-    setMessage(
-      `Bukti pembayaran ${status === "approved" ? "disetujui" : "ditolak"}`,
-    );
-    load();
+    if (notes === null) return;
+    try {
+      await fetchRoute("admin/payment-proofs/review", {
+        method: "POST",
+        data: { proof_id, status, notes },
+      });
+      setMessage(
+        `Bukti pembayaran ${status === "approved" ? "disetujui" : "ditolak"}`,
+      );
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memproses review");
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Hapus bukti pembayaran ini?")) return;
+    try {
+      await fetchRoute("admin/payment-proofs", {
+        method: "DELETE",
+        data: { id },
+      });
+      setMessage("Bukti pembayaran berhasil dihapus");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus bukti pembayaran");
+    }
+  };
+
+  const previewProof = async (id) => {
+    try {
+      await openRouteFile("admin/payment-proofs/file", { id });
+      setMessage("");
+    } catch (error) {
+      const fallbackMessage =
+        error?.response?.status === 401
+          ? "Preview gagal karena sesi login tidak valid. Silakan login ulang."
+          : "Gagal membuka file bukti pembayaran";
+      setMessage(error?.response?.data?.message || fallbackMessage);
+    }
   };
 
   return (
@@ -38,14 +122,55 @@ export default function PaymentProofsPage() {
       title="Verifikasi Bukti Pembayaran"
       subtitle="Review upload bukti transfer manual dari orang tua dan setujui / tolak secara cepat."
     >
-      {message && (
-        <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
-          {message}
+      <div className="space-y-4">
+        <div className="card p-3">
+          {message && (
+            <div className="mb-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              {message}
+            </div>
+          )}
+          <div className="grid gap-4 md:grid-cols-3">
+            <select
+              className="input"
+              value={filter.status}
+              onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+            >
+              <option value="">Semua status review</option>
+              <option value="pending">Menunggu</option>
+              <option value="approved">Disetujui</option>
+              <option value="rejected">Ditolak</option>
+            </select>
+            <select
+              className="input"
+              value={filter.class_id}
+              onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
+            >
+              <option value="">Semua kelas</option>
+              {meta.classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input"
+              value={filter.student_id}
+              disabled={studentOptions.length === 0}
+              onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
+            >
+              <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
+              {studentOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} - {item.nis}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      )}
       <Table
         columns={[
           { key: "student_name", title: "Siswa" },
+          { key: "class_name", title: "Kelas" },
           { key: "bill_name", title: "Tagihan" },
           { key: "period", title: "Periode" },
           {
@@ -53,7 +178,18 @@ export default function PaymentProofsPage() {
             title: "Nominal",
             render: (row) => formatCurrency(row.amount),
           },
-          { key: "proof_file_name", title: "File Bukti" },
+          {
+            key: "proof_file_name",
+            title: "File Bukti",
+            render: (row) => (
+              <button
+                className="btn-secondary px-3 py-2"
+                onClick={() => previewProof(row.id)}
+              >
+                <Eye size={16} /> Lihat
+              </button>
+            ),
+          },
           {
             key: "status",
             title: "Status",
@@ -64,39 +200,71 @@ export default function PaymentProofsPage() {
                     ? "badge-green"
                     : row.status === "rejected"
                       ? "badge-red"
-                      : "badge-amber"
+                    : "badge-amber"
                 }
               >
-                {row.status}
+                {statusLabel(row.status)}
+              </span>
+            ),
+          },
+          {
+            key: "bill_status",
+            title: "Status Tagihan",
+            render: (row) => (
+              <span className={row.bill_status === "paid" ? "badge-green" : "badge-amber"}>
+                {row.bill_status === "paid" ? "Lunas" : "Belum Lunas"}
               </span>
             ),
           },
           {
             key: "actions",
             title: "Aksi",
-            render: (row) =>
-              row.status === "pending" ? (
-                <div className="flex gap-2">
+            render: (row) => {
+              if (row.status === "pending") {
+                return (
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-primary px-3 py-2"
+                      onClick={() => review(row.id, "approved")}
+                    >
+                      <CheckCircle2 size={16} /> Setujui
+                    </button>
+                    <button
+                      className="btn-danger px-3 py-2"
+                      onClick={() => review(row.id, "rejected")}
+                    >
+                      <XCircle size={16} /> Tolak
+                    </button>
+                    {isAdmin && (
+                      <button
+                        className="btn-secondary px-3 py-2"
+                        onClick={() => remove(row.id)}
+                      >
+                        <Trash2 size={16} /> Hapus
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              if (isAdmin && row.status === "rejected") {
+                return (
                   <button
-                    className="btn-primary px-3 py-2"
-                    onClick={() => review(row.id, "approved")}
+                    className="btn-secondary px-3 py-2"
+                    onClick={() => remove(row.id)}
                   >
-                    <CheckCircle2 size={16} /> Setujui
+                    <Trash2 size={16} /> Hapus
                   </button>
-                  <button
-                    className="btn-danger px-3 py-2"
-                    onClick={() => review(row.id, "rejected")}
-                  >
-                    <XCircle size={16} /> Tolak
-                  </button>
-                </div>
-              ) : (
-                <span className="text-sm text-slate-500">Sudah direview</span>
-              ),
+                );
+              }
+
+              return <span className="text-sm text-slate-500">Sudah direview</span>;
+            },
           },
         ]}
         rows={rows}
       />
+      </div>
     </Layout>
   );
 }

@@ -123,9 +123,10 @@ export default function BillsListPage() {
             <select
               className="input"
               value={filter.student_id}
+              disabled={studentOptions.length === 0}
               onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
             >
-              <option value="">Semua siswa</option>
+              <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
               {studentOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name} - {item.nis}

@@ -721,12 +721,42 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
 if ($route === 'admin/payment-proofs' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['payment_proofs']);
-    $rows = $pdo->query("SELECT pp.*, s.name student_name, s.nis, b.bill_name, b.period, b.amount
+    $status = query('status', '');
+    $classId = query('class_id', '');
+    $studentId = query('student_id', '');
+    $conditions = [];
+    $params = [];
+    if ($status) { $conditions[] = 'pp.status = ?'; $params[] = $status; }
+    if ($classId) { $conditions[] = 's.class_id = ?'; $params[] = $classId; }
+    if ($studentId) { $conditions[] = 'pp.student_id = ?'; $params[] = $studentId; }
+    $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
+    $stmt = $pdo->prepare("SELECT pp.*, s.name student_name, s.nis, c.name class_name, b.bill_name, b.period, b.amount, b.status bill_status
         FROM payment_proofs pp
         JOIN students s ON s.id = pp.student_id
+        LEFT JOIN classes c ON c.id = s.class_id
         JOIN bills b ON b.id = pp.bill_id
-        ORDER BY pp.id DESC")->fetchAll();
-    response($rows);
+        {$where}
+        ORDER BY pp.id DESC");
+    $stmt->execute($params);
+    response($stmt->fetchAll());
+}
+
+if ($route === 'admin/payment-proofs/file' && $method === 'GET') {
+    $user = require_auth();
+    validate_menu_access($user, ['payment_proofs']);
+    $proofId = query('id', '');
+    if (!$proofId) response(['message' => 'ID bukti pembayaran wajib diisi'], 422);
+    $stmt = $pdo->prepare("SELECT proof_file_name, proof_path, mime_type FROM payment_proofs WHERE id = ? LIMIT 1");
+    $stmt->execute([$proofId]);
+    $proof = $stmt->fetch();
+    if (!$proof) response(['message' => 'Bukti tidak ditemukan'], 404);
+    if (!$proof['proof_path'] || !file_exists($proof['proof_path'])) response(['message' => 'File bukti tidak ditemukan'], 404);
+
+    header('Content-Type: ' . ($proof['mime_type'] ?: 'application/octet-stream'));
+    header('Content-Length: ' . filesize($proof['proof_path']));
+    header('Content-Disposition: inline; filename="' . basename((string) $proof['proof_file_name']) . '"');
+    readfile($proof['proof_path']);
+    exit;
 }
 
 if ($route === 'admin/payment-proofs/review' && $method === 'POST') {
@@ -743,6 +773,10 @@ if ($route === 'admin/payment-proofs/review' && $method === 'POST') {
     $proof = $proofStmt->fetch();
     if (!$proof) response(['message' => 'Bukti tidak ditemukan'], 404);
     if (!in_array($input['status'], ['approved', 'rejected'], true)) response(['message' => 'Status review tidak valid'], 422);
+    if ($proof['status'] !== 'pending') response(['message' => 'Bukti pembayaran ini sudah direview'], 422);
+    if ($input['status'] === 'rejected' && trim((string) ($input['notes'] ?? '')) === '') {
+        response(['message' => 'Alasan penolakan wajib diisi'], 422);
+    }
 
     $pdo->beginTransaction();
     try {
@@ -769,19 +803,49 @@ if ($route === 'admin/payment-proofs/review' && $method === 'POST') {
     response(['message' => 'Review bukti pembayaran berhasil disimpan']);
 }
 
+if ($route === 'admin/payment-proofs' && $method === 'DELETE') {
+    $user = require_auth();
+    validate_menu_access($user, ['payment_proofs'], ['admin']);
+    $input = json_input();
+    ensure_required($input, ['id']);
+    $stmt = $pdo->prepare("SELECT * FROM payment_proofs WHERE id = ? LIMIT 1");
+    $stmt->execute([$input['id']]);
+    $proof = $stmt->fetch();
+    if (!$proof) response(['message' => 'Bukti tidak ditemukan'], 404);
+    if ($proof['status'] === 'approved') response(['message' => 'Bukti yang sudah disetujui tidak bisa dihapus'], 422);
+
+    $delete = $pdo->prepare("DELETE FROM payment_proofs WHERE id = ?");
+    $delete->execute([$input['id']]);
+    if (!empty($proof['proof_path']) && file_exists($proof['proof_path'])) {
+        @unlink($proof['proof_path']);
+    }
+    log_activity((int) $user['id'], 'delete', 'payment_proof', (int) $input['id'], 'Menghapus bukti pembayaran');
+    response(['message' => 'Bukti pembayaran berhasil dihapus']);
+}
+
 if ($route === 'admin/reports' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['reports']);
     $start = query('start_date', date('Y-m-01'));
     $end = query('end_date', date('Y-m-d'));
+    $status = query('status', '');
+    $classId = query('class_id', '');
+    $studentId = query('student_id', '');
+    if ($end < $start) response(['message' => 'Tanggal akhir tidak boleh lebih awal dari tanggal mulai'], 422);
+    $conditions = ['DATE(t.payment_date) BETWEEN ? AND ?'];
+    $params = [$start, $end];
+    if ($status) { $conditions[] = 't.status = ?'; $params[] = $status; }
+    if ($classId) { $conditions[] = 's.class_id = ?'; $params[] = $classId; }
+    if ($studentId) { $conditions[] = 't.student_id = ?'; $params[] = $studentId; }
+    $where = implode(' AND ', $conditions);
     $stmt = $pdo->prepare("SELECT t.*, b.bill_name, s.name student_name, c.name class_name
         FROM transactions t
         JOIN bills b ON b.id=t.bill_id
         JOIN students s ON s.id=t.student_id
         LEFT JOIN classes c ON c.id=s.class_id
-        WHERE DATE(t.payment_date) BETWEEN ? AND ?
+        WHERE {$where}
         ORDER BY t.payment_date DESC");
-    $stmt->execute([$start, $end]);
+    $stmt->execute($params);
     $rows = $stmt->fetchAll();
 
     $summary = [
@@ -805,20 +869,31 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
     validate_menu_access($user, ['reports']);
     $start = query('start_date', date('Y-m-01'));
     $end = query('end_date', date('Y-m-d'));
+    $status = query('status', '');
+    $classId = query('class_id', '');
+    $studentId = query('student_id', '');
+    if ($end < $start) response(['message' => 'Tanggal akhir tidak boleh lebih awal dari tanggal mulai'], 422);
+    $conditions = ['DATE(t.payment_date) BETWEEN ? AND ?'];
+    $params = [$start, $end];
+    if ($status) { $conditions[] = 't.status = ?'; $params[] = $status; }
+    if ($classId) { $conditions[] = 's.class_id = ?'; $params[] = $classId; }
+    if ($studentId) { $conditions[] = 't.student_id = ?'; $params[] = $studentId; }
+    $where = implode(' AND ', $conditions);
     $stmt = $pdo->prepare("SELECT t.payment_date, s.name student_name, c.name class_name, b.bill_name, t.payment_channel, t.amount_paid, t.reference_no, t.status
         FROM transactions t
         JOIN bills b ON b.id=t.bill_id
         JOIN students s ON s.id=t.student_id
         LEFT JOIN classes c ON c.id=s.class_id
-        WHERE DATE(t.payment_date) BETWEEN ? AND ?
+        WHERE {$where}
         ORDER BY t.payment_date DESC");
-    $stmt->execute([$start, $end]);
+    $stmt->execute($params);
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=laporan-keuangan.csv');
     $out = fopen('php://output', 'w');
     fputcsv($out, ['Tanggal', 'Siswa', 'Kelas', 'Tagihan', 'Kanal', 'Nominal', 'Referensi', 'Status']);
     foreach ($stmt->fetchAll() as $row) {
-        fputcsv($out, [$row['payment_date'], $row['student_name'], $row['class_name'], $row['bill_name'], $row['payment_channel'], $row['amount_paid'], $row['reference_no'], $row['status']]);
+        $statusLabel = $row['status'] === 'paid' ? 'Lunas' : ($row['status'] === 'pending' ? 'Menunggu' : 'Gagal');
+        fputcsv($out, [$row['payment_date'], $row['student_name'], $row['class_name'], $row['bill_name'], $row['payment_channel'], $row['amount_paid'], $row['reference_no'], $statusLabel]);
     }
     fclose($out);
     exit;
@@ -999,7 +1074,9 @@ if ($route === 'admin/backups' && $method === 'POST') {
     }
     $filename = 'backup-' . date('Ymd-His') . '.sql';
     $path = __DIR__ . '/storage/backups/' . $filename;
-    file_put_contents($path, $content);
+    if (file_put_contents($path, $content) === false) {
+        response(['message' => 'Gagal menyimpan file backup'], 422);
+    }
     $stmt = $pdo->prepare('INSERT INTO backups (filename, path, size_bytes, created_at) VALUES (?, ?, ?, NOW())');
     $stmt->execute([$filename, $path, filesize($path)]);
     log_activity((int) $user['id'], 'backup', 'system', null, 'Membuat backup database');
@@ -1019,6 +1096,25 @@ if ($route === 'admin/backups/download' && $method === 'GET') {
     header('Content-Disposition: attachment; filename="' . basename($file['filename']) . '"');
     readfile($file['path']);
     exit;
+}
+
+if ($route === 'admin/backups' && $method === 'DELETE') {
+    $user = require_auth();
+    validate_menu_access($user, ['backups'], ['admin']);
+    $input = json_input();
+    ensure_required($input, ['id']);
+    $stmt = $pdo->prepare("SELECT * FROM backups WHERE id=? LIMIT 1");
+    $stmt->execute([$input['id']]);
+    $backup = $stmt->fetch();
+    if (!$backup) response(['message' => 'Data backup tidak ditemukan'], 404);
+
+    $delete = $pdo->prepare("DELETE FROM backups WHERE id=?");
+    $delete->execute([$input['id']]);
+    if (!empty($backup['path']) && file_exists($backup['path'])) {
+        @unlink($backup['path']);
+    }
+    log_activity((int) $user['id'], 'delete', 'backup', (int) $input['id'], 'Menghapus file backup');
+    response(['message' => 'Backup berhasil dihapus']);
 }
 
 if ($route === 'admin/settings' && $method === 'GET') {
@@ -1097,6 +1193,9 @@ if ($route === 'parent/payment-proofs' && $method === 'POST') {
     $stmt->execute([$billId, $student['id']]);
     $bill = $stmt->fetch();
     if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
+    if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas, bukti pembayaran tidak perlu diunggah lagi'], 422);
+    $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
+    if ($pendingProof) response(['message' => 'Bukti pembayaran untuk tagihan ini masih menunggu review admin'], 422);
 
     $file = save_uploaded_file('file', 'payment-proofs');
     if (!$file) response(['message' => 'File bukti pembayaran wajib diunggah'], 422);

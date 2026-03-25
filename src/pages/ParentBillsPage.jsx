@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
-import { fileUrl, fetchRoute } from "../api";
+import { downloadRouteFile, fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
 
 export default function ParentBillsPage() {
@@ -18,12 +18,16 @@ export default function ParentBillsPage() {
   }, []);
 
   const pay = async (billId, channel) => {
-    const { data } = await fetchRoute("parent/payments", {
-      method: "POST",
-      data: { bill_id: billId, payment_channel: channel },
-    });
-    setMessage(data.message);
-    load();
+    try {
+      const { data } = await fetchRoute("parent/payments", {
+        method: "POST",
+        data: { bill_id: billId, payment_channel: channel },
+      });
+      setMessage(data.message);
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memproses pembayaran");
+    }
   };
 
   const uploadProof = async (billId) => {
@@ -33,14 +37,27 @@ export default function ParentBillsPage() {
     data.append("bill_id", billId);
     data.append("notes", "Upload bukti dari portal orang tua");
     data.append("file", file);
-    const res = await fetchRoute("parent/payment-proofs", {
-      method: "POST",
-      data,
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    setMessage(res.data.message);
-    setFileMap((prev) => ({ ...prev, [billId]: null }));
-    load();
+    try {
+      const res = await fetchRoute("parent/payment-proofs", {
+        method: "POST",
+        data,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMessage(res.data.message);
+      setFileMap((prev) => ({ ...prev, [billId]: null }));
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal mengunggah bukti pembayaran");
+    }
+  };
+
+  const downloadReceipt = async (billId) => {
+    try {
+      await downloadRouteFile("parent/receipt", { bill_id: billId }, "bukti-pembayaran.html");
+      setMessage("");
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal mengunduh bukti pembayaran");
+    }
   };
 
   return (
@@ -76,7 +93,7 @@ export default function ParentBillsPage() {
                   row.status === "paid" ? "badge-green" : "badge-amber"
                 }
               >
-                {row.status}
+                {row.status === "paid" ? "Lunas" : "Belum Lunas"}
               </span>
             ),
           },
@@ -94,7 +111,11 @@ export default function ParentBillsPage() {
                         : "badge-amber"
                   }
                 >
-                  {row.proof_status}
+                  {row.proof_status === "approved"
+                    ? "Disetujui"
+                    : row.proof_status === "rejected"
+                      ? "Ditolak"
+                      : "Menunggu"}
                 </span>
               ) : (
                 <span className="badge-slate">-</span>
@@ -103,34 +124,41 @@ export default function ParentBillsPage() {
           {
             key: "action",
             title: "Aksi",
-            render: (row) =>
-              row.status === "paid" ? (
-                <a
+            render: (row) => {
+              const proofPending = row.proof_status === "pending";
+              const proofApproved = row.proof_status === "approved";
+
+              return row.status === "paid" || proofApproved ? (
+                <button
                   className="btn-secondary"
-                  href={fileUrl("parent/receipt", { bill_id: row.id })}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => downloadReceipt(row.id)}
                 >
                   Cetak bukti
-                </a>
+                </button>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      "Transfer Bank",
-                      "QRIS",
-                      "Virtual Account",
-                      "E-Wallet",
-                    ].map((channel) => (
-                      <button
-                        key={channel}
-                        className="btn-secondary text-xs"
-                        onClick={() => pay(row.id, channel)}
-                      >
-                        {channel}
-                      </button>
-                    ))}
-                  </div>
+                  {!proofPending ? (
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        "Transfer Bank",
+                        "QRIS",
+                        "Virtual Account",
+                        "E-Wallet",
+                      ].map((channel) => (
+                        <button
+                          key={channel}
+                          className="btn-secondary text-xs"
+                          onClick={() => pay(row.id, channel)}
+                        >
+                          {channel}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      Bukti pembayaran sedang menunggu review admin.
+                    </div>
+                  )}
                   <div className="rounded-2xl border border-slate-200 p-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Upload bukti transfer manual
@@ -140,6 +168,7 @@ export default function ParentBillsPage() {
                         type="file"
                         accept=".jpg,.jpeg,.png,.pdf"
                         className="input"
+                        disabled={proofPending}
                         onChange={(e) =>
                           setFileMap((prev) => ({
                             ...prev,
@@ -149,14 +178,16 @@ export default function ParentBillsPage() {
                       />
                       <button
                         className="btn-primary"
+                        disabled={proofPending}
                         onClick={() => uploadProof(row.id)}
                       >
-                        Kirim
+                        {proofPending ? "Menunggu Review" : "Kirim"}
                       </button>
                     </div>
                   </div>
                 </div>
-              ),
+              );
+            },
           },
         ]}
         rows={bills}

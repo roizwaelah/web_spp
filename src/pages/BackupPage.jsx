@@ -1,25 +1,56 @@
 import { useEffect, useState } from "react";
-import { Download, HardDriveDownload } from "lucide-react";
+import { Download, HardDriveDownload, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
-import { fileUrl, fetchRoute } from "../api";
+import { downloadRouteFile, fetchRoute } from "../api";
 
 export default function BackupPage() {
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState("");
 
   const load = () =>
-    fetchRoute("admin/backups").then(({ data }) =>
-      setRows(Array.isArray(data) ? data : []),
-    );
+    fetchRoute("admin/backups")
+      .then(({ data }) => {
+        setRows(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat data backup");
+      });
   useEffect(() => {
     load();
   }, []);
 
   const createBackup = async () => {
-    await fetchRoute("admin/backups", { method: "POST" });
-    setMessage("Backup database berhasil dibuat");
-    load();
+    try {
+      await fetchRoute("admin/backups", { method: "POST" });
+      setMessage("Backup database berhasil dibuat");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal membuat backup database");
+    }
+  };
+
+  const downloadBackup = async (id) => {
+    try {
+      await downloadRouteFile("admin/backups/download", { id }, "backup.sql");
+      setMessage("");
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal mengunduh file backup");
+    }
+  };
+
+  const removeBackup = async (id) => {
+    if (!confirm("Hapus file backup ini?")) return;
+    try {
+      await fetchRoute("admin/backups", {
+        method: "DELETE",
+        data: { id },
+      });
+      setMessage("Backup berhasil dihapus");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus backup");
+    }
   };
 
   return (
@@ -43,17 +74,23 @@ export default function BackupPage() {
           { key: "size_kb", title: "Ukuran (KB)" },
           { key: "created_at", title: "Dibuat pada" },
           {
-            key: "download",
-            title: "Unduh",
+            key: "actions",
+            title: "Aksi",
             render: (row) => (
-              <a
-                className="btn-secondary"
-                href={fileUrl("admin/backups/download", { id: row.id })}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Download size={16} /> Download
-              </a>
+              <div className="flex gap-2">
+                <button
+                  className="btn-secondary"
+                  onClick={() => downloadBackup(row.id)}
+                >
+                  <Download size={16} /> Download
+                </button>
+                <button
+                  className="btn-danger"
+                  onClick={() => removeBackup(row.id)}
+                >
+                  <Trash2 size={16} /> Hapus
+                </button>
+              </div>
             ),
           },
         ]}
