@@ -31,16 +31,20 @@ export default function StudentEditPage() {
   );
 
   const load = async () => {
-    const [metaRes, studentsRes] = await Promise.all([
-      fetchRoute("admin/meta"),
-      fetchRoute("admin/students"),
-    ]);
+    try {
+      const [metaRes, studentsRes] = await Promise.all([
+        fetchRoute("admin/meta"),
+        fetchRoute("admin/students"),
+      ]);
 
-    setMeta({
-      classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
-      years: Array.isArray(metaRes.data?.years) ? metaRes.data.years : [],
-    });
-    setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+      setMeta({
+        classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
+        years: Array.isArray(metaRes.data?.years) ? metaRes.data.years : [],
+      });
+      setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memuat form siswa");
+    }
   };
 
   useEffect(() => {
@@ -70,13 +74,18 @@ export default function StudentEditPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (form.id) {
-      await fetchRoute("admin/students", { method: "PUT", data: form });
-      setMessage("Siswa berhasil diperbarui");
-    } else {
-      await fetchRoute("admin/students", { method: "POST", data: form });
-      setMessage("Siswa berhasil ditambahkan");
-      setForm(initialForm);
+    try {
+      if (form.id) {
+        await fetchRoute("admin/students", { method: "PUT", data: form });
+        setMessage("Siswa berhasil diperbarui");
+      } else {
+        await fetchRoute("admin/students", { method: "POST", data: form });
+        setMessage("Siswa berhasil ditambahkan");
+        setForm(initialForm);
+      }
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menyimpan data siswa");
     }
   };
 

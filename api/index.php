@@ -107,6 +107,12 @@ function parent_user_student(array $user): array {
     return $student;
 }
 
+function parent_user_by_student_id(int $studentId): ?array {
+    $stmt = db()->prepare("SELECT * FROM users WHERE student_id = ? AND role = 'parent' LIMIT 1");
+    $stmt->execute([$studentId]);
+    return $stmt->fetch() ?: null;
+}
+
 if ($route === 'login' && $method === 'POST') {
     $input = json_input();
     ensure_required($input, ['email', 'password']);
@@ -296,6 +302,14 @@ if ($route === 'admin/students' && $method === 'POST') {
     validate_role_access($user, ['admin']);
     $input = json_input();
     ensure_required($input, ['nis', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone', 'user_email']);
+
+    if (scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$input['nis']])) {
+        response(['message' => 'NIS sudah digunakan siswa lain'], 422);
+    }
+    if (scalar("SELECT id FROM users WHERE email = ? LIMIT 1", [$input['user_email']])) {
+        response(['message' => 'Email akun orang tua sudah digunakan'], 422);
+    }
+
     $stmt = $pdo->prepare("INSERT INTO students (nis, name, class_id, academic_year_id, parent_name, parent_phone, user_email, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
         $input['nis'], $input['name'], $input['class_id'], $input['academic_year_id'],
@@ -316,14 +330,31 @@ if ($route === 'admin/students' && $method === 'PUT') {
     validate_role_access($user, ['admin']);
     $input = json_input();
     ensure_required($input, ['id', 'nis', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone', 'user_email']);
+
+    if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['id']])) {
+        response(['message' => 'Data siswa tidak ditemukan'], 404);
+    }
+    if (scalar('SELECT id FROM students WHERE nis = ? AND id <> ? LIMIT 1', [$input['nis'], $input['id']])) {
+        response(['message' => 'NIS sudah digunakan siswa lain'], 422);
+    }
+    if (scalar("SELECT id FROM users WHERE email = ? AND role = 'parent' AND student_id <> ? LIMIT 1", [$input['user_email'], $input['id']])) {
+        response(['message' => 'Email akun orang tua sudah digunakan'], 422);
+    }
+
     $stmt = $pdo->prepare("UPDATE students SET nis=?, name=?, class_id=?, academic_year_id=?, parent_name=?, parent_phone=?, user_email=?, address=?, status=? WHERE id=?");
     $stmt->execute([
         $input['nis'], $input['name'], $input['class_id'], $input['academic_year_id'],
         $input['parent_name'], $input['parent_phone'], $input['user_email'],
         $input['address'] ?? null, $input['status'] ?? 'active', $input['id']
     ]);
-    $u = $pdo->prepare("UPDATE users SET name=?, email=? WHERE student_id=? AND role='parent'");
-    $u->execute([$input['parent_name'], $input['user_email'], $input['id']]);
+    $parentUser = parent_user_by_student_id((int) $input['id']);
+    if ($parentUser) {
+        $u = $pdo->prepare("UPDATE users SET name=?, email=? WHERE id=?");
+        $u->execute([$input['parent_name'], $input['user_email'], $parentUser['id']]);
+    } else {
+        $u = $pdo->prepare("INSERT INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, 'parent', ?, NOW())");
+        $u->execute([$input['parent_name'], $input['user_email'], password_hash('password', PASSWORD_DEFAULT), $input['id']]);
+    }
     log_activity((int) $user['id'], 'update', 'student', (int) $input['id'], 'Memperbarui siswa ' . $input['name']);
     response(['message' => 'Siswa berhasil diperbarui']);
 }
@@ -333,6 +364,9 @@ if ($route === 'admin/students' && $method === 'DELETE') {
     validate_role_access($user, ['admin']);
     $input = json_input();
     ensure_required($input, ['id']);
+    if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['id']])) {
+        response(['message' => 'Data siswa tidak ditemukan'], 404);
+    }
     $pdo->prepare("DELETE FROM users WHERE student_id=? AND role='parent'")->execute([$input['id']]);
     $pdo->prepare("DELETE FROM payment_proofs WHERE student_id=?")->execute([$input['id']]);
     $pdo->prepare("DELETE FROM notifications WHERE student_id=?")->execute([$input['id']]);
