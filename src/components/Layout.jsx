@@ -111,7 +111,6 @@ export default function Layout({ title, subtitle, actions, children }) {
         <div className="mt-4 space-y-4">
           {sections.map((section) => (
             <div key={section.section} className="space-y-2">
-              <p className="dp-section-title">{section.section}</p>
               {section.items
                 .filter((item) => item.label !== "Dashboard" && item.label !== "Ringkasan")
                 .map((item) => {
@@ -130,9 +129,6 @@ export default function Layout({ title, subtitle, actions, children }) {
                 })}
             </div>
           ))}
-        </div>
-        <div className="mt-6 border-t border-slate-800/90 pt-4">
-          <div className="px-3 text-xs text-slate-400">Role: {roleLabel(user?.role)}</div>
         </div>
       </aside>
 

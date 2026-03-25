@@ -51,12 +51,8 @@ body {
   @apply fixed left-0 top-[50px] z-30 h-[calc(100vh-50px)] w-[228px] overflow-y-auto border-r border-slate-700 bg-[#18212c] px-0 py-2;
 }
 
-.dp-section-title {
-  @apply px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500;
-}
-
 .dp-nav-link {
-  @apply mx-0 flex items-center gap-2.5 px-3 py-2.5 text-[0.98rem] text-slate-100 transition hover:bg-[#243142];
+  @apply mx-0 flex items-center gap-2.5 px-3 py-2.5 text-[14px] text-slate-100 transition hover:bg-[#243142];
 }
 
 .dp-nav-link.is-active {
