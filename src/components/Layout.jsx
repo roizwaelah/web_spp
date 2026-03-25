@@ -30,7 +30,7 @@ const menus = {
         { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard },
-        { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
+        { to: "/admin/tagihan/list", label: "Tagihan", icon: ReceiptText },
         {
           to: "/admin/bukti-pembayaran",
           label: "Bukti Pembayaran",
@@ -51,7 +51,7 @@ const menus = {
         { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard },
-        { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
+        { to: "/admin/tagihan/list", label: "Tagihan", icon: ReceiptText },
         {
           to: "/admin/bukti-pembayaran",
           label: "Bukti Pembayaran",
@@ -154,7 +154,10 @@ export default function Layout({ title, subtitle, actions, children }) {
                         location.pathname === "/admin/tahun-ajaran/edit")) ||
                     (item.to === "/admin/pos-keuangan/list" &&
                       (location.pathname.startsWith("/admin/pos-keuangan/edit/") ||
-                        location.pathname === "/admin/pos-keuangan/edit"));
+                        location.pathname === "/admin/pos-keuangan/edit")) ||
+                    (item.to === "/admin/tagihan/list" &&
+                      (location.pathname.startsWith("/admin/tagihan/edit/") ||
+                        location.pathname === "/admin/tagihan/edit"));
                   return (
                     <Link
                       key={item.to}
