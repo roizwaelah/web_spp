@@ -27,7 +27,7 @@ const menus = {
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
         { to: "/admin/siswa", label: "Data Siswa", icon: Users },
-        { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
+        { to: "/admin/kelas", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
         { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
@@ -48,7 +48,7 @@ const menus = {
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
         { to: "/admin/siswa", label: "Data Siswa", icon: Users },
-        { to: "/admin/kelas", label: "Kelas", icon: Layers3 },
+        { to: "/admin/kelas", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
         { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
