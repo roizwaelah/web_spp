@@ -11,16 +11,12 @@ export default function ReportsPage() {
     end_date: new Date().toISOString().slice(0, 10),
   })
   const [rows, setRows] = useState([])
-  const [summary, setSummary] = useState({})
-  const [byChannel, setByChannel] = useState({})
   const [search, setSearch] = useState('')
 
   const load = async () => {
     const qs = new URLSearchParams(filter).toString()
     const { data } = await fetchRoute(`admin/reports?${qs}`)
     setRows(Array.isArray(data?.rows) ? data.rows : [])
-    setSummary(data?.summary || {})
-    setByChannel(data?.byChannel || {})
   }
 
   useEffect(() => { load() }, [])
@@ -38,37 +34,7 @@ export default function ReportsPage() {
       title="Laporan Keuangan Real-Time"
       subtitle="Filter laporan harian, bulanan, atau tahunan, lalu unduh hasilnya dalam format CSV."
     >
-      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-        <div className="card p-6">
-          <h3 className="section-title">Ringkasan laporan</h3>
-
-          <div className="mt-6 space-y-3">
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Jumlah transaksi</p>
-              <p className="mt-2 text-2xl font-bold">{summary.count || 0}</p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Total pemasukan</p>
-              <p className="mt-2 text-2xl font-bold">{formatCurrency(summary.total || 0)}</p>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <h4 className="font-semibold text-slate-800">Per kanal pembayaran</h4>
-            <div className="mt-3 space-y-2">
-              {Object.entries(byChannel).length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Belum ada data kanal.</div>
-              ) : Object.entries(byChannel).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
-                  <span className="text-sm font-medium">{key}</span>
-                  <span className="badge-green">{formatCurrency(value)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="card p-4">
             <div className="grid gap-4 xl:grid-cols-[1fr_auto]">
               <input
@@ -106,7 +72,6 @@ export default function ReportsPage() {
             ]}
             rows={filteredRows}
           />
-        </div>
       </div>
     </Layout>
   )
