@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, Trash2, XCircle } from "lucide-react";
+import FormModal from "../components/FormModal";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute, openRouteFile } from "../api";
@@ -282,47 +283,29 @@ export default function PaymentProofsPage() {
         />
       </div>
 
-      {reviewModal.open && (
-        <div className="modal-shell" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
-          <button type="button" className="modal-backdrop" aria-label="Tutup modal" onClick={closeReviewModal} />
-          <div className="modal-card">
-            <div className={`modal-icon is-${reviewModal.status === "approved" ? "default" : "danger"}`}>
-              {reviewModal.status === "approved" ? "OK" : "!"}
-            </div>
-            <div className="space-y-2">
-              <h3 id="review-modal-title" className="section-title">
-                {reviewModal.status === "approved" ? "Setujui bukti pembayaran" : "Tolak bukti pembayaran"}
-              </h3>
-              <p className="text-sm text-slate-500">
-                {reviewModal.status === "approved"
-                  ? "Tambahkan catatan jika perlu. Kosongkan jika tidak ada."
-                  : "Isi alasan penolakan agar orang tua tahu apa yang perlu diperbaiki."}
-              </p>
-            </div>
-            <form className="space-y-4" onSubmit={submitReview}>
-              <textarea
-                className="textarea"
-                value={reviewModal.notes}
-                onChange={(e) => setReviewModal((current) => ({ ...current, notes: e.target.value }))}
-                placeholder={reviewModal.status === "approved" ? "Catatan approval (opsional)" : "Alasan penolakan"}
-                required={reviewModal.status === "rejected"}
-              />
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeReviewModal}>
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className={reviewModal.status === "approved" ? "btn-primary" : "btn-danger"}
-                  disabled={submittingReview}
-                >
-                  {submittingReview ? "Menyimpan..." : reviewModal.status === "approved" ? "Setujui" : "Tolak"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <FormModal
+        open={reviewModal.open}
+        title={reviewModal.status === "approved" ? "Setujui bukti pembayaran" : "Tolak bukti pembayaran"}
+        description={
+          reviewModal.status === "approved"
+            ? "Tambahkan catatan jika perlu. Kosongkan jika tidak ada."
+            : "Isi alasan penolakan agar orang tua tahu apa yang perlu diperbaiki."
+        }
+        variant={reviewModal.status === "approved" ? "default" : "danger"}
+        submitLabel={reviewModal.status === "approved" ? "Setujui" : "Tolak"}
+        submitClassName={reviewModal.status === "approved" ? "btn-primary" : "btn-danger"}
+        submitting={submittingReview}
+        onClose={closeReviewModal}
+        onSubmit={submitReview}
+      >
+        <textarea
+          className="textarea"
+          value={reviewModal.notes}
+          onChange={(e) => setReviewModal((current) => ({ ...current, notes: e.target.value }))}
+          placeholder={reviewModal.status === "approved" ? "Catatan approval (opsional)" : "Alasan penolakan"}
+          required={reviewModal.status === "rejected"}
+        />
+      </FormModal>
     </Layout>
   );
 }

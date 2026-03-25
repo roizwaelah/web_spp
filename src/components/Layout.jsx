@@ -9,9 +9,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getHomePath, getMenuSections, isMenuItemActive } from "../access";
+import { useUI } from "../context/UIContext";
 
 export default function Layout({ title, subtitle, actions, children }) {
   const { user, logout } = useAuth();
+  const { confirm } = useUI();
   const location = useLocation();
   const sections = getMenuSections(user);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -20,6 +22,17 @@ export default function Layout({ title, subtitle, actions, children }) {
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
+
+  const handleLogout = async () => {
+    const confirmed = await confirm({
+      title: "Keluar dari aplikasi",
+      description: "Sesi login Anda akan diakhiri dan Anda akan kembali ke halaman masuk.",
+      confirmLabel: "Ya, keluar",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+    logout();
+  };
 
   return (
     <div className="min-h-screen bg-[#eff2f6]">
@@ -39,12 +52,13 @@ export default function Layout({ title, subtitle, actions, children }) {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <p className="text-emerald-400">Halo, <span className="font-semibold text-white">{user?.name}</span></p>
+            <p className="hidden text-emerald-400 sm:block">Halo, <span className="font-semibold text-white">{user?.name}</span></p>
             <div className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-600 text-[11px] font-semibold text-white">
               {user?.name?.slice(0, 2).toUpperCase()}
             </div>
-            <button onClick={logout} className="dp-logout-btn">
-              <LogOut size={15} /> Keluar
+            <button onClick={handleLogout} className="dp-logout-btn" aria-label="Keluar">
+              <LogOut size={15} />
+              <span className="hidden sm:inline">Keluar</span>
             </button>
           </div>
         </div>
