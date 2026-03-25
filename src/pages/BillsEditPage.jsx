@@ -15,25 +15,33 @@ export default function BillsEditPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchRoute("admin/meta").then((metaRes) => {
-      setMeta({
-        students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+    fetchRoute("admin/meta")
+      .then((metaRes) => {
+        setMeta({
+          students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+        });
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat form tagihan");
       });
-    });
   }, []);
 
   const submit = async (e) => {
     e.preventDefault();
-    await fetchRoute("admin/bills/generate", {
-      method: "POST",
-      data: {
-        period: form.period,
-        due_date: form.due_date || undefined,
-        student_id: form.student_id || undefined,
-      },
-    });
+    try {
+      const { data } = await fetchRoute("admin/bills/generate", {
+        method: "POST",
+        data: {
+          period: form.period,
+          due_date: form.due_date || undefined,
+          student_id: form.student_id || undefined,
+        },
+      });
 
-    setMessage("Generate tagihan berhasil");
+      setMessage(data?.message || "Generate tagihan berhasil");
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal generate tagihan");
+    }
   };
 
   return (
@@ -91,7 +99,7 @@ export default function BillsEditPage() {
               <option value="">Semua siswa</option>
               {meta.students.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} • {item.nis}
+                  {item.name} - {item.nis}
                 </option>
               ))}
             </select>

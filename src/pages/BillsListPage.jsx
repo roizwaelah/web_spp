@@ -1,37 +1,85 @@
-import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
+import { useAuth } from "../context/AuthContext";
 
 export default function BillsListPage() {
   const [rows, setRows] = useState([]);
-  const [meta, setMeta] = useState({ students: [] });
+  const [studentSourceRows, setStudentSourceRows] = useState([]);
+  const [meta, setMeta] = useState({ students: [], classes: [] });
+  const [message, setMessage] = useState("");
   const [filter, setFilter] = useState({
     status: "",
+    class_id: "",
     student_id: "",
   });
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const load = async () => {
-    const [metaRes, rowsRes] = await Promise.all([
-      fetchRoute("admin/meta"),
-      fetchRoute(
-        `admin/bills${filter.status || filter.student_id ? `?${new URLSearchParams({ status: filter.status, student_id: filter.student_id }).toString()}` : ""}`,
-      ),
-    ]);
+    try {
+      const [metaRes, studentRowsRes, rowsRes] = await Promise.all([
+        fetchRoute("admin/meta"),
+        fetchRoute("admin/bills", {
+          params: {
+            ...(filter.status ? { status: filter.status } : {}),
+            ...(filter.class_id ? { class_id: filter.class_id } : {}),
+          },
+        }),
+        fetchRoute("admin/bills", {
+          params: {
+            ...(filter.status ? { status: filter.status } : {}),
+            ...(filter.class_id ? { class_id: filter.class_id } : {}),
+            ...(filter.student_id ? { student_id: filter.student_id } : {}),
+          },
+        }),
+      ]);
 
-    setMeta({
-      students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
-    });
-    setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
+      setMeta({
+        classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
+        students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+      });
+      setStudentSourceRows(Array.isArray(studentRowsRes.data) ? studentRowsRes.data : []);
+      setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memuat data tagihan");
+    }
   };
 
   useEffect(() => {
     load();
-  }, [filter.status, filter.student_id]);
+  }, [filter.status, filter.class_id, filter.student_id]);
+
+  const remove = async (id) => {
+    if (!confirm("Hapus tagihan ini?")) return;
+    try {
+      await fetchRoute("admin/bills", { method: "DELETE", data: { id } });
+      setMessage("Tagihan berhasil dihapus");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus tagihan");
+    }
+  };
+
+  const studentOptions = useMemo(() => {
+    const studentMap = new Map();
+    for (const row of studentSourceRows) {
+      if (!row?.student_id) continue;
+      if (!studentMap.has(String(row.student_id))) {
+        studentMap.set(String(row.student_id), {
+          id: String(row.student_id),
+          name: row.student_name || "",
+          nis: row.nis || "",
+        });
+      }
+    }
+    return Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name, "id"));
+  }, [studentSourceRows]);
 
   return (
     <Layout
@@ -45,7 +93,12 @@ export default function BillsListPage() {
     >
       <div className="space-y-4">
         <div className="card p-3">
-          <div className="grid gap-4 md:grid-cols-2">
+          {message && (
+            <div className="mb-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              {message}
+            </div>
+          )}
+          <div className="grid gap-4 md:grid-cols-3">
             <select
               className="input"
               value={filter.status}
@@ -57,13 +110,25 @@ export default function BillsListPage() {
             </select>
             <select
               className="input"
+              value={filter.class_id}
+              onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
+            >
+              <option value="">Semua kelas</option>
+              {meta.classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input"
               value={filter.student_id}
               onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
             >
               <option value="">Semua siswa</option>
-              {meta.students.map((item) => (
+              {studentOptions.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} • {item.nis}
+                  {item.name} - {item.nis}
                 </option>
               ))}
             </select>
@@ -91,7 +156,7 @@ export default function BillsListPage() {
               title: "Status",
               render: (row) => (
                 <span className={row.status === "paid" ? "badge-green" : "badge-amber"}>
-                  {row.status}
+                  {row.status === "paid" ? "Lunas" : "Belum Lunas"}
                 </span>
               ),
             },
@@ -115,6 +180,19 @@ export default function BillsListPage() {
                   <span className="badge-slate">-</span>
                 ),
             },
+            ...(isAdmin
+              ? [
+                  {
+                    key: "actions",
+                    title: "Aksi",
+                    render: (row) => (
+                      <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    ),
+                  },
+                ]
+              : []),
           ]}
           rows={rows}
         />
