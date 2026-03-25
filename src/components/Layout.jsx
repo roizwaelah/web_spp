@@ -27,7 +27,7 @@ const menus = {
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
         { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
-        { to: "/admin/kelas", label: "Data Kelas", icon: Layers3 },
+        { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
         { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
@@ -48,7 +48,7 @@ const menus = {
       items: [
         { to: "/admin", label: "Dashboard", icon: Home },
         { to: "/admin/siswa/list", label: "Data Siswa", icon: Users },
-        { to: "/admin/kelas", label: "Data Kelas", icon: Layers3 },
+        { to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3 },
         { to: "/admin/tahun-ajaran", label: "Tahun Ajaran", icon: CalendarRange },
         { to: "/admin/pos-keuangan", label: "Pos Keuangan", icon: CreditCard },
         { to: "/admin/tagihan", label: "Tagihan", icon: ReceiptText },
@@ -145,7 +145,10 @@ export default function Layout({ title, subtitle, actions, children }) {
                     location.pathname === item.to ||
                     (item.to === "/admin/siswa/list" &&
                       (location.pathname.startsWith("/admin/siswa/edit/") ||
-                        location.pathname === "/admin/siswa/edit"));
+                        location.pathname === "/admin/siswa/edit")) ||
+                    (item.to === "/admin/kelas/list" &&
+                      (location.pathname.startsWith("/admin/kelas/edit/") ||
+                        location.pathname === "/admin/kelas/edit"));
                   return (
                     <Link
                       key={item.to}
