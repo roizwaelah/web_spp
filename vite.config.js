@@ -50,7 +50,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": {
+      "/index.php": {
         target: "http://localhost:8000",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
