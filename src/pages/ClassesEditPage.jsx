@@ -18,9 +18,13 @@ export default function ClassesEditPage() {
   );
 
   const load = () =>
-    fetchRoute("admin/classes").then(({ data }) =>
-      setRows(Array.isArray(data) ? data : []),
-    );
+    fetchRoute("admin/classes")
+      .then(({ data }) => {
+        setRows(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat data kelas");
+      });
 
   useEffect(() => {
     load();
@@ -42,13 +46,18 @@ export default function ClassesEditPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (form.id) {
-      await fetchRoute("admin/classes", { method: "PUT", data: form });
-      setMessage("Kelas diperbarui");
-    } else {
-      await fetchRoute("admin/classes", { method: "POST", data: form });
-      setMessage("Kelas ditambahkan");
-      setForm(initialForm);
+    try {
+      if (form.id) {
+        await fetchRoute("admin/classes", { method: "PUT", data: form });
+        setMessage("Kelas berhasil diperbarui");
+      } else {
+        await fetchRoute("admin/classes", { method: "POST", data: form });
+        setMessage("Kelas berhasil ditambahkan");
+        setForm(initialForm);
+      }
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menyimpan data kelas");
     }
   };
 

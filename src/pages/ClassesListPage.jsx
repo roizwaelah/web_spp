@@ -12,9 +12,13 @@ export default function ClassesListPage() {
   const navigate = useNavigate();
 
   const load = () =>
-    fetchRoute("admin/classes").then(({ data }) =>
-      setRows(Array.isArray(data) ? data : []),
-    );
+    fetchRoute("admin/classes")
+      .then(({ data }) => {
+        setRows(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat data kelas");
+      });
 
   useEffect(() => {
     load();
@@ -22,9 +26,13 @@ export default function ClassesListPage() {
 
   const remove = async (id) => {
     if (!confirm("Hapus kelas ini?")) return;
-    await fetchRoute("admin/classes", { method: "DELETE", data: { id } });
-    setMessage("Kelas dihapus");
-    load();
+    try {
+      await fetchRoute("admin/classes", { method: "DELETE", data: { id } });
+      setMessage("Kelas berhasil dihapus");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus kelas");
+    }
   };
 
   const filteredRows = useMemo(
