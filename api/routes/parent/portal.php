@@ -1,0 +1,117 @@
+<?php
+// Route portal orang tua: dashboard, tagihan, pembayaran, notifikasi, dan receipt.
+
+if ($route === 'parent/dashboard' && $method === 'GET') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+    $summary = [
+        'activeBills' => (int) scalar("SELECT COUNT(*) FROM bills WHERE student_id=? AND status='unpaid'", [$student['id']]),
+        'outstanding' => (float) scalar("SELECT COALESCE(SUM(amount),0) FROM bills WHERE student_id=? AND status='unpaid'", [$student['id']]),
+        'paidThisYear' => (float) scalar("SELECT COALESCE(SUM(amount_paid),0) FROM transactions WHERE student_id=? AND status='paid' AND YEAR(payment_date)=YEAR(CURDATE())", [$student['id']]),
+        'pendingProofs' => (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE student_id=? AND status='pending'", [$student['id']]),
+    ];
+    response(['summary' => $summary, 'student' => $student, 'settings' => list_settings()]);
+}
+
+if ($route === 'parent/bills' && $method === 'GET') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+    $stmt = $pdo->prepare("SELECT b.*,
+            (SELECT status FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1) proof_status,
+            (SELECT proof_file_name FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1) proof_file_name
+        FROM bills b WHERE b.student_id=? ORDER BY b.id DESC");
+    $stmt->execute([$student['id']]);
+    response($stmt->fetchAll());
+}
+
+if ($route === 'parent/payments' && $method === 'POST') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+    $input = json_input();
+    ensure_required($input, ['bill_id', 'payment_channel']);
+    $stmt = $pdo->prepare("SELECT * FROM bills WHERE id=? AND student_id=? LIMIT 1");
+    $stmt->execute([$input['bill_id'], $student['id']]);
+    $bill = $stmt->fetch();
+    if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
+    if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas']);
+
+    $tx = create_transaction_and_mark_paid((int) $bill['id'], (int) $student['id'], $input['payment_channel'], (float) $bill['amount'], payment_instruction($input['payment_channel']), 'paid');
+    queue_whatsapp_notification((int) $student['id'], 'Pembayaran Berhasil', "Pembayaran {$bill['bill_name']} sebesar " . idr($bill['amount']) . " berhasil diterima. Ref: {$tx['reference_no']}");
+    try_dispatch_whatsapp_queue();
+    log_activity((int) $user['id'], 'pay', 'bill', (int) $bill['id'], 'Pembayaran orang tua via ' . $input['payment_channel']);
+    response(['message' => 'Pembayaran berhasil diproses', 'reference_no' => $tx['reference_no'], 'instruction' => payment_instruction($input['payment_channel'])]);
+}
+
+if ($route === 'parent/payment-proofs' && $method === 'POST') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+    $billId = $_POST['bill_id'] ?? null;
+    ensure_required(['bill_id' => $billId], ['bill_id']);
+    $stmt = $pdo->prepare("SELECT * FROM bills WHERE id=? AND student_id=? LIMIT 1");
+    $stmt->execute([$billId, $student['id']]);
+    $bill = $stmt->fetch();
+    if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
+    if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas, bukti pembayaran tidak perlu diunggah lagi'], 422);
+    $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
+    if ($pendingProof) response(['message' => 'Bukti pembayaran untuk tagihan ini masih menunggu review admin'], 422);
+
+    $file = save_uploaded_file('file', 'payment-proofs');
+    if (!$file) response(['message' => 'File bukti pembayaran wajib diunggah'], 422);
+
+    $stmt = $pdo->prepare("INSERT INTO payment_proofs (bill_id, student_id, proof_file_name, proof_path, mime_type, size_bytes, status, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NOW())");
+    $stmt->execute([$bill['id'], $student['id'], $file['filename'], $file['path'], $file['mime_type'], $file['size_bytes'], $_POST['notes'] ?? null]);
+    queue_whatsapp_notification((int) $student['id'], 'Bukti Pembayaran Diterima', "Bukti pembayaran untuk {$bill['bill_name']} berhasil diunggah dan menunggu verifikasi admin.");
+    try_dispatch_whatsapp_queue();
+    log_activity((int) $user['id'], 'upload', 'payment_proof', (int) $pdo->lastInsertId(), 'Unggah bukti pembayaran');
+    response(['message' => 'Bukti pembayaran berhasil diunggah dan menunggu verifikasi']);
+}
+
+if ($route === 'parent/transactions' && $method === 'GET') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+    $stmt = $pdo->prepare("SELECT t.*, b.bill_name FROM transactions t JOIN bills b ON b.id=t.bill_id WHERE t.student_id=? ORDER BY t.id DESC");
+    $stmt->execute([$student['id']]);
+    response($stmt->fetchAll());
+}
+
+if ($route === 'parent/notifications' && $method === 'GET') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+    $stmt = $pdo->prepare("SELECT * FROM notifications WHERE student_id=? ORDER BY id DESC");
+    $stmt->execute([$student['id']]);
+    response($stmt->fetchAll());
+}
+
+if ($route === 'parent/receipt' && $method === 'GET') {
+    $user = require_auth('parent');
+    $student = parent_user_student($user);
+
+    $transactionId = query('transaction_id');
+    $billId = query('bill_id');
+    if ($transactionId) {
+        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period FROM transactions t JOIN bills b ON b.id=t.bill_id WHERE t.id=? AND t.student_id=? LIMIT 1");
+        $stmt->execute([$transactionId, $student['id']]);
+        $row = $stmt->fetch();
+    } else {
+        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period FROM transactions t JOIN bills b ON b.id=t.bill_id WHERE b.id=? AND t.student_id=? ORDER BY t.id DESC LIMIT 1");
+        $stmt->execute([$billId, $student['id']]);
+        $row = $stmt->fetch();
+    }
+    if (!$row) response(['message' => 'Bukti pembayaran tidak ditemukan'], 404);
+
+    header('Content-Type: text/html; charset=utf-8');
+    echo "<html><head><title>Bukti Pembayaran</title><style>body{font-family:Arial,sans-serif;padding:30px;background:#f8fafc}.card{max-width:650px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:28px}.title{color:#047857;font-size:28px;font-weight:700}.row{margin:10px 0;color:#334155}.label{font-weight:700;display:inline-block;width:170px}</style></head><body>";
+    echo "<div class='card'><div class='title'>Bukti Pembayaran SPP Madrasah</div>";
+    echo "<div class='row'><span class='label'>Nama Siswa</span>" . htmlspecialchars($student['name']) . "</div>";
+    echo "<div class='row'><span class='label'>Tagihan</span>" . htmlspecialchars($row['bill_name']) . "</div>";
+    echo "<div class='row'><span class='label'>Periode</span>" . htmlspecialchars($row['period']) . "</div>";
+    echo "<div class='row'><span class='label'>Kanal</span>" . htmlspecialchars($row['payment_channel']) . "</div>";
+    echo "<div class='row'><span class='label'>Nominal</span>" . idr($row['amount_paid']) . "</div>";
+    echo "<div class='row'><span class='label'>Referensi</span>" . htmlspecialchars($row['reference_no']) . "</div>";
+    echo "<div class='row'><span class='label'>Tanggal</span>" . htmlspecialchars($row['payment_date']) . "</div>";
+    echo "<div class='row'><span class='label'>Status</span>" . strtoupper(htmlspecialchars($row['status'])) . "</div>";
+    echo "<div class='row' style='margin-top:24px'>Dokumen ini dicetak otomatis oleh sistem SPP Madrasah.</div>";
+    echo "</div></body></html>";
+    exit;
+}
