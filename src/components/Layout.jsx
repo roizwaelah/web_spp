@@ -84,10 +84,26 @@ export default function Layout({ title, subtitle, actions, children }) {
   return (
     <div className="min-h-screen">
       <div className="mx-auto w-full max-w-[1500px] px-3 py-4 xl:px-4">
-        <aside className="glass p-3 xl:fixed xl:left-4 xl:top-4 xl:h-[calc(100vh-2rem)] xl:w-[250px] xl:overflow-y-auto">
+        <nav className="glass mb-4 flex flex-wrap items-center justify-between gap-3 p-4 xl:p-5">
+          <div className="flex items-center gap-3">
+            <h1 className="text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
+            <div className="badge-green">{roleLabel(user?.role)}</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              User aktif: <span className="font-semibold text-slate-900">{user?.name}</span>
+            </div>
+            <button onClick={logout} className="btn-danger">
+              <LogOut size={16} /> Keluar
+            </button>
+          </div>
+        </nav>
+
+        <aside className="glass border-0 p-3 xl:fixed xl:left-4 xl:top-[108px] xl:h-[calc(100vh-7.75rem)] xl:w-[250px] xl:overflow-y-auto">
           <div>
-            <h1 className="p-2 text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
-            <div className="mt-3 badge-green">{roleLabel(user?.role)}</div>
+            <p className="px-2 text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Navigasi
+            </p>
           </div>
 
           <div className="mt-3 space-y-4">
@@ -118,12 +134,6 @@ export default function Layout({ title, subtitle, actions, children }) {
             ))}
           </div>
 
-          <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-3">
-            <p className="mt-1 font-semibold text-slate-900">{user?.name}</p>
-            <button onClick={logout} className="btn-danger mt-4 w-full">
-              <LogOut size={16} /> Keluar
-            </button>
-          </div>
         </aside>
 
         <main className="mt-4 space-y-4 xl:ml-[270px] xl:mt-0">
