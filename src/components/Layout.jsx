@@ -43,16 +43,6 @@ const menus = {
         { to: "/admin/pengaturan", label: "Pengaturan", icon: Settings },
       ],
     },
-    {
-      section: "Tambah / Buat",
-      items: [
-        { to: "/admin/siswa", label: "Tambah Siswa", icon: UserPlus },
-        { to: "/admin/kelas", label: "Tambah Kelas", icon: SquarePlus },
-        { to: "/admin/tahun-ajaran", label: "Buat Tahun Ajaran", icon: CalendarPlus2 },
-        { to: "/admin/pos-keuangan", label: "Tambah Pos Keuangan", icon: WalletCards },
-        { to: "/admin/tagihan", label: "Buat Tagihan", icon: FilePlus2 },
-      ],
-    },
   ],
   bendahara: [
     {
@@ -70,16 +60,6 @@ const menus = {
           icon: FileCheck2,
         },
         { to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet },
-      ],
-    },
-    {
-      section: "Tambah / Buat",
-      items: [
-        { to: "/admin/siswa", label: "Tambah Siswa", icon: UserPlus },
-        { to: "/admin/kelas", label: "Tambah Kelas", icon: SquarePlus },
-        { to: "/admin/tahun-ajaran", label: "Buat Tahun Ajaran", icon: CalendarPlus2 },
-        { to: "/admin/pos-keuangan", label: "Tambah Pos Keuangan", icon: WalletCards },
-        { to: "/admin/tagihan", label: "Buat Tagihan", icon: FilePlus2 },
       ],
     },
   ],
@@ -105,7 +85,10 @@ export default function Layout({ title, subtitle, actions, children }) {
     <div className="min-h-screen">
       <div className="mx-auto w-full max-w-[1500px] px-3 py-4 xl:px-4">
         <aside className="glass p-3 xl:fixed xl:left-4 xl:top-4 xl:h-[calc(100vh-2rem)] xl:w-[250px] xl:overflow-y-auto">
-          <h1 className="p-4 text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
+          <div>
+            <h1 className="p-2 text-[1.2rem] font-bold text-sky-700">SPP Online</h1>
+            <div className="mt-3 badge-green">{roleLabel(user?.role)}</div>
+          </div>
 
           <div className="mt-3 space-y-4">
             {sections.map((section) => (
@@ -136,11 +119,8 @@ export default function Layout({ title, subtitle, actions, children }) {
           </div>
 
           <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[0.92rem] text-slate-500">Masuk sebagai</p>
             <p className="mt-1 font-semibold text-slate-900">{user?.name}</p>
-            <p className="text-[0.92rem] text-slate-500">{user?.email}</p>
-            <div className="mt-3 badge-green">{roleLabel(user?.role)}</div>
-            <button onClick={logout} className="btn-secondary mt-4 w-full">
+            <button onClick={logout} className="btn-danger mt-4 w-full">
               <LogOut size={16} /> Keluar
             </button>
           </div>
