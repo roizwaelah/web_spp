@@ -8,6 +8,8 @@ function queue_whatsapp_notification(int $studentId, string $title, string $mess
 }
 
 function try_dispatch_whatsapp_queue(): void {
+    $enabled = scalar("SELECT setting_value FROM settings WHERE setting_key='whatsapp_gateway_enabled' LIMIT 1");
+    if ($enabled !== '1') return;
     $url = scalar("SELECT setting_value FROM settings WHERE setting_key='whatsapp_gateway_url' LIMIT 1");
     $token = scalar("SELECT setting_value FROM settings WHERE setting_key='whatsapp_gateway_token' LIMIT 1");
     if (!$url || !$token) return;

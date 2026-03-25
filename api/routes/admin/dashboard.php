@@ -15,6 +15,12 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         'lastBackup' => scalar("SELECT DATE_FORMAT(MAX(created_at), '%d-%m-%Y %H:%i') FROM backups") ?: 'Belum ada',
     ];
 
+    $integrations = [
+        'paymentGatewayEnabled' => setting_is_enabled('payment_gateway_enabled'),
+        'paymentGatewayProvider' => setting_value('payment_gateway_provider'),
+        'whatsappGatewayEnabled' => setting_is_enabled('whatsapp_gateway_enabled'),
+    ];
+
     $monthly = $pdo->query("SELECT DATE_FORMAT(payment_date, '%b') month, SUM(amount_paid) total
         FROM transactions
         WHERE status='paid' AND YEAR(payment_date)=YEAR(CURDATE())
@@ -36,5 +42,5 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         JOIN students s ON s.id=t.student_id
         ORDER BY t.id DESC LIMIT 6")->fetchAll();
 
-    response(compact('summary', 'monthly', 'channelBreakdown', 'dueSoon', 'latestTransactions'));
+    response(compact('summary', 'monthly', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'integrations'));
 }

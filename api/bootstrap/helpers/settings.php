@@ -11,8 +11,10 @@ function settings_defaults(): array {
         'school_address' => '',
         'bank_account' => '',
         'qris_text' => '',
+        'payment_gateway_enabled' => '0',
         'payment_gateway_provider' => '',
         'payment_gateway_key' => '',
+        'whatsapp_gateway_enabled' => '0',
         'whatsapp_gateway_url' => '',
         'whatsapp_gateway_token' => '',
         'receipt_footer' => '',
@@ -25,6 +27,10 @@ function sanitize_settings_payload(array $input): array {
 
     foreach ($input as $key => $value) {
         if (!in_array($key, $allowed, true)) continue;
+        if (in_array($key, ['payment_gateway_enabled', 'whatsapp_gateway_enabled'], true)) {
+            $clean[$key] = in_array($value, [true, 1, '1', 'true', 'on'], true) ? '1' : '0';
+            continue;
+        }
         $clean[$key] = trim((string) ($value ?? ''));
     }
 
@@ -58,6 +64,16 @@ function sanitize_settings_payload(array $input): array {
         response(['message' => 'API key gateway maksimal 255 karakter'], 422);
     }
 
+    $gatewayEnabled = ($clean['payment_gateway_enabled'] ?? setting_value('payment_gateway_enabled', '0')) === '1';
+    $gatewayProvider = $clean['payment_gateway_provider'] ?? setting_value('payment_gateway_provider');
+    $gatewayKey = $clean['payment_gateway_key'] ?? setting_value('payment_gateway_key');
+    if ($gatewayEnabled && trim((string) $gatewayProvider) === '') {
+        response(['message' => 'Provider payment gateway wajib diisi saat gateway diaktifkan'], 422);
+    }
+    if ($gatewayEnabled && trim((string) $gatewayKey) === '') {
+        response(['message' => 'API key payment gateway wajib diisi saat gateway diaktifkan'], 422);
+    }
+
     if (isset($clean['whatsapp_gateway_url']) && $clean['whatsapp_gateway_url'] !== '' && filter_var($clean['whatsapp_gateway_url'], FILTER_VALIDATE_URL) === false) {
         response(['message' => 'URL WhatsApp gateway tidak valid'], 422);
     }
@@ -68,6 +84,16 @@ function sanitize_settings_payload(array $input): array {
 
     if (isset($clean['whatsapp_gateway_token']) && mb_strlen($clean['whatsapp_gateway_token']) > 255) {
         response(['message' => 'Token WhatsApp maksimal 255 karakter'], 422);
+    }
+
+    $whatsappEnabled = ($clean['whatsapp_gateway_enabled'] ?? setting_value('whatsapp_gateway_enabled', '0')) === '1';
+    $whatsappUrl = $clean['whatsapp_gateway_url'] ?? setting_value('whatsapp_gateway_url');
+    $whatsappToken = $clean['whatsapp_gateway_token'] ?? setting_value('whatsapp_gateway_token');
+    if ($whatsappEnabled && trim((string) $whatsappUrl) === '') {
+        response(['message' => 'URL WhatsApp gateway wajib diisi saat gateway diaktifkan'], 422);
+    }
+    if ($whatsappEnabled && trim((string) $whatsappToken) === '') {
+        response(['message' => 'Token WhatsApp gateway wajib diisi saat gateway diaktifkan'], 422);
     }
 
     if (isset($clean['receipt_footer']) && mb_strlen($clean['receipt_footer']) > 500) {
@@ -82,4 +108,8 @@ function list_settings(): array {
     $result = settings_defaults();
     foreach ($rows as $row) $result[$row['setting_key']] = $row['setting_value'];
     return $result;
+}
+
+function setting_is_enabled(string $key): bool {
+    return setting_value($key, '0') === '1';
 }

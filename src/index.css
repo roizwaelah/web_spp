@@ -150,15 +150,19 @@ body {
 }
 
 .toast-card.is-success {
-  @apply border-emerald-200 bg-emerald-50/95 text-emerald-900;
+  @apply border-emerald-400 bg-emerald-50/95 text-emerald-900;
 }
 
 .toast-card.is-error {
-  @apply border-rose-200 bg-rose-50/95 text-rose-900;
+  @apply border-rose-400 bg-rose-50/95 text-rose-900;
+}
+
+.toast-card.is-warning {
+  @apply border-amber-400 bg-amber-50/95 text-amber-900;
 }
 
 .toast-card.is-info {
-  @apply border-sky-200 bg-sky-50/95 text-sky-900;
+  @apply border-sky-400 bg-sky-50/95 text-sky-900;
 }
 
 .toast-card__body {

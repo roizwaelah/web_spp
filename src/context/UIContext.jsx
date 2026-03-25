@@ -69,6 +69,7 @@ export function UIProvider({ children }) {
       confirm,
       success: (message, title = "Berhasil") => toast({ type: "success", title, message }),
       error: (message, title = "Terjadi masalah") => toast({ type: "error", title, message }),
+      warning: (message, title = "Perhatian") => toast({ type: "warning", title, message }),
       info: (message, title = "Informasi") => toast({ type: "info", title, message }),
     }),
     [toast, confirm],

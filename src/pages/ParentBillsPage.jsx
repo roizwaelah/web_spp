@@ -7,6 +7,7 @@ import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ParentBillsPage() {
   const [bills, setBills] = useState([]);
+  const [settings, setSettings] = useState({});
   const [message, setMessage] = useState({ type: "", text: "" });
   const [fileMap, setFileMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -17,9 +18,15 @@ export default function ParentBillsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await fetchRoute("parent/bills");
-      setBills(Array.isArray(data) ? data : []);
-      setMessage((current) => (current.type === "error" ? { type: "", text: "" } : current));
+      const [{ data: billsData }, { data: dashboardData }] = await Promise.all([
+        fetchRoute("parent/bills"),
+        fetchRoute("parent/dashboard"),
+      ]);
+      setBills(Array.isArray(billsData) ? billsData : []);
+      setSettings(dashboardData?.settings || {});
+      setMessage((current) =>
+        current.type === "error" ? { type: "", text: "" } : current,
+      );
     } catch (error) {
       setMessage({
         type: "error",
@@ -78,7 +85,8 @@ export default function ParentBillsPage() {
     } catch (error) {
       setMessage({
         type: "error",
-        text: error?.response?.data?.message || "Gagal mengunggah bukti pembayaran",
+        text:
+          error?.response?.data?.message || "Gagal mengunggah bukti pembayaran",
       });
     } finally {
       setBusyBillId(null);
@@ -88,12 +96,17 @@ export default function ParentBillsPage() {
   const downloadReceipt = async (billId) => {
     try {
       setBusyBillId(billId);
-      await downloadRouteFile("parent/receipt", { bill_id: billId }, "bukti-pembayaran.html");
+      await downloadRouteFile(
+        "parent/receipt",
+        { bill_id: billId },
+        "bukti-pembayaran.html",
+      );
       setMessage({ type: "", text: "" });
     } catch (error) {
       setMessage({
         type: "error",
-        text: error?.response?.data?.message || "Gagal mengunduh bukti pembayaran",
+        text:
+          error?.response?.data?.message || "Gagal mengunduh bukti pembayaran",
       });
     } finally {
       setBusyBillId(null);
@@ -105,6 +118,45 @@ export default function ParentBillsPage() {
       title="Tagihan Saya"
       subtitle="Lakukan pembayaran otomatis atau unggah bukti transfer manual untuk diverifikasi admin."
     >
+      <div
+        className={`card p-4 ${
+          settings?.payment_gateway_enabled === "1"
+            ? "border border-sky-200 bg-sky-50/70"
+            : "border border-amber-200 bg-amber-50/80"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p
+              className={`text-sm font-semibold ${
+                settings?.payment_gateway_enabled === "1"
+                  ? "text-sky-700"
+                  : "text-amber-900"
+              }`}
+            >
+              {settings?.payment_gateway_enabled === "1"
+                ? "Payment gateway aktif"
+                : "Pembayaran Online sedang dalam pemeliharaan"}
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              {settings?.payment_gateway_enabled === "1"
+                ? `Pembayaran otomatis tersedia melalui ${settings?.payment_gateway_provider || "gateway sekolah"}.`
+                : "Pembayaran otomatis sementara tidak tersedia. Silakan gunakan transfer manual dan unggah bukti pembayaran."}
+            </p>
+          </div>
+          <span
+            className={
+              settings?.payment_gateway_enabled === "1"
+                ? "badge-green"
+                : "badge-amber"
+            }
+          >
+            {settings?.payment_gateway_enabled === "1"
+              ? "Aktif"
+              : "Pemeliharaan"}
+          </span>
+        </div>
+      </div>
       <Table
         emptyText={loading ? "Memuat tagihan..." : "Belum ada tagihan"}
         columns={[
@@ -124,7 +176,11 @@ export default function ParentBillsPage() {
             key: "status",
             title: "Status",
             render: (row) => (
-              <span className={row.status === "paid" ? "badge-green" : "badge-amber"}>
+              <span
+                className={
+                  row.status === "paid" ? "badge-green" : "badge-amber"
+                }
+              >
                 {row.status === "paid" ? "Lunas" : "Belum Lunas"}
               </span>
             ),
@@ -172,9 +228,18 @@ export default function ParentBillsPage() {
                 </button>
               ) : (
                 <div className="space-y-3">
-                  {!proofPending ? (
+                  {proofPending ? (
+                    <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      Bukti pembayaran sedang menunggu review admin.
+                    </div>
+                  ) : settings?.payment_gateway_enabled === "1" ? (
                     <div className="flex flex-wrap gap-2">
-                      {["Transfer Bank", "QRIS", "Virtual Account", "E-Wallet"].map((channel) => (
+                      {[
+                        "Transfer Bank",
+                        "QRIS",
+                        "Virtual Account",
+                        "E-Wallet",
+                      ].map((channel) => (
                         <button
                           key={channel}
                           className="btn-secondary text-xs"
@@ -186,8 +251,9 @@ export default function ParentBillsPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                      Bukti pembayaran sedang menunggu review admin.
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      Pembayaran Online sedang tidak aktif. Silakan unggah bukti
+                      transfer manual.
                     </div>
                   )}
                   <div className="rounded-2xl border border-slate-200 p-3">
@@ -212,7 +278,11 @@ export default function ParentBillsPage() {
                         disabled={proofPending || isBusy}
                         onClick={() => uploadProof(row.id)}
                       >
-                        {proofPending ? "Menunggu Review" : isBusy ? "Memproses..." : "Kirim"}
+                        {proofPending
+                          ? "Menunggu Review"
+                          : isBusy
+                            ? "Memproses..."
+                            : "Kirim"}
                       </button>
                     </div>
                     <p className="text-xs text-slate-500">

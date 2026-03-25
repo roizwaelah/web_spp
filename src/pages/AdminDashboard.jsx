@@ -14,6 +14,7 @@ import { useToastMessage } from "../hooks/useToastMessage";
 
 const INITIAL_DASHBOARD_DATA = {
   summary: {},
+  integrations: {},
   monthly: [],
   channelBreakdown: [],
   dueSoon: [],
@@ -22,6 +23,7 @@ const INITIAL_DASHBOARD_DATA = {
 
 const normalizeDashboardData = (payload) => ({
   summary: payload?.summary ?? {},
+  integrations: payload?.integrations ?? {},
   monthly: Array.isArray(payload?.monthly) ? payload.monthly : [],
   channelBreakdown: Array.isArray(payload?.channelBreakdown)
     ? payload.channelBreakdown
@@ -95,6 +97,33 @@ export default function AdminDashboard() {
           value={formatCurrency(data.summary?.monthIncome || 0)}
           helper={`Backup terakhir: ${data.summary?.lastBackup || "-"}`}
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Payment Gateway</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {data.integrations?.paymentGatewayProvider || "Belum diatur"}
+              </p>
+            </div>
+            <span className={data.integrations?.paymentGatewayEnabled ? "badge-green" : "badge-red"}>
+              {data.integrations?.paymentGatewayEnabled ? "Aktif" : "Nonaktif"}
+            </span>
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">WhatsApp Gateway</p>
+              <p className="mt-1 text-sm text-slate-500">Pengiriman notifikasi WhatsApp</p>
+            </div>
+            <span className={data.integrations?.whatsappGatewayEnabled ? "badge-green" : "badge-red"}>
+              {data.integrations?.whatsappGatewayEnabled ? "Aktif" : "Nonaktif"}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">

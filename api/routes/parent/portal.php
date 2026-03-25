@@ -29,6 +29,9 @@ if ($route === 'parent/payments' && $method === 'POST') {
     $student = parent_user_student($user);
     $input = json_input();
     ensure_required($input, ['bill_id', 'payment_channel']);
+    if (!setting_is_enabled('payment_gateway_enabled')) {
+        response(['message' => 'Payment gateway sedang dinonaktifkan oleh admin'], 422);
+    }
     $allowedChannels = ['Transfer Bank', 'QRIS', 'Virtual Account', 'E-Wallet'];
     if (!in_array($input['payment_channel'], $allowedChannels, true)) response(['message' => 'Kanal pembayaran tidak valid'], 422);
     $stmt = $pdo->prepare("SELECT * FROM bills WHERE id=? AND student_id=? LIMIT 1");
