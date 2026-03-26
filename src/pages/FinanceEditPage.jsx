@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
@@ -96,9 +97,10 @@ export default function FinanceEditPage() {
       subtitle="Form tambah atau edit pos keuangan per kelas maupun per siswa."
       actions={
         <button
-          className="btn-secondary"
+          className="btn-accent"
           onClick={() => navigate("/admin/pos-keuangan/list")}
         >
+          <ArrowLeft size={16} />
           Kembali ke Daftar
         </button>
       }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { HandCoins } from "lucide-react";
+import { ArrowLeft, HandCoins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
@@ -157,7 +157,8 @@ export default function ManualPaymentPage() {
       title="Pembayaran Manual"
       subtitle="Input pembayaran langsung oleh bendahara untuk tagihan siswa yang belum lunas."
       actions={
-        <button className="btn-secondary" onClick={() => navigate("/admin/tagihan/list")}>
+        <button className="btn-accent" onClick={() => navigate("/admin/tagihan/list")}>
+          <ArrowLeft size={16} />
           Kembali ke Tagihan
         </button>
       }

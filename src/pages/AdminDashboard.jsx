@@ -81,21 +81,41 @@ export default function AdminDashboard() {
           title="Total Siswa"
           value={data.summary?.students || 0}
           helper="Terdaftar pada sistem"
+          className="border-sky-300 shadow-sky-100/80"
+          accentClass="bg-sky-500"
+          titleClass="text-sky-700"
+          valueClass="text-sky-900"
+          helperClass="text-sky-500"
         />
         <StatCard
           title="Tagihan Aktif"
           value={data.summary?.activeBills || 0}
           helper="Belum lunas"
+          className="border-amber-300 shadow-amber-100/80"
+          accentClass="bg-amber-500"
+          titleClass="text-amber-700"
+          valueClass="text-amber-900"
+          helperClass="text-amber-600"
         />
         <StatCard
           title="Bukti Pending"
           value={data.summary?.pendingProofs || 0}
           helper="Menunggu verifikasi admin"
+          className="border-rose-300 shadow-rose-100/80"
+          accentClass="bg-rose-500"
+          titleClass="text-rose-700"
+          valueClass="text-rose-900"
+          helperClass="text-rose-500"
         />
         <StatCard
           title="Pemasukan Bulan Ini"
           value={formatCurrency(data.summary?.monthIncome || 0)}
           helper={`Backup terakhir: ${data.summary?.lastBackup || "-"}`}
+          className="border-emerald-300 shadow-emerald-100/80"
+          accentClass="bg-emerald-500"
+          titleClass="text-emerald-700"
+          valueClass="text-emerald-900"
+          helperClass="text-emerald-600"
         />
       </div>
 

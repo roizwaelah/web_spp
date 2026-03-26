@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarCheck2 } from "lucide-react";
+import { ArrowLeft, CalendarCheck2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
@@ -52,7 +52,8 @@ export default function BillsEditPage() {
       title="Buat Tagihan"
       subtitle="Generate tagihan otomatis per periode untuk semua siswa atau siswa tertentu."
       actions={
-        <button className="btn-secondary" onClick={() => navigate("/admin/tagihan/list")}>
+        <button className="btn-accent" onClick={() => navigate("/admin/tagihan/list")}>
+          <ArrowLeft size={16} />
           Kembali ke Daftar
         </button>
       }

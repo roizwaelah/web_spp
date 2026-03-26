@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
@@ -129,9 +130,10 @@ export default function UsersEditPage() {
       subtitle="Atur akun login dan menu apa saja yang dapat dibuka oleh user staff."
       actions={
         <button
-          className="btn-secondary"
+          className="btn-accent"
           onClick={() => navigate("/admin/users/list")}
         >
+          <ArrowLeft size={16} />
           Kembali ke Daftar
         </button>
       }

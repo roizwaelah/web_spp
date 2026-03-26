@@ -7,9 +7,9 @@
 :root {
   color: #1f2937;
   background:
-    radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 30%),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 25%),
-    #edf2f7;
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.1), transparent 30%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 25%),
+    #b9c0c8;
   font-family: 'Abel', ui-sans-serif, system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.6;
@@ -22,9 +22,13 @@ html, body, #root {
 body {
   margin: 0;
   color: #1f2937;
-  background-color: #edf2f7;
+  background-color: #889bb0;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+.dp-app-shell {
+  background-color: #d9dadc;
 }
 
 .dp-navbar {
@@ -86,7 +90,7 @@ body {
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-[0.9rem] font-normal transition disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-1 text-[0.9rem] font-normal transition disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-primary {
@@ -95,6 +99,10 @@ body {
 
 .btn-secondary {
   @apply btn bg-slate-100 text-sky-700 hover:bg-slate-200;
+}
+
+.btn-accent {
+  @apply btn bg-yellow-600 text-white hover:bg-yellow-700;
 }
 
 .btn-danger {
@@ -134,7 +142,7 @@ body {
 }
 
 .kpi {
-  @apply overflow-hidden rounded-md border border-slate-200 bg-white px-5 py-4 shadow-sm;
+  @apply overflow-hidden rounded-md border-2 border-slate-200 bg-white px-5 py-4 shadow-sm;
 }
 
 .table-wrap {

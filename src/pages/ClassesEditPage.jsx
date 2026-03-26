@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
@@ -70,9 +71,10 @@ export default function ClassesEditPage() {
       subtitle="Form tambah atau edit data kelas."
       actions={
         <button
-          className="btn-secondary"
+          className="btn-accent"
           onClick={() => navigate("/admin/kelas/list")}
         >
+          <ArrowLeft size={16} />
           Kembali ke Daftar
         </button>
       }

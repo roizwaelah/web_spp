@@ -98,7 +98,7 @@ export default function StudentListPage() {
             </div>
 
             <div className="w-full md:w-64">
-              <label className="label">Impor Excel / CSV</label>
+              <label className="label">Import Excel / CSV</label>
               <input
                 type="file"
                 className="input w-full"
@@ -108,7 +108,7 @@ export default function StudentListPage() {
             </div>
 
             <button type="button" className="btn-primary whitespace-nowrap" onClick={importStudents}>
-              Impor
+              Import
             </button>
           </div>
         </div>

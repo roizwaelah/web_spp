@@ -74,7 +74,7 @@ export default function AcademicListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-4 space-y-4">
+        <div className="card p-3 space-y-4">
           <input
             className="input"
             placeholder="Cari nama / tanggal tahun ajaran"

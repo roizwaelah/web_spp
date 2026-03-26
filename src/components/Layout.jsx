@@ -52,7 +52,7 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
   };
 
   return (
-    <div className="min-h-screen bg-[#eff2f6]">
+    <div className="dp-app-shell min-h-screen">
       <div className="dp-navbar">
         <div className="dp-navbar__inner">
           <div className="flex items-center gap-3">
