@@ -63,7 +63,7 @@ export default function ParentBillsPage() {
   };
 
   const gatewayEnabled = settings?.payment_gateway_enabled === "1";
-  const gatewayLabel = gatewayEnabled ? "Gateway Aktif" : "Gateway Pemeliharaan";
+  const gatewayLabel = gatewayEnabled ? "Gateway Aktif" : "Dalam Pemeliharaan";
   const gatewayDescription = gatewayEnabled
     ? settings?.payment_gateway_provider || "Pembayaran otomatis tersedia"
     : "Gunakan transfer manual";
@@ -76,7 +76,7 @@ export default function ParentBillsPage() {
         <div className="inline-flex items-center gap-3 rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-left shadow-sm">
           <div className="min-w-0">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Status Pembayaran
+              Pembayaran Online
             </p>
             <p className="truncate text-sm text-slate-700">{gatewayDescription}</p>
           </div>
@@ -174,7 +174,7 @@ export default function ParentBillsPage() {
                       </button>
                       {!gatewayEnabled && (
                         <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                          Gateway nonaktif, gunakan transfer manual
+                          Bayar Otomatis non-aktif, gunakan TF manual
                         </span>
                       )}
                     </div>
