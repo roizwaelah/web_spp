@@ -36,25 +36,25 @@ export default function ParentDashboard() {
   return (
     <Layout
       title="Portal Orang Tua"
-      subtitle="Pantau tagihan anak, pembayaran, dan notifikasi sekolah secara mandiri."
+      subtitle="Pantau tagihan anak, pembayaran, dan notifikasi madrasah secara mandiri."
       showHeader={true}
     >
       {data.settings?.payment_gateway_enabled !== "1" && (
-        <div className="card border border-amber-200 bg-amber-50/80 p-5">
+        <div className="card border border-amber-200 bg-amber-50/80 p-4">
           <h3 className="section-title text-amber-900">Pembayaran Online sedang dalam pemeliharaan</h3>
           <p className="mt-2 text-sm text-amber-800">
             Pembayaran otomatis sementara dinonaktifkan oleh admin. Silakan gunakan transfer manual dan unggah bukti pembayaran pada menu Tagihan.
           </p>
         </div>
       )}
-      <div className="card p-6">
+      <div className="card p-4">
         <h3 className="text-xl font-bold text-slate-900">
           {loading ? "Memuat data siswa..." : data.student?.name || "-"}
         </h3>
         <p className="mt-1 text-sm text-slate-500">
           {data.student?.class_name || "-"} | Wali: {data.student?.parent_name || "-"}
         </p>
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-slate-600">
           Madrasah: <span className="font-semibold">{data.settings?.school_name || "-"}</span>
         </p>
       </div>
