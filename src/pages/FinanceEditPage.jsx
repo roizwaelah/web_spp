@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { formatCurrency } from "../utils";
 
 const initialForm = {
   id: null,
@@ -17,19 +18,27 @@ const initialForm = {
   is_active: true,
 };
 
+const normalizeAmountInput = (value) => value.replace(/\D/g, "");
+
 export default function FinanceEditPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState("");
+  const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
+  const copyId = location.state?.copyId;
 
   useToastMessage(message, setMessage);
 
   const selectedPost = useMemo(
     () => rows.find((item) => String(item.id) === String(id)),
     [rows, id],
+  );
+  const copiedPost = useMemo(
+    () => rows.find((item) => String(item.id) === String(copyId)),
+    [rows, copyId],
   );
 
   const load = async () => {
@@ -54,23 +63,40 @@ export default function FinanceEditPage() {
   }, []);
 
   useEffect(() => {
-    if (!id || !selectedPost) {
-      setForm(initialForm);
+    if (id && selectedPost) {
+      setForm({
+        id: selectedPost.id,
+        name: selectedPost.name || "",
+        description: selectedPost.description || "",
+        amount: selectedPost.amount,
+        applies_to: selectedPost.applies_to,
+        class_id: selectedPost.class_id ? String(selectedPost.class_id) : "",
+        student_id: selectedPost.student_id ? String(selectedPost.student_id) : "",
+        billing_type: selectedPost.billing_type,
+        is_active: !!selectedPost.is_active,
+      });
       return;
     }
 
-    setForm({
-      id: selectedPost.id,
-      name: selectedPost.name || "",
-      description: selectedPost.description || "",
-      amount: selectedPost.amount,
-      applies_to: selectedPost.applies_to,
-      class_id: selectedPost.class_id ? String(selectedPost.class_id) : "",
-      student_id: selectedPost.student_id ? String(selectedPost.student_id) : "",
-      billing_type: selectedPost.billing_type,
-      is_active: !!selectedPost.is_active,
-    });
-  }, [id, selectedPost]);
+    if (copyId && copiedPost) {
+      setForm({
+        id: null,
+        name: copiedPost.name || "",
+        description: copiedPost.description || "",
+        amount: copiedPost.amount,
+        applies_to: copiedPost.applies_to,
+        class_id: copiedPost.class_id ? String(copiedPost.class_id) : "",
+        student_id: copiedPost.student_id ? String(copiedPost.student_id) : "",
+        billing_type: copiedPost.billing_type,
+        is_active: !!copiedPost.is_active,
+      });
+      return;
+    }
+
+    if (!id) {
+      setForm(initialForm);
+    }
+  }, [copyId, copiedPost, id, selectedPost]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -80,8 +106,11 @@ export default function FinanceEditPage() {
         setMessage("Pos keuangan berhasil diperbarui");
       } else {
         await fetchRoute("admin/finance-posts", { method: "POST", data: form });
-        setMessage("Pos keuangan berhasil ditambahkan");
+        setMessage(copyId ? "Salinan pos keuangan berhasil ditambahkan" : "Pos keuangan berhasil ditambahkan");
         setForm(initialForm);
+        if (copyId) {
+          navigate("/admin/pos-keuangan/edit", { replace: true });
+        }
       }
       load();
     } catch (error) {
@@ -107,7 +136,7 @@ export default function FinanceEditPage() {
     >
       <div className="card p-5">
         <h3 className="section-title">
-          {form.id ? "Edit pos keuangan" : "Tambah pos keuangan"}
+          {form.id ? "Edit pos keuangan" : copyId ? "Salin pos keuangan" : "Tambah pos keuangan"}
         </h3>
         <form className="mt-4 space-y-4" onSubmit={submit}>
           <div>
@@ -129,10 +158,14 @@ export default function FinanceEditPage() {
           <div>
             <label className="label">Nominal</label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               className="input"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              value={form.amount ? formatCurrency(form.amount) : ""}
+              placeholder="Rp0"
+              onChange={(e) =>
+                setForm({ ...form, amount: normalizeAmountInput(e.target.value) })
+              }
             />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -175,7 +208,7 @@ export default function FinanceEditPage() {
                 value={form.class_id}
                 onChange={(e) => setForm({ ...form, class_id: e.target.value })}
               >
-                <option value="">Pilih kelas</option>
+                <option value="">Semua kelas</option>
                 {meta.classes.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
@@ -191,10 +224,10 @@ export default function FinanceEditPage() {
                 value={form.student_id}
                 onChange={(e) => setForm({ ...form, student_id: e.target.value })}
               >
-                <option value="">Pilih siswa</option>
+                <option value="">Semua siswa</option>
                 {meta.students.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} • {item.nis}
+                    {item.name} - {item.nis}
                   </option>
                 ))}
               </select>

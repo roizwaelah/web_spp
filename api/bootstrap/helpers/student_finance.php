@@ -5,8 +5,8 @@ function finance_posts_for_student(int $studentId): array {
     $sql = "SELECT fp.* FROM finance_posts fp
             JOIN students s ON s.id = ?
             WHERE fp.is_active = 1 AND (
-                (fp.applies_to='student' AND fp.student_id=s.id) OR
-                (fp.applies_to='class' AND fp.class_id=s.class_id)
+                (fp.applies_to='student' AND (fp.student_id IS NULL OR fp.student_id=s.id)) OR
+                (fp.applies_to='class' AND (fp.class_id IS NULL OR fp.class_id=s.class_id))
             )
             ORDER BY fp.id DESC";
     $stmt = db()->prepare($sql);
@@ -56,6 +56,25 @@ function record_bill_payment(int $billId, int $studentId, string $channel, float
     }
 
     return ['transaction_id' => (int) db()->lastInsertId(), 'reference_no' => $reference];
+}
+
+function sync_bill_payment_status(int $billId): void {
+    $latestPaid = db()->prepare("SELECT payment_date
+        FROM transactions
+        WHERE bill_id = ? AND status = 'paid'
+        ORDER BY payment_date DESC, id DESC
+        LIMIT 1");
+    $latestPaid->execute([$billId]);
+    $row = $latestPaid->fetch();
+
+    if ($row) {
+        $stmtBill = db()->prepare("UPDATE bills SET status='paid', paid_at=? WHERE id=?");
+        $stmtBill->execute([$row['payment_date'], $billId]);
+        return;
+    }
+
+    $stmtBill = db()->prepare("UPDATE bills SET status='unpaid', paid_at=NULL WHERE id=?");
+    $stmtBill->execute([$billId]);
 }
 
 function parent_user_student(array $user): array {

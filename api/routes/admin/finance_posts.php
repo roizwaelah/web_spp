@@ -27,16 +27,16 @@ if ($route === 'admin/finance-posts' && $method === 'POST') {
         response(['message' => 'Nominal harus lebih besar dari 0'], 422);
     }
     if ($input['applies_to'] === 'class') {
-        ensure_required($input, ['class_id']);
-        if (!scalar('SELECT id FROM classes WHERE id = ? LIMIT 1', [$input['class_id']])) {
+        if (!empty($input['class_id']) && !scalar('SELECT id FROM classes WHERE id = ? LIMIT 1', [$input['class_id']])) {
             response(['message' => 'Kelas target tidak ditemukan'], 404);
         }
+        $input['class_id'] = !empty($input['class_id']) ? $input['class_id'] : null;
         $input['student_id'] = null;
     } else {
-        ensure_required($input, ['student_id']);
-        if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['student_id']])) {
+        if (!empty($input['student_id']) && !scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['student_id']])) {
             response(['message' => 'Siswa target tidak ditemukan'], 404);
         }
+        $input['student_id'] = !empty($input['student_id']) ? $input['student_id'] : null;
         $input['class_id'] = null;
     }
     $stmt = $pdo->prepare("INSERT INTO finance_posts (name, description, amount, applies_to, class_id, student_id, billing_type, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
@@ -67,16 +67,16 @@ if ($route === 'admin/finance-posts' && $method === 'PUT') {
         response(['message' => 'Nominal harus lebih besar dari 0'], 422);
     }
     if ($input['applies_to'] === 'class') {
-        ensure_required($input, ['class_id']);
-        if (!scalar('SELECT id FROM classes WHERE id = ? LIMIT 1', [$input['class_id']])) {
+        if (!empty($input['class_id']) && !scalar('SELECT id FROM classes WHERE id = ? LIMIT 1', [$input['class_id']])) {
             response(['message' => 'Kelas target tidak ditemukan'], 404);
         }
+        $input['class_id'] = !empty($input['class_id']) ? $input['class_id'] : null;
         $input['student_id'] = null;
     } else {
-        ensure_required($input, ['student_id']);
-        if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['student_id']])) {
+        if (!empty($input['student_id']) && !scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['student_id']])) {
             response(['message' => 'Siswa target tidak ditemukan'], 404);
         }
+        $input['student_id'] = !empty($input['student_id']) ? $input['student_id'] : null;
         $input['class_id'] = null;
     }
     $stmt = $pdo->prepare("UPDATE finance_posts SET name=?, description=?, amount=?, applies_to=?, class_id=?, student_id=?, billing_type=?, is_active=? WHERE id=?");

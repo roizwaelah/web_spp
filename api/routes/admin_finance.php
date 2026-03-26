@@ -4,5 +4,6 @@
 require API_ROOT . '/routes/admin/finance_posts.php';
 require API_ROOT . '/routes/admin/expenses.php';
 require API_ROOT . '/routes/admin/bills.php';
+require API_ROOT . '/routes/admin/transactions.php';
 require API_ROOT . '/routes/admin/payment_proofs.php';
 require API_ROOT . '/routes/admin/reports.php';

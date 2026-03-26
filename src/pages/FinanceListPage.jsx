@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
@@ -94,8 +94,20 @@ export default function FinanceListPage() {
               render: (row) => (
                 <div className="flex gap-2">
                   <button
+                    className="btn-accent px-3 py-2"
+                    onClick={() =>
+                      navigate("/admin/pos-keuangan/edit", {
+                        state: { copyId: row.id },
+                      })
+                    }
+                    title="Salin pos"
+                  >
+                    <Copy size={16} />
+                  </button>
+                  <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/pos-keuangan/edit/${row.id}`)}
+                    title="Edit pos"
                   >
                     <Pencil size={16} />
                   </button>
@@ -103,6 +115,7 @@ export default function FinanceListPage() {
                     <button
                       className="btn-danger px-3 py-2"
                       onClick={() => remove(row.id)}
+                      title="Hapus pos"
                     >
                       <Trash2 size={16} />
                     </button>

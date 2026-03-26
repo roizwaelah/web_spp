@@ -12,8 +12,10 @@ import FinanceListPage from './pages/FinanceListPage'
 import FinanceEditPage from './pages/FinanceEditPage'
 import BillsListPage from './pages/BillsListPage'
 import BillsEditPage from './pages/BillsEditPage'
-import ManualPaymentPage from './pages/ManualPaymentPage'
-import ExpensesPage from './pages/ExpensesPage'
+import PaymentListPage from './pages/PaymentListPage'
+import PaymentEditPage from './pages/PaymentEditPage'
+import ExpensesListPage from './pages/ExpensesListPage'
+import ExpensesEditPage from './pages/ExpensesEditPage'
 import PaymentProofsPage from './pages/PaymentProofsPage'
 import ReportsPage from './pages/ReportsPage'
 import BackupPage from './pages/BackupPage'
@@ -50,12 +52,17 @@ export default function App() {
       <Route path="/admin/pos-keuangan/list" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="finance_posts"><FinanceListPage /></ProtectedRoute>} />
       <Route path="/admin/pos-keuangan/edit" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="finance_posts"><FinanceEditPage /></ProtectedRoute>} />
       <Route path="/admin/pos-keuangan/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="finance_posts"><FinanceEditPage /></ProtectedRoute>} />
-      <Route path="/admin/pengeluaran" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="expenses"><ExpensesPage /></ProtectedRoute>} />
+      <Route path="/admin/pengeluaran" element={<Navigate to="/admin/pengeluaran/list" replace />} />
+      <Route path="/admin/pengeluaran/list" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="expenses"><ExpensesListPage /></ProtectedRoute>} />
+      <Route path="/admin/pengeluaran/edit" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="expenses"><ExpensesEditPage /></ProtectedRoute>} />
+      <Route path="/admin/pengeluaran/edit/:id" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="expenses"><ExpensesEditPage /></ProtectedRoute>} />
       <Route path="/admin/tagihan" element={<Navigate to="/admin/tagihan/list" replace />} />
       <Route path="/admin/tagihan/list" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><BillsListPage /></ProtectedRoute>} />
       <Route path="/admin/tagihan/edit" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><BillsEditPage /></ProtectedRoute>} />
-      <Route path="/admin/pembayaran-manual" element={<Navigate to="/admin/pembayaran" replace />} />
-      <Route path="/admin/pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><ManualPaymentPage /></ProtectedRoute>} />
+      <Route path="/admin/pembayaran-manual" element={<Navigate to="/admin/pembayaran/list" replace />} />
+      <Route path="/admin/pembayaran" element={<Navigate to="/admin/pembayaran/list" replace />} />
+      <Route path="/admin/pembayaran/list" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><PaymentListPage /></ProtectedRoute>} />
+      <Route path="/admin/pembayaran/edit" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="bills"><PaymentEditPage /></ProtectedRoute>} />
       <Route path="/admin/bukti-pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="payment_proofs"><PaymentProofsPage /></ProtectedRoute>} />
       <Route path="/admin/laporan" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="reports"><ReportsPage /></ProtectedRoute>} />
       <Route path="/admin/akun" element={<ProtectedRoute role={['admin', 'bendahara']}><StaffAccountPage /></ProtectedRoute>} />

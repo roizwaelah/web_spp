@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, HandCoins } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
@@ -14,16 +14,27 @@ const initialForm = {
   payment_date: new Date().toISOString().slice(0, 10),
 };
 
-export default function ManualPaymentPage() {
+export default function PaymentEditPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
   const [billRows, setBillRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
 
   useToastMessage(message, setMessage);
+
+  useEffect(() => {
+    if (location.state?.class_id || location.state?.student_id) {
+      setForm((current) => ({
+        ...current,
+        class_id: location.state?.class_id || "",
+        student_id: location.state?.student_id || "",
+      }));
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -36,7 +47,7 @@ export default function ManualPaymentPage() {
       } catch (error) {
         setMessage({
           type: "error",
-          text: error?.response?.data?.message || "Gagal memuat metadata pembayaran manual",
+          text: error?.response?.data?.message || "Gagal memuat metadata pembayaran",
         });
       }
     };
@@ -56,7 +67,6 @@ export default function ManualPaymentPage() {
           },
         });
         setBillRows(Array.isArray(data) ? data : []);
-        setMessage((current) => (current.type === "error" ? { type: "", text: "" } : current));
       } catch (error) {
         setMessage({
           type: "error",
@@ -73,12 +83,11 @@ export default function ManualPaymentPage() {
   const studentOptions = useMemo(() => {
     const rows = meta.students.filter((item) => {
       if (!form.class_id) return true;
-      const bill = billRows.find((row) => String(row.student_id) === String(item.id));
-      return !!bill;
+      return billRows.some((row) => String(row.student_id) === String(item.id));
     });
 
     return rows.sort((a, b) => a.name.localeCompare(b.name, "id"));
-  }, [meta.students, billRows, form.class_id]);
+  }, [billRows, form.class_id, meta.students]);
 
   const billOptions = useMemo(
     () =>
@@ -90,23 +99,6 @@ export default function ManualPaymentPage() {
   );
 
   const selectedBill = billOptions.find((item) => String(item.id) === String(form.bill_id));
-
-  const handleClassChange = (value) => {
-    setForm((current) => ({
-      ...current,
-      class_id: value,
-      student_id: "",
-      bill_id: "",
-    }));
-  };
-
-  const handleStudentChange = (value) => {
-    setForm((current) => ({
-      ...current,
-      student_id: value,
-      bill_id: "",
-    }));
-  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -123,25 +115,13 @@ export default function ManualPaymentPage() {
 
       setMessage({
         type: "success",
-        text: `${data?.message || "Pembayaran manual berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`,
+        text: `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`,
       });
-      setForm({
-        ...initialForm,
-        class_id: form.class_id,
-        student_id: form.student_id,
-      });
-      const { data: rows } = await fetchRoute("admin/bills", {
-        params: {
-          status: "unpaid",
-          ...(form.class_id ? { class_id: form.class_id } : {}),
-          ...(form.student_id ? { student_id: form.student_id } : {}),
-        },
-      });
-      setBillRows(Array.isArray(rows) ? rows : []);
+      navigate("/admin/pembayaran/list", { replace: true });
     } catch (error) {
       setMessage({
         type: "error",
-        text: error?.response?.data?.message || "Gagal menyimpan pembayaran manual",
+        text: error?.response?.data?.message || "Gagal menyimpan pembayaran",
       });
     } finally {
       setSaving(false);
@@ -153,9 +133,9 @@ export default function ManualPaymentPage() {
       title="Pembayaran"
       subtitle="Input pembayaran langsung oleh bendahara untuk tagihan siswa yang belum lunas."
       actions={
-        <button className="btn-accent" onClick={() => navigate("/admin/tagihan/list")}>
+        <button className="btn-accent" onClick={() => navigate("/admin/pembayaran/list")}>
           <ArrowLeft size={16} />
-          Kembali ke Tagihan
+          Kembali ke Daftar
         </button>
       }
     >
@@ -172,31 +152,48 @@ export default function ManualPaymentPage() {
 
         <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
           <div className="h-full">
-              <label className="label">Filter kelas</label>
-              <select className="input" value={form.class_id} onChange={(e) => handleClassChange(e.target.value)}>
-                <option value="">Semua kelas</option>
-                {meta.classes.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+            <label className="label">Filter kelas</label>
+            <select
+              className="input"
+              value={form.class_id}
+              onChange={(e) =>
+                setForm((current) => ({
+                  ...current,
+                  class_id: e.target.value,
+                  student_id: "",
+                  bill_id: "",
+                }))
+              }
+            >
+              <option value="">Semua kelas</option>
+              {meta.classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="h-full">
-              <label className="label">Filter siswa</label>
-              <select
-                className="input"
-                value={form.student_id}
-                disabled={studentOptions.length === 0}
-                onChange={(e) => handleStudentChange(e.target.value)}
-              >
-                <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
-                {studentOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} - {item.nis}
-                  </option>
-                ))}
-              </select>
+            <label className="label">Filter siswa</label>
+            <select
+              className="input"
+              value={form.student_id}
+              disabled={studentOptions.length === 0}
+              onChange={(e) =>
+                setForm((current) => ({
+                  ...current,
+                  student_id: e.target.value,
+                  bill_id: "",
+                }))
+              }
+            >
+              <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
+              {studentOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} - {item.nis}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="md:col-span-2">
@@ -236,27 +233,27 @@ export default function ManualPaymentPage() {
           )}
 
           <div className="h-full">
-              <label className="label">Kanal pembayaran</label>
-              <select
-                className="input"
-                value={form.payment_channel}
-                onChange={(e) => setForm((current) => ({ ...current, payment_channel: e.target.value }))}
-              >
-                <option value="Tunai">Tunai</option>
-                <option value="Transfer Bank">Transfer Bank</option>
-                <option value="QRIS">QRIS</option>
-                <option value="Virtual Account">Virtual Account</option>
-                <option value="E-Wallet">E-Wallet</option>
-              </select>
+            <label className="label">Kanal pembayaran</label>
+            <select
+              className="input"
+              value={form.payment_channel}
+              onChange={(e) => setForm((current) => ({ ...current, payment_channel: e.target.value }))}
+            >
+              <option value="Tunai">Tunai</option>
+              <option value="Transfer Bank">Transfer Bank</option>
+              <option value="QRIS">QRIS</option>
+              <option value="Virtual Account">Virtual Account</option>
+              <option value="E-Wallet">E-Wallet</option>
+            </select>
           </div>
           <div className="h-full">
-              <label className="label">Tanggal pembayaran</label>
-              <input
-                type="date"
-                className="input"
-                value={form.payment_date}
-                onChange={(e) => setForm((current) => ({ ...current, payment_date: e.target.value }))}
-              />
+            <label className="label">Tanggal pembayaran</label>
+            <input
+              type="date"
+              className="input"
+              value={form.payment_date}
+              onChange={(e) => setForm((current) => ({ ...current, payment_date: e.target.value }))}
+            />
           </div>
 
           <div className="flex gap-3 md:col-span-2">
