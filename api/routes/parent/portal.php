@@ -94,26 +94,52 @@ if ($route === 'parent/payments' && $method === 'POST') {
 if ($route === 'parent/payment-proofs' && $method === 'POST') {
     $user = require_auth('parent');
     $student = parent_user_student($user);
-    $billId = $_POST['bill_id'] ?? null;
-    ensure_required(['bill_id' => $billId], ['bill_id']);
-    $stmt = $pdo->prepare("SELECT * FROM bills WHERE id=? AND student_id=? LIMIT 1");
-    $stmt->execute([$billId, $student['id']]);
-    $bill = $stmt->fetch();
-    if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
-    if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas, bukti pembayaran tidak perlu diunggah lagi'], 422);
-    $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
-    if ($pendingProof) response(['message' => 'Bukti pembayaran untuk tagihan ini masih menunggu review admin'], 422);
+    $rawBillIds = $_POST['bill_ids'] ?? ($_POST['bill_id'] ?? null);
+    if ($rawBillIds === null) response(['message' => 'Tagihan yang akan dibuktikan wajib dipilih'], 422);
+    if (!is_array($rawBillIds)) $rawBillIds = [$rawBillIds];
+
+    $billIds = [];
+    foreach ($rawBillIds as $billId) {
+        $billId = (int) $billId;
+        if ($billId > 0) $billIds[] = $billId;
+    }
+    $billIds = array_values(array_unique($billIds));
+    if (!$billIds) response(['message' => 'Tagihan yang akan dibuktikan wajib dipilih'], 422);
+
+    $placeholders = implode(',', array_fill(0, count($billIds), '?'));
+    $params = array_merge($billIds, [$student['id']]);
+    $stmt = $pdo->prepare("SELECT * FROM bills WHERE id IN ($placeholders) AND student_id=? ORDER BY due_date IS NULL, due_date ASC, id ASC");
+    $stmt->execute($params);
+    $bills = $stmt->fetchAll();
+    if (count($bills) !== count($billIds)) response(['message' => 'Sebagian tagihan tidak ditemukan'], 404);
+
+    foreach ($bills as $bill) {
+        if ($bill['status'] === 'paid') response(['message' => "Tagihan {$bill['bill_name']} sudah lunas, bukti pembayaran tidak perlu diunggah lagi"], 422);
+        $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
+        if ($pendingProof) response(['message' => "Bukti pembayaran untuk {$bill['bill_name']} masih menunggu review admin"], 422);
+    }
 
     $file = save_uploaded_file('file', 'payment-proofs');
     if (!$file) response(['message' => 'File bukti pembayaran wajib diunggah'], 422);
 
-    $stmt = $pdo->prepare("INSERT INTO payment_proofs (bill_id, student_id, proof_file_name, proof_path, mime_type, size_bytes, status, notes, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NOW())");
-    $stmt->execute([$bill['id'], $student['id'], $file['filename'], $file['path'], $file['mime_type'], $file['size_bytes'], $_POST['notes'] ?? null]);
-    queue_whatsapp_notification((int) $student['id'], 'Bukti Pembayaran Diterima', "Bukti pembayaran untuk {$bill['bill_name']} berhasil diunggah dan menunggu verifikasi admin.");
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("INSERT INTO payment_proofs (bill_id, student_id, proof_file_name, proof_path, mime_type, size_bytes, status, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NOW())");
+        foreach ($bills as $bill) {
+            $stmt->execute([$bill['id'], $student['id'], $file['filename'], $file['path'], $file['mime_type'], $file['size_bytes'], $_POST['notes'] ?? null]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        response(['message' => 'Gagal menyimpan bukti pembayaran'], 500);
+    }
+
+    $billSummary = count($bills) === 1 ? $bills[0]['bill_name'] : count($bills) . ' tagihan';
+    queue_whatsapp_notification((int) $student['id'], 'Bukti Pembayaran Diterima', "Bukti pembayaran untuk {$billSummary} berhasil diunggah dan menunggu verifikasi admin.");
     try_dispatch_whatsapp_queue();
-    log_activity((int) $user['id'], 'upload', 'payment_proof', (int) $pdo->lastInsertId(), 'Unggah bukti pembayaran');
-    response(['message' => 'Bukti pembayaran berhasil diunggah dan menunggu verifikasi']);
+    log_activity((int) $user['id'], 'upload', 'payment_proof', (int) $billIds[0], 'Unggah bukti pembayaran untuk ' . count($billIds) . ' tagihan');
+    response(['message' => count($billIds) > 1 ? 'Bukti pembayaran berhasil diunggah untuk beberapa tagihan dan menunggu verifikasi' : 'Bukti pembayaran berhasil diunggah dan menunggu verifikasi']);
 }
 
 if ($route === 'parent/transactions' && $method === 'GET') {

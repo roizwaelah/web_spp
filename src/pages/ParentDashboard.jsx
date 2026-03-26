@@ -37,7 +37,7 @@ export default function ParentDashboard() {
     <Layout
       title="Portal Orang Tua"
       subtitle="Pantau tagihan anak, pembayaran, dan notifikasi sekolah secara mandiri."
-      showHeader={false}
+      showHeader={true}
     >
       {data.settings?.payment_gateway_enabled !== "1" && (
         <div className="card border border-amber-200 bg-amber-50/80 p-5">
@@ -99,26 +99,6 @@ export default function ParentDashboard() {
           valueClass="text-sky-900"
           helperClass="text-sky-500"
         />
-      </div>
-      <div className="card p-6">
-        <h3 className="section-title">Instruksi pembayaran utama</h3>
-        <div className={`mt-4 grid gap-4 ${data.settings?.payment_gateway_enabled === "1" ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm text-slate-500">Rekening madrasah</p>
-            <p className="mt-2 font-semibold text-slate-900">{data.settings?.bank_account || "-"}</p>
-          </div>
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm text-slate-500">QRIS</p>
-            <p className="mt-2 font-semibold text-slate-900">{data.settings?.qris_text || "-"}</p>
-          </div>
-          {data.settings?.payment_gateway_enabled === "1" && (
-            <div className="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-100">
-              <p className="text-sm text-sky-600">Payment gateway</p>
-              <p className="mt-2 font-semibold text-slate-900">{data.settings?.payment_gateway_provider || "Gateway aktif"}</p>
-              <p className="mt-2 text-sm text-slate-500">Pembayaran otomatis tersedia di menu Tagihan Orang Tua.</p>
-            </div>
-          )}
-        </div>
       </div>
     </Layout>
   );

@@ -20,6 +20,8 @@ import SettingsPage from './pages/SettingsPage'
 import ParentDashboard from './pages/ParentDashboard'
 import ParentBillsPage from './pages/ParentBillsPage'
 import ParentPaymentPage from './pages/ParentPaymentPage'
+import ParentManualPaymentPage from './pages/ParentManualPaymentPage'
+import ParentGatewayPaymentPage from './pages/ParentGatewayPaymentPage'
 import ParentTransactionsPage from './pages/ParentTransactionsPage'
 import ParentNotificationsPage from './pages/ParentNotificationsPage'
 import UsersListPage from './pages/UsersListPage'
@@ -63,6 +65,8 @@ export default function App() {
       <Route path="/orang-tua" element={<ProtectedRoute role="parent"><ParentDashboard /></ProtectedRoute>} />
       <Route path="/orang-tua/tagihan" element={<ProtectedRoute role="parent"><ParentBillsPage /></ProtectedRoute>} />
       <Route path="/orang-tua/tagihan/pembayaran" element={<ProtectedRoute role="parent"><ParentPaymentPage /></ProtectedRoute>} />
+      <Route path="/orang-tua/tagihan/pembayaran/manual" element={<ProtectedRoute role="parent"><ParentManualPaymentPage /></ProtectedRoute>} />
+      <Route path="/orang-tua/tagihan/pembayaran/otomatis" element={<ProtectedRoute role="parent"><ParentGatewayPaymentPage /></ProtectedRoute>} />
       <Route path="/orang-tua/transaksi" element={<ProtectedRoute role="parent"><ParentTransactionsPage /></ProtectedRoute>} />
       <Route path="/orang-tua/notifikasi" element={<ProtectedRoute role="parent"><ParentNotificationsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

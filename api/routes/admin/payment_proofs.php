@@ -99,7 +99,8 @@ if ($route === 'admin/payment-proofs' && $method === 'DELETE') {
 
     $delete = $pdo->prepare("DELETE FROM payment_proofs WHERE id = ?");
     $delete->execute([$input['id']]);
-    if (!empty($proof['proof_path']) && file_exists($proof['proof_path'])) {
+    $remainingPathUsage = (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE proof_path = ?", [$proof['proof_path']]);
+    if (!empty($proof['proof_path']) && $remainingPathUsage === 0 && file_exists($proof['proof_path'])) {
         @unlink($proof['proof_path']);
     }
     log_activity((int) $user['id'], 'delete', 'payment_proof', (int) $input['id'], 'Menghapus bukti pembayaran');

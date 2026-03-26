@@ -11,7 +11,6 @@ export default function ParentBillsPage() {
   const [bills, setBills] = useState([]);
   const [settings, setSettings] = useState({});
   const [message, setMessage] = useState({ type: "", text: "" });
-  const [fileMap, setFileMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyBillId, setBusyBillId] = useState(null);
 
@@ -42,39 +41,6 @@ export default function ParentBillsPage() {
   useEffect(() => {
     load();
   }, []);
-
-  const uploadProof = async (billId) => {
-    const file = fileMap[billId];
-    if (!file) {
-      setMessage({ type: "error", text: "Pilih file bukti terlebih dahulu." });
-      return;
-    }
-
-    const data = new FormData();
-    data.append("bill_id", billId);
-    data.append("notes", "Upload bukti dari portal orang tua");
-    data.append("file", file);
-
-    try {
-      setBusyBillId(billId);
-      const res = await fetchRoute("parent/payment-proofs", {
-        method: "POST",
-        data,
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setMessage({ type: "success", text: res.data.message });
-      setFileMap((prev) => ({ ...prev, [billId]: null }));
-      await load();
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text:
-          error?.response?.data?.message || "Gagal mengunggah bukti pembayaran",
-      });
-    } finally {
-      setBusyBillId(null);
-    }
-  };
 
   const downloadReceipt = async (billId) => {
     try {
@@ -182,7 +148,6 @@ export default function ParentBillsPage() {
               const proofPending = row.proof_status === "pending";
               const proofApproved = row.proof_status === "approved";
               const isBusy = busyBillId === row.id;
-              const selectedFileName = fileMap[row.id]?.name;
 
               return row.status === "paid" || proofApproved ? (
                 <button
@@ -198,7 +163,7 @@ export default function ParentBillsPage() {
                     <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
                       Bukti pembayaran sedang menunggu review admin.
                     </div>
-                  ) : settings?.payment_gateway_enabled === "1" ? (
+                  ) : (
                     <button
                       className="btn-primary"
                       disabled={isBusy}
@@ -206,45 +171,7 @@ export default function ParentBillsPage() {
                     >
                       Bayar
                     </button>
-                  ) : (
-                    <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                      Pembayaran Online sedang tidak aktif. Silakan unggah bukti
-                      transfer manual.
-                    </div>
                   )}
-                  <div className="w-fit rounded-md border border-slate-200 p-3">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Upload bukti transfer manual
-                    </p>
-                    <div className="flex items-start gap-2">
-                      <input
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.pdf"
-                        className="input w-[190px] md:w-[210px]"
-                        disabled={proofPending || isBusy}
-                        onChange={(e) =>
-                          setFileMap((prev) => ({
-                            ...prev,
-                            [row.id]: e.target.files?.[0] || null,
-                          }))
-                        }
-                      />
-                      <button
-                        className="btn-primary"
-                        disabled={proofPending || isBusy}
-                        onClick={() => uploadProof(row.id)}
-                      >
-                        {proofPending
-                          ? "Menunggu Review"
-                          : isBusy
-                            ? "Memproses..."
-                            : "Kirim"}
-                      </button>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {selectedFileName || "Format file: JPG, PNG, atau PDF"}
-                    </p>
-                  </div>
                 </div>
               );
             },
