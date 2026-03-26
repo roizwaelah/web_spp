@@ -150,7 +150,7 @@ export default function ManualPaymentPage() {
 
   return (
     <Layout
-      title="Pembayaran Manual"
+      title="Pembayaran"
       subtitle="Input pembayaran langsung oleh bendahara untuk tagihan siswa yang belum lunas."
       actions={
         <button className="btn-accent" onClick={() => navigate("/admin/tagihan/list")}>

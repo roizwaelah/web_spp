@@ -37,6 +37,7 @@ function staff_menu_definitions(): array {
         ['key' => 'classes', 'label' => 'Data Kelas'],
         ['key' => 'academic_years', 'label' => 'Tahun Ajaran'],
         ['key' => 'finance_posts', 'label' => 'Pos Keuangan'],
+        ['key' => 'expenses', 'label' => 'Pengeluaran'],
         ['key' => 'bills', 'label' => 'Tagihan'],
         ['key' => 'payment_proofs', 'label' => 'Bukti Pembayaran'],
         ['key' => 'reports', 'label' => 'Laporan'],
@@ -49,7 +50,7 @@ function staff_menu_definitions(): array {
 function default_menu_access_for_role(string $role): array {
     return match ($role) {
         'admin' => array_column(staff_menu_definitions(), 'key'),
-        'bendahara' => ['dashboard', 'students', 'classes', 'academic_years', 'finance_posts', 'bills', 'payment_proofs', 'reports'],
+        'bendahara' => ['dashboard', 'students', 'classes', 'academic_years', 'finance_posts', 'expenses', 'bills', 'payment_proofs', 'reports'],
         default => [],
     };
 }

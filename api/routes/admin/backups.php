@@ -11,7 +11,7 @@ if ($route === 'admin/backups' && $method === 'GET') {
 if ($route === 'admin/backups' && $method === 'POST') {
     $user = require_auth();
     validate_menu_access($user, ['backups'], ['admin']);
-    $tables = ['academic_years','classes','students','users','user_menu_access','finance_posts','bills','transactions','notifications','payment_proofs','settings','audit_logs'];
+    $tables = ['academic_years','classes','students','users','user_menu_access','finance_posts','expenses','bills','transactions','notifications','payment_proofs','settings','audit_logs'];
     $content = "-- Backup SPP Madrasah Enterprise
 -- Generated at: " . date('Y-m-d H:i:s') . "
 

@@ -10,6 +10,7 @@ export default function ReportsPage() {
   const [filter, setFilter] = useState({
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
     end_date: new Date().toISOString().slice(0, 10),
+    type: "",
     status: "",
     class_id: "",
     student_id: "",
@@ -17,7 +18,7 @@ export default function ReportsPage() {
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ classes: [] });
   const [studentSourceRows, setStudentSourceRows] = useState([]);
-  const [summary, setSummary] = useState({ count: 0, total: 0, successful: 0, pending: 0 });
+  const [summary, setSummary] = useState({ count: 0, totalIncome: 0, totalExpense: 0, net: 0, successful: 0, pending: 0 });
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
 
@@ -31,6 +32,7 @@ export default function ReportsPage() {
           params: {
             start_date: filter.start_date,
             end_date: filter.end_date,
+            ...(filter.type ? { type: filter.type } : {}),
             ...(filter.status ? { status: filter.status } : {}),
             ...(filter.class_id ? { class_id: filter.class_id } : {}),
           },
@@ -39,6 +41,7 @@ export default function ReportsPage() {
           params: {
             start_date: filter.start_date,
             end_date: filter.end_date,
+            ...(filter.type ? { type: filter.type } : {}),
             ...(filter.status ? { status: filter.status } : {}),
             ...(filter.class_id ? { class_id: filter.class_id } : {}),
             ...(filter.student_id ? { student_id: filter.student_id } : {}),
@@ -51,7 +54,7 @@ export default function ReportsPage() {
       });
       setStudentSourceRows(Array.isArray(studentRowsRes.data?.rows) ? studentRowsRes.data.rows : []);
       setRows(Array.isArray(reportsRes.data?.rows) ? reportsRes.data.rows : []);
-      setSummary(reportsRes.data?.summary || { count: 0, total: 0, successful: 0, pending: 0 });
+      setSummary(reportsRes.data?.summary || { count: 0, totalIncome: 0, totalExpense: 0, net: 0, successful: 0, pending: 0 });
       setMessage("");
     } catch (error) {
       setMessage(error?.response?.data?.message || "Gagal memuat laporan");
@@ -79,7 +82,7 @@ export default function ReportsPage() {
   const filteredRows = useMemo(
     () =>
       rows.filter((row) =>
-        `${row.payment_date || ""} ${row.student_name || ""} ${row.class_name || ""} ${row.bill_name || ""} ${row.payment_channel || ""} ${row.reference_no || ""} ${row.status || ""}`
+        `${row.report_type || ""} ${row.report_date || ""} ${row.student_name || ""} ${row.class_name || ""} ${row.item_name || ""} ${row.category || ""} ${row.payment_channel || ""} ${row.reference_no || ""} ${row.status || ""}`
           .toLowerCase()
           .includes(search.toLowerCase()),
       ),
@@ -93,6 +96,7 @@ export default function ReportsPage() {
         params: {
           start_date: filter.start_date,
           end_date: filter.end_date,
+          ...(filter.type ? { type: filter.type } : {}),
           ...(filter.status ? { status: filter.status } : {}),
           ...(filter.class_id ? { class_id: filter.class_id } : {}),
           ...(filter.student_id ? { student_id: filter.student_id } : {}),
@@ -122,7 +126,7 @@ export default function ReportsPage() {
   return (
     <Layout
       title="Laporan Keuangan Real-Time"
-      subtitle="Filter laporan harian, bulanan, atau tahunan, lalu unduh hasilnya dalam format CSV."
+      subtitle="Filter pemasukan dan pengeluaran, lalu unduh hasilnya dalam format CSV."
     >
       <div className="space-y-4">
         <div className="card p-4">
@@ -156,10 +160,23 @@ export default function ReportsPage() {
                 />
               </div>
               <div>
+                <label className="label">Tipe</label>
+                <select
+                  className="input"
+                  value={filter.type}
+                  onChange={(e) => setFilter({ ...filter, type: e.target.value, status: "", class_id: "", student_id: "" })}
+                >
+                  <option value="">Semua data</option>
+                  <option value="income">Pemasukan</option>
+                  <option value="expense">Pengeluaran</option>
+                </select>
+              </div>
+              <div>
                 <label className="label">Status</label>
                 <select
                   className="input"
                   value={filter.status}
+                  disabled={filter.type === "expense"}
                   onChange={(e) => setFilter({ ...filter, status: e.target.value, student_id: "" })}
                 >
                   <option value="">Semua status</option>
@@ -173,6 +190,7 @@ export default function ReportsPage() {
                 <select
                   className="input"
                   value={filter.class_id}
+                  disabled={filter.type === "expense"}
                   onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
                 >
                   <option value="">Semua kelas</option>
@@ -188,7 +206,7 @@ export default function ReportsPage() {
                 <select
                   className="input"
                   value={filter.student_id}
-                  disabled={studentOptions.length === 0}
+                  disabled={filter.type === "expense" || studentOptions.length === 0}
                   onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
                 >
                   <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
@@ -200,22 +218,26 @@ export default function ReportsPage() {
                 </select>
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-5">
               <div className="rounded-2xl border border-slate-200 px-4 py-3">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Transaksi</div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">Data</div>
                 <div className="mt-1 text-lg font-semibold text-slate-900">{summary.count || 0}</div>
               </div>
               <div className="rounded-2xl border border-slate-200 px-4 py-3">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Total</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(summary.total || 0)}</div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">Pemasukan</div>
+                <div className="mt-1 text-lg font-semibold text-emerald-700">{formatCurrency(summary.totalIncome || 0)}</div>
               </div>
               <div className="rounded-2xl border border-slate-200 px-4 py-3">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Lunas</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">{summary.successful || 0}</div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">Pengeluaran</div>
+                <div className="mt-1 text-lg font-semibold text-rose-700">{formatCurrency(summary.totalExpense || 0)}</div>
               </div>
               <div className="rounded-2xl border border-slate-200 px-4 py-3">
-                <div className="text-xs uppercase tracking-wide text-slate-500">Menunggu</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">{summary.pending || 0}</div>
+                <div className="text-xs uppercase tracking-wide text-slate-500">Saldo</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(summary.net || 0)}</div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 px-4 py-3">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Lunas / Pending</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900">{summary.successful || 0} / {summary.pending || 0}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -230,12 +252,22 @@ export default function ReportsPage() {
         </div>
         <Table
           columns={[
-            { key: "payment_date", title: "Tanggal" },
+            {
+              key: "report_type",
+              title: "Tipe",
+              render: (row) => (
+                <span className={row.report_type === "income" ? "badge-green" : "badge-red"}>
+                  {row.report_type === "income" ? "Pemasukan" : "Pengeluaran"}
+                </span>
+              ),
+            },
+            { key: "report_date", title: "Tanggal" },
             { key: "student_name", title: "Siswa" },
             { key: "class_name", title: "Kelas" },
-            { key: "bill_name", title: "Tagihan" },
+            { key: "item_name", title: "Item" },
+            { key: "category", title: "Kategori", render: (row) => row.category || "-" },
             { key: "payment_channel", title: "Kanal" },
-            { key: "amount_paid", title: "Nominal", render: (row) => formatCurrency(row.amount_paid) },
+            { key: "amount", title: "Nominal", render: (row) => formatCurrency(row.amount) },
             { key: "reference_no", title: "Referensi" },
             {
               key: "status",
@@ -247,10 +279,12 @@ export default function ReportsPage() {
                       ? "badge-green"
                       : row.status === "pending"
                         ? "badge-amber"
-                        : "badge-red"
+                        : row.status === "recorded"
+                          ? "badge-slate"
+                          : "badge-red"
                   }
                 >
-                  {row.status === "paid" ? "Lunas" : row.status === "pending" ? "Menunggu" : "Gagal"}
+                  {row.status === "paid" ? "Lunas" : row.status === "pending" ? "Menunggu" : row.status === "recorded" ? "Tercatat" : "Gagal"}
                 </span>
               ),
             },

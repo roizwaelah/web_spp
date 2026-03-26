@@ -19,6 +19,7 @@ const INITIAL_DASHBOARD_DATA = {
   channelBreakdown: [],
   dueSoon: [],
   latestTransactions: [],
+  latestExpenses: [],
 };
 
 const normalizeDashboardData = (payload) => ({
@@ -32,6 +33,7 @@ const normalizeDashboardData = (payload) => ({
   latestTransactions: Array.isArray(payload?.latestTransactions)
     ? payload.latestTransactions
     : [],
+  latestExpenses: Array.isArray(payload?.latestExpenses) ? payload.latestExpenses : [],
 });
 
 export default function AdminDashboard() {
@@ -76,7 +78,7 @@ export default function AdminDashboard() {
       }
       subtitle="Pantau ringkasan operasional, performa pembayaran, tagihan aktif, dan bukti bayar pending."
     >
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="Total Siswa"
           value={data.summary?.students || 0}
@@ -116,6 +118,16 @@ export default function AdminDashboard() {
           titleClass="text-emerald-700"
           valueClass="text-emerald-900"
           helperClass="text-emerald-600"
+        />
+        <StatCard
+          title="Pengeluaran Bulan Ini"
+          value={formatCurrency(data.summary?.monthExpense || 0)}
+          helper={`Saldo bulan ini: ${formatCurrency(data.summary?.monthBalance || 0)}`}
+          className="border-rose-300 shadow-rose-100/80"
+          accentClass="bg-rose-500"
+          titleClass="text-rose-700"
+          valueClass="text-rose-900"
+          helperClass="text-rose-500"
         />
       </div>
 
@@ -236,7 +248,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-3">
         <div className="space-y-4">
           <div className="card p-5 xl:p-5">
             <div className="mb-3 flex items-center gap-3">
@@ -318,6 +330,36 @@ export default function AdminDashboard() {
                 },
               ]}
               rows={data.latestTransactions}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="card p-5 xl:p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="rounded-xl bg-rose-100 p-2.5 text-rose-700">
+                <Wallet size={18} />
+              </div>
+              <div>
+                <h3 className="section-title">Pengeluaran terbaru</h3>
+                <p className="text-[0.82rem] text-slate-500">
+                  Pencatatan biaya operasional terakhir.
+                </p>
+              </div>
+            </div>
+            <Table
+              emptyText={loading ? "Memuat pengeluaran..." : "Belum ada pengeluaran"}
+              columns={[
+                { key: "expense_date", title: "Tanggal" },
+                { key: "title", title: "Pengeluaran" },
+                { key: "category", title: "Kategori", render: (row) => row.category || "-" },
+                {
+                  key: "amount",
+                  title: "Nominal",
+                  render: (row) => formatCurrency(row.amount),
+                },
+              ]}
+              rows={data.latestExpenses}
             />
           </div>
         </div>

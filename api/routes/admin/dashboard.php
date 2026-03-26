@@ -11,9 +11,11 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         'activeBills' => (int) scalar("SELECT COUNT(*) FROM bills WHERE status <> 'paid'"),
         'pendingProofs' => (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE status='pending'"),
         'monthIncome' => (float) scalar("SELECT COALESCE(SUM(amount_paid),0) FROM transactions WHERE status='paid' AND DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"),
+        'monthExpense' => (float) scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE DATE_FORMAT(expense_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"),
         'yearIncome' => (float) scalar("SELECT COALESCE(SUM(amount_paid),0) FROM transactions WHERE status='paid' AND YEAR(payment_date) = YEAR(CURDATE())"),
         'lastBackup' => scalar("SELECT DATE_FORMAT(MAX(created_at), '%d-%m-%Y %H:%i') FROM backups") ?: 'Belum ada',
     ];
+    $summary['monthBalance'] = (float) $summary['monthIncome'] - (float) $summary['monthExpense'];
 
     $integrations = [
         'paymentGatewayEnabled' => setting_is_enabled('payment_gateway_enabled'),
@@ -42,5 +44,9 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         JOIN students s ON s.id=t.student_id
         ORDER BY t.id DESC LIMIT 6")->fetchAll();
 
-    response(compact('summary', 'monthly', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'integrations'));
+    $latestExpenses = $pdo->query("SELECT id, expense_date, title, category, amount
+        FROM expenses
+        ORDER BY expense_date DESC, id DESC LIMIT 6")->fetchAll();
+
+    response(compact('summary', 'monthly', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'latestExpenses', 'integrations'));
 }
