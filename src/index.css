@@ -98,7 +98,7 @@ body {
 }
 
 .btn-secondary {
-  @apply btn bg-slate-100 text-sky-700 hover:bg-slate-200;
+  @apply btn border border-sky-700 bg-slate-100 text-sky-700 hover:bg-slate-300;
 }
 
 .btn-accent {

@@ -209,7 +209,7 @@ export default function ParentBillsPage() {
                       transfer manual.
                     </div>
                   )}
-                  <div className="rounded-md border border-slate-200 p-3">
+                  <div className="rounded-md border border-slate-200 p-3 w-fit">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Upload bukti transfer manual
                     </p>
@@ -217,7 +217,7 @@ export default function ParentBillsPage() {
                       <input
                         type="file"
                         accept=".jpg,.jpeg,.png,.pdf"
-                        className="input"
+                        className="input w-fit md:w-64"
                         disabled={proofPending || isBusy}
                         onChange={(e) =>
                           setFileMap((prev) => ({
