@@ -12,6 +12,30 @@ function create_payment_reference(string $channel): string {
     return $prefix . '-' . date('YmdHis') . '-' . random_int(100, 999);
 }
 
+function create_manual_payment_reference(?string $paymentDate = null): string {
+    $normalizedDate = trim((string) $paymentDate);
+    if ($normalizedDate === '') {
+        $normalizedDate = date('Y-m-d');
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}/', $normalizedDate)) {
+        $normalizedDate = date('Y-m-d');
+    }
+
+    $timestamp = strtotime(substr($normalizedDate, 0, 10)) ?: time();
+    $monthKey = date('Y-m', $timestamp);
+    $displayDate = date('dmy', $timestamp);
+
+    $stmt = db()->prepare("SELECT COALESCE(MAX(CAST(RIGHT(reference_no, 3) AS UNSIGNED)), 0)
+        FROM transactions
+        WHERE reference_no LIKE 'KW-%'
+          AND DATE_FORMAT(payment_date, '%Y-%m') = ?");
+    $stmt->execute([$monthKey]);
+    $nextNumber = ((int) $stmt->fetchColumn()) + 1;
+
+    return 'KW-' . $displayDate . '-' . str_pad((string) $nextNumber, 3, '0', STR_PAD_LEFT);
+}
+
 function payment_instruction(string $channel): string {
     return match ($channel) {
         'Transfer Bank' => 'Silakan transfer ke rekening madrasah yang terdaftar.',

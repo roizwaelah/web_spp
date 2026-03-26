@@ -53,16 +53,12 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
         response(['message' => 'Tagihan ini masih memiliki bukti pembayaran yang menunggu review admin'], 422);
     }
 
-    $referenceNo = trim((string) ($input['reference_no'] ?? ''));
-    if ($referenceNo !== '' && mb_strlen($referenceNo) > 120) {
-        response(['message' => 'Nomor referensi maksimal 120 karakter'], 422);
-    }
-
     $notes = trim((string) ($input['notes'] ?? ''));
     if ($notes !== '' && mb_strlen($notes) > 500) {
         response(['message' => 'Catatan pembayaran maksimal 500 karakter'], 422);
     }
 
+    $referenceNo = create_manual_payment_reference((string) $input['payment_date']);
     $tx = record_bill_payment((int) $bill['id'], (int) $bill['student_id'], (string) $input['payment_channel'], (float) $bill['amount'], [
         'payment_date' => (string) $input['payment_date'],
         'reference_no' => $referenceNo,

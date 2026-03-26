@@ -1,12 +1,5 @@
 import { useState } from "react";
-import {
-  ArrowRight,
-  Building2,
-  CreditCard,
-  FileCheck2,
-  MessageCircleMore,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForUser } from "../access";
@@ -37,40 +30,55 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-800 text-slate-100">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_420px]">
-          <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-sky-700 via-teal-700 to-sky-700 p-8 shadow-xl">
-            <div className="inline-flex rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold tracking-wide">
-              SPP Madrasah Online
+    <div className="landing-shell text-slate-100">
+      <div className="landing-shell__backdrop" />
+      <div className="landing-shell__image" />
+      <div className="landing-shell__overlay" />
+
+      <div className="landing-shell__content">
+        <div className="landing-layout">
+          <section className="landing-hero">
+            <div className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-100/90 backdrop-blur">
+              MADSC Payment Platform
             </div>
-            <h1 className="mt-6 max-w-3xl text-3xl font-black leading-tight lg:text-[2.8rem]">
-              Website pembayaran SPP
-              <span className="text-sky-100"> MA Darussalam Cilongok</span>
-            </h1>
-            <p className="mt-5 max-w-2xl text-[1.05rem] text-sky-50/95 lg:text-xl">
-              Dibangun dengan Vite React + Tailwind CSS + PHP + MySQL untuk
-              kebutuhan admin, bendahara/TU, dan orang tua siswa.
-            </p>
-          </div>
 
-          <div className="rounded-[32px] border border-slate-200/80 bg-slate-50 p-6 text-slate-900 shadow-xl">
-            <h2 className="text-[1.9rem] font-bold">Masuk ke portal</h2>
-            <p className="mt-2 text-[0.98rem] text-slate-600">
-              Gunakan akun Admin, Bendahara/TU, atau Orang Tua.
-            </p>
+            <div className="mt-5 max-w-3xl">
+              <p className="text-[0.8rem] font-semibold uppercase tracking-[0.22em] text-amber-200/90">
+                Sistem Pembayaran Terintegrasi
+              </p>
+              <h1 className="mt-2.5 text-[2.1rem] font-black leading-tight text-white lg:text-[2.8rem]">
+                Portal pembayaran SPP yang lebih tertata, jelas, dan nyaman dipakai.
+              </h1>
+              <p className="mt-4 max-w-2xl text-[0.95rem] leading-6 text-slate-100/88 lg:text-[1rem]">
+                Kelola tagihan siswa, verifikasi pembayaran, dan akses portal orang tua
+                dalam satu sistem yang rapi untuk Admin, Bendahara/TU, dan wali siswa
+                MA Darussalam Cilongok.
+              </p>
+            </div>
+          </section>
 
-            <div className="mt-5 grid grid-cols-2 rounded-2xl bg-slate-200 p-1">
+          <section className="landing-login-card">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
+                Akses Portal
+              </p>
+              <h2 className="mt-2 text-[1.75rem] font-bold text-slate-900">Masuk ke sistem</h2>
+              <p className="mt-2 text-[0.92rem] leading-6 text-slate-600">
+                Gunakan akun Admin, Bendahara/TU, atau Orang Tua sesuai kebutuhan akses.
+              </p>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 rounded-2xl bg-slate-200 p-1.5">
               <button
                 type="button"
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${role === "staff" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${role === "staff" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
                 onClick={() => setRole("staff")}
               >
                 Admin / TU
               </button>
               <button
                 type="button"
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${role === "parent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${role === "parent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
                 onClick={() => setRole("parent")}
               >
                 Orang Tua
@@ -129,7 +137,7 @@ export default function LandingPage() {
                 )}
               </button>
             </form>
-          </div>
+          </section>
         </div>
       </div>
     </div>

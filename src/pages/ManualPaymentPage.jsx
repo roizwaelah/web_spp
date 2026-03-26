@@ -12,8 +12,6 @@ const initialForm = {
   bill_id: "",
   payment_channel: "Tunai",
   payment_date: new Date().toISOString().slice(0, 10),
-  reference_no: "",
-  notes: "",
 };
 
 export default function ManualPaymentPage() {
@@ -120,8 +118,6 @@ export default function ManualPaymentPage() {
           bill_id: Number(form.bill_id),
           payment_channel: form.payment_channel,
           payment_date: form.payment_date,
-          reference_no: form.reference_no || undefined,
-          notes: form.notes || undefined,
         },
       });
 
@@ -174,9 +170,8 @@ export default function ManualPaymentPage() {
           </div>
         </div>
 
-        <form className="space-y-4" onSubmit={submit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
+          <div className="h-full">
               <label className="label">Filter kelas</label>
               <select className="input" value={form.class_id} onChange={(e) => handleClassChange(e.target.value)}>
                 <option value="">Semua kelas</option>
@@ -186,8 +181,8 @@ export default function ManualPaymentPage() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
+          </div>
+          <div className="h-full">
               <label className="label">Filter siswa</label>
               <select
                 className="input"
@@ -202,10 +197,9 @@ export default function ManualPaymentPage() {
                   </option>
                 ))}
               </select>
-            </div>
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="label">Tagihan belum lunas</label>
             <select
               className="input"
@@ -225,7 +219,7 @@ export default function ManualPaymentPage() {
           </div>
 
           {selectedBill && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 md:col-span-2">
               <p>
                 <span className="font-semibold text-slate-900">Siswa:</span> {selectedBill.student_name} ({selectedBill.class_name || "-"})
               </p>
@@ -241,8 +235,7 @@ export default function ManualPaymentPage() {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
+          <div className="h-full">
               <label className="label">Kanal pembayaran</label>
               <select
                 className="input"
@@ -255,8 +248,8 @@ export default function ManualPaymentPage() {
                 <option value="Virtual Account">Virtual Account</option>
                 <option value="E-Wallet">E-Wallet</option>
               </select>
-            </div>
-            <div>
+          </div>
+          <div className="h-full">
               <label className="label">Tanggal pembayaran</label>
               <input
                 type="date"
@@ -264,30 +257,9 @@ export default function ManualPaymentPage() {
                 value={form.payment_date}
                 onChange={(e) => setForm((current) => ({ ...current, payment_date: e.target.value }))}
               />
-            </div>
           </div>
 
-          <div>
-            <label className="label">Nomor referensi</label>
-            <input
-              className="input"
-              placeholder="Opsional, misalnya KW-20260326-01"
-              value={form.reference_no}
-              onChange={(e) => setForm((current) => ({ ...current, reference_no: e.target.value }))}
-            />
-          </div>
-
-          <div>
-            <label className="label">Catatan</label>
-            <textarea
-              className="textarea"
-              placeholder="Opsional, misalnya dibayar langsung di kantor TU"
-              value={form.notes}
-              onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
-            />
-          </div>
-
-          <div className="flex gap-3">
+          <div className="flex gap-3 md:col-span-2">
             <button className="btn-primary flex-1" disabled={!form.bill_id || saving}>
               {saving ? "Menyimpan..." : "Simpan pembayaran"}
             </button>

@@ -124,7 +124,7 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
             </div>
           ))}
 
-          {user?.role !== "parent" && (
+          {user?.role === "bendahara" && (
             <div className="space-y-1">
               <Link
                 to="/admin/akun"
