@@ -121,6 +121,7 @@ export default function ParentBillsPage() {
       }
     >
       <Table
+        striped
         emptyText={loading ? "Memuat tagihan..." : "Belum ada tagihan"}
         columns={[
           { key: "bill_name", title: "Tagihan" },
@@ -175,6 +176,8 @@ export default function ParentBillsPage() {
           {
             key: "action",
             title: "Aksi",
+            headerClassName: "w-0",
+            cellClassName: "w-0 whitespace-nowrap",
             render: (row) => {
               const proofPending = row.proof_status === "pending";
               const proofApproved = row.proof_status === "approved";
@@ -190,7 +193,7 @@ export default function ParentBillsPage() {
                   {isBusy ? "Memproses..." : "Cetak bukti"}
                 </button>
               ) : (
-                <div className="space-y-3">
+                <div className="inline-flex max-w-[320px] flex-col items-start space-y-3">
                   {proofPending ? (
                     <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
                       Bukti pembayaran sedang menunggu review admin.
@@ -209,15 +212,15 @@ export default function ParentBillsPage() {
                       transfer manual.
                     </div>
                   )}
-                  <div className="rounded-md border border-slate-200 p-3 w-fit">
+                  <div className="w-fit rounded-md border border-slate-200 p-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Upload bukti transfer manual
                     </p>
-                    <div className="flex flex-col gap-2 md:flex-row">
+                    <div className="flex items-start gap-2">
                       <input
                         type="file"
                         accept=".jpg,.jpeg,.png,.pdf"
-                        className="input w-fit md:w-64"
+                        className="input w-[190px] md:w-[210px]"
                         disabled={proofPending || isBusy}
                         onChange={(e) =>
                           setFileMap((prev) => ({

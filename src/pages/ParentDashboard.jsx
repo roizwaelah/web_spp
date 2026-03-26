@@ -34,7 +34,11 @@ export default function ParentDashboard() {
   }, []);
 
   return (
-    <Layout title="Portal Orang Tua" subtitle="Pantau tagihan anak, pembayaran, dan notifikasi sekolah secara mandiri.">
+    <Layout
+      title="Portal Orang Tua"
+      subtitle="Pantau tagihan anak, pembayaran, dan notifikasi sekolah secara mandiri."
+      showHeader={false}
+    >
       {data.settings?.payment_gateway_enabled !== "1" && (
         <div className="card border border-amber-200 bg-amber-50/80 p-5">
           <h3 className="section-title text-amber-900">Pembayaran Online sedang dalam pemeliharaan</h3>

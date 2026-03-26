@@ -51,6 +51,7 @@ export default function ParentTransactionsPage() {
   return (
     <Layout title="Riwayat Pembayaran" subtitle="Seluruh transaksi yang pernah dilakukan orang tua / wali siswa.">
       <Table
+        striped
         emptyText={loading ? "Memuat riwayat pembayaran..." : "Belum ada riwayat pembayaran"}
         columns={[
           { key: "payment_date", title: "Tanggal", render: (row) => formatDate(row.payment_date) },
