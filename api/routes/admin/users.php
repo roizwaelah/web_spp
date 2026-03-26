@@ -7,6 +7,7 @@ if ($route === 'admin/users' && $method === 'GET') {
     $rows = $pdo->query("SELECT u.id, u.name, u.email, u.role, u.student_id, u.created_at, s.name student_name, s.nis student_nis
         FROM users u
         LEFT JOIN students s ON s.id = u.student_id
+        WHERE u.role <> 'parent'
         ORDER BY u.id DESC")->fetchAll();
 
     $result = array_map(function (array $row) {
@@ -25,6 +26,9 @@ if ($route === 'admin/users' && $method === 'POST') {
     $input = validate_user_payload(json_input());
 
     $role = (string) $input['role'];
+    if ($role === 'parent') {
+        response(['message' => 'Akun orang tua dibuat otomatis dari menu Data Siswa'], 422);
+    }
     if (scalar('SELECT id FROM users WHERE email = ? LIMIT 1', [$input['email']])) {
         response(['message' => 'Email user sudah digunakan'], 422);
     }
@@ -66,6 +70,9 @@ if ($route === 'admin/users' && $method === 'PUT') {
 
     $targetId = (int) $input['id'];
     $role = (string) $input['role'];
+    if ($role === 'parent') {
+        response(['message' => 'Akun orang tua dikelola otomatis dari menu Data Siswa'], 422);
+    }
 
     $stmtCurrent = $pdo->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
     $stmtCurrent->execute([$targetId]);

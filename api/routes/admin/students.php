@@ -17,25 +17,30 @@ if ($route === 'admin/students' && $method === 'POST') {
     $user = require_auth();
     validate_menu_access($user, ['students']);
     $input = json_input();
-    ensure_required($input, ['nis', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone', 'user_email']);
+    ensure_required($input, ['nis', 'nisn', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone']);
 
     if (scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$input['nis']])) {
         response(['message' => 'NIS sudah digunakan siswa lain'], 422);
     }
-    if (scalar("SELECT id FROM users WHERE email = ? LIMIT 1", [$input['user_email']])) {
-        response(['message' => 'Email akun orang tua sudah digunakan'], 422);
+    if (scalar('SELECT id FROM students WHERE nisn = ? LIMIT 1', [$input['nisn']])) {
+        response(['message' => 'NISN sudah digunakan siswa lain'], 422);
     }
 
-    $stmt = $pdo->prepare("INSERT INTO students (nis, name, class_id, academic_year_id, parent_name, parent_phone, user_email, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt = $pdo->prepare("INSERT INTO students (nis, nisn, name, class_id, academic_year_id, parent_name, parent_phone, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
-        $input['nis'], $input['name'], $input['class_id'], $input['academic_year_id'],
-        $input['parent_name'], $input['parent_phone'], $input['user_email'],
+        $input['nis'], $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
+        $input['parent_name'], $input['parent_phone'],
         $input['address'] ?? null, $input['status'] ?? 'active'
     ]);
     $studentId = (int) $pdo->lastInsertId();
 
     $userStmt = $pdo->prepare("INSERT INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, 'parent', ?, NOW())");
-    $userStmt->execute([$input['parent_name'], $input['user_email'], password_hash($input['parent_password'] ?: 'password', PASSWORD_DEFAULT), $studentId]);
+    $userStmt->execute([
+        $input['parent_name'],
+        parent_login_email_for_student(['id' => $studentId, 'nis' => $input['nis'], 'nisn' => $input['nisn']]),
+        password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
+        $studentId
+    ]);
 
     log_activity((int) $user['id'], 'create', 'student', $studentId, 'Menambah siswa ' . $input['name']);
     response(['message' => 'Siswa berhasil ditambahkan']);
@@ -45,7 +50,7 @@ if ($route === 'admin/students' && $method === 'PUT') {
     $user = require_auth();
     validate_menu_access($user, ['students']);
     $input = json_input();
-    ensure_required($input, ['id', 'nis', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone', 'user_email']);
+    ensure_required($input, ['id', 'nis', 'nisn', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone']);
 
     if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['id']])) {
         response(['message' => 'Data siswa tidak ditemukan'], 404);
@@ -53,23 +58,32 @@ if ($route === 'admin/students' && $method === 'PUT') {
     if (scalar('SELECT id FROM students WHERE nis = ? AND id <> ? LIMIT 1', [$input['nis'], $input['id']])) {
         response(['message' => 'NIS sudah digunakan siswa lain'], 422);
     }
-    if (scalar("SELECT id FROM users WHERE email = ? AND role = 'parent' AND student_id <> ? LIMIT 1", [$input['user_email'], $input['id']])) {
-        response(['message' => 'Email akun orang tua sudah digunakan'], 422);
+    if (scalar('SELECT id FROM students WHERE nisn = ? AND id <> ? LIMIT 1', [$input['nisn'], $input['id']])) {
+        response(['message' => 'NISN sudah digunakan siswa lain'], 422);
     }
 
-    $stmt = $pdo->prepare("UPDATE students SET nis=?, name=?, class_id=?, academic_year_id=?, parent_name=?, parent_phone=?, user_email=?, address=?, status=? WHERE id=?");
+    $stmt = $pdo->prepare("UPDATE students SET nis=?, nisn=?, name=?, class_id=?, academic_year_id=?, parent_name=?, parent_phone=?, address=?, status=? WHERE id=?");
     $stmt->execute([
-        $input['nis'], $input['name'], $input['class_id'], $input['academic_year_id'],
-        $input['parent_name'], $input['parent_phone'], $input['user_email'],
+        $input['nis'], $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
+        $input['parent_name'], $input['parent_phone'],
         $input['address'] ?? null, $input['status'] ?? 'active', $input['id']
     ]);
     $parentUser = parent_user_by_student_id((int) $input['id']);
     if ($parentUser) {
         $u = $pdo->prepare("UPDATE users SET name=?, email=? WHERE id=?");
-        $u->execute([$input['parent_name'], $input['user_email'], $parentUser['id']]);
+        $u->execute([
+            $input['parent_name'],
+            parent_login_email_for_student(['id' => $input['id'], 'nis' => $input['nis'], 'nisn' => $input['nisn']]),
+            $parentUser['id']
+        ]);
     } else {
         $u = $pdo->prepare("INSERT INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, 'parent', ?, NOW())");
-        $u->execute([$input['parent_name'], $input['user_email'], password_hash('password', PASSWORD_DEFAULT), $input['id']]);
+        $u->execute([
+            $input['parent_name'],
+            parent_login_email_for_student(['id' => $input['id'], 'nis' => $input['nis'], 'nisn' => $input['nisn']]),
+            password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
+            $input['id']
+        ]);
     }
     log_activity((int) $user['id'], 'update', 'student', (int) $input['id'], 'Memperbarui siswa ' . $input['name']);
     response(['message' => 'Siswa berhasil diperbarui']);
@@ -135,15 +149,23 @@ if ($route === 'admin/students/import' && $method === 'POST') {
         $exists = scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$row['nis']]);
         if ($exists) continue;
 
-        $stmt = $pdo->prepare("INSERT INTO students (nis, name, class_id, academic_year_id, parent_name, parent_phone, user_email, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $nisn = trim((string) ($row['nisn'] ?? $row['nis']));
+        if ($nisn === '') $nisn = trim((string) $row['nis']);
+
+        $stmt = $pdo->prepare("INSERT INTO students (nis, nisn, name, class_id, academic_year_id, parent_name, parent_phone, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
         $stmt->execute([
-            $row['nis'], $row['name'], $classId, $yearId, $row['parent_name'] ?? '-',
-            $row['parent_phone'] ?? '-', $row['user_email'] ?? ('wali.' . $row['nis'] . '@madrasah.id'),
+            $row['nis'], $nisn, $row['name'], $classId, $yearId, $row['parent_name'] ?? '-',
+            $row['parent_phone'] ?? '-',
             $row['address'] ?? null, $row['status'] ?? 'active'
         ]);
         $studentId = (int) $pdo->lastInsertId();
         $userStmt = $pdo->prepare("INSERT IGNORE INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, 'parent', ?, NOW())");
-        $userStmt->execute([$row['parent_name'] ?? 'Orang Tua', $row['user_email'] ?? ('wali.' . $row['nis'] . '@madrasah.id'), password_hash('password', PASSWORD_DEFAULT), $studentId]);
+        $userStmt->execute([
+            $row['parent_name'] ?? 'Orang Tua',
+            parent_login_email_for_student(['id' => $studentId, 'nis' => $row['nis'], 'nisn' => $nisn]),
+            password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
+            $studentId
+        ]);
         $imported++;
     }
     log_activity((int) $user['id'], 'import', 'student', null, 'Impor siswa sebanyak ' . $imported);

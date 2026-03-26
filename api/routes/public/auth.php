@@ -3,11 +3,25 @@
 
 if ($route === 'login' && $method === 'POST') {
     $input = json_input();
-    ensure_required($input, ['email', 'password']);
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
-    $stmt->execute([$input['email']]);
-    $user = $stmt->fetch();
-    if (!$user || !password_verify($input['password'], $user['password'])) response(['message' => 'Email atau password salah'], 422);
+    $role = trim((string) ($input['role'] ?? ''));
+
+    if ($role === 'parent' || !empty($input['nisn'])) {
+        ensure_required($input, ['nisn']);
+        $stmt = $pdo->prepare("SELECT u.* FROM users u
+            JOIN students s ON s.id = u.student_id
+            WHERE u.role = 'parent' AND s.nisn = ? LIMIT 1");
+        $stmt->execute([trim((string) $input['nisn'])]);
+        $user = $stmt->fetch();
+        if (!$user) response(['message' => 'NISN orang tua tidak ditemukan'], 422);
+    } else {
+        ensure_required($input, ['email', 'password']);
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
+        $stmt->execute([trim((string) $input['email'])]);
+        $user = $stmt->fetch();
+        if (!$user || !password_verify((string) $input['password'], $user['password'])) {
+            response(['message' => 'Email atau password salah'], 422);
+        }
+    }
 
     $payload = ['id' => $user['id'], 'role' => $user['role'], 'exp' => time() + (86400 * 7)];
     log_activity((int) $user['id'], 'login', 'auth', (int) $user['id'], 'Pengguna login ke sistem');
@@ -75,11 +89,10 @@ if ($route === 'admin/meta' && $method === 'GET') {
     response([
         'classes' => $pdo->query('SELECT id, name FROM classes WHERE is_active=1 ORDER BY name')->fetchAll(),
         'years' => $pdo->query('SELECT id, name FROM academic_years ORDER BY id DESC')->fetchAll(),
-        'students' => $pdo->query('SELECT id, name, nis FROM students ORDER BY name')->fetchAll(),
+        'students' => $pdo->query('SELECT id, name, nis, nisn FROM students ORDER BY name')->fetchAll(),
         'roles' => [
             ['value' => 'admin', 'label' => 'Admin'],
             ['value' => 'bendahara', 'label' => 'Bendahara / TU'],
-            ['value' => 'parent', 'label' => 'Orang Tua'],
         ],
         'menuOptions' => staff_menu_definitions(),
     ]);

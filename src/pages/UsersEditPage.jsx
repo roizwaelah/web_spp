@@ -12,7 +12,6 @@ const initialForm = {
   email: "",
   password: "",
   role: "bendahara",
-  student_id: "",
   menu_access: ["dashboard"],
 };
 
@@ -63,28 +62,24 @@ export default function UsersEditPage() {
       email: selectedUser.email || "",
       password: "",
       role: selectedUser.role || "bendahara",
-      student_id: selectedUser.student_id || "",
       menu_access: selectedUser.menu_access?.length
         ? selectedUser.menu_access
         : ["dashboard"],
     });
   }, [id, selectedUser]);
 
-  const isParent = form.role === "parent";
   const isBendahara = form.role === "bendahara";
-  const effectiveMenuAccess = isParent
-    ? []
-    : Array.from(
-        new Set(
-          ["dashboard", ...(form.menu_access || [])].filter(
-            (menuKey) =>
-              !(
-                isBendahara &&
-                ["backups", "settings", "users"].includes(menuKey)
-              ),
+  const effectiveMenuAccess = Array.from(
+    new Set(
+      ["dashboard", ...(form.menu_access || [])].filter(
+        (menuKey) =>
+          !(
+            isBendahara &&
+            ["backups", "settings", "users"].includes(menuKey)
           ),
-        ),
-      );
+      ),
+    ),
+  );
 
   const toggleMenu = (menuKey) => {
     setForm((current) => {
@@ -102,7 +97,7 @@ export default function UsersEditPage() {
     e.preventDefault();
     const payload = {
       ...form,
-      student_id: isParent && form.student_id ? Number(form.student_id) : null,
+      student_id: null,
       menu_access: effectiveMenuAccess,
     };
 
@@ -190,9 +185,7 @@ export default function UsersEditPage() {
                 setForm({
                   ...form,
                   role: e.target.value,
-                  student_id: e.target.value === "parent" ? form.student_id : "",
-                  menu_access:
-                    e.target.value === "parent" ? [] : effectiveMenuAccess,
+                  menu_access: effectiveMenuAccess,
                 })
               }
             >
@@ -204,58 +197,37 @@ export default function UsersEditPage() {
             </select>
           </div>
 
-          {isParent && (
+          <div className="space-y-3 rounded-3xl border border-slate-200 p-4">
             <div>
-              <label className="label">Hubungkan ke siswa</label>
-              <select
-                className="input"
-                value={form.student_id}
-                disabled={loading || saving}
-                onChange={(e) => setForm({ ...form, student_id: e.target.value })}
-              >
-                <option value="">Pilih siswa</option>
-                {(meta.students || []).map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.name} ({student.nis})
-                  </option>
-                ))}
-              </select>
+              <p className="label">Akses menu staff</p>
+              <p className="text-sm text-slate-500">
+                Menu `Dashboard` selalu aktif untuk akun staff.
+              </p>
             </div>
-          )}
-
-          {!isParent && (
-            <div className="space-y-3 rounded-3xl border border-slate-200 p-4">
-              <div>
-                <p className="label">Akses menu staff</p>
-                <p className="text-sm text-slate-500">
-                  Menu `Dashboard` selalu aktif untuk akun staff.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {(meta.menuOptions || []).map((menu) => {
-                  const checked = effectiveMenuAccess.includes(menu.key);
-                  const locked =
-                    menu.key === "dashboard" ||
-                    (isBendahara &&
-                      ["backups", "settings", "users"].includes(menu.key));
-                  return (
-                    <label
-                      key={menu.key}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={locked || loading || saving}
-                        onChange={() => toggleMenu(menu.key)}
-                      />
-                      <span>{menu.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {(meta.menuOptions || []).map((menu) => {
+                const checked = effectiveMenuAccess.includes(menu.key);
+                const locked =
+                  menu.key === "dashboard" ||
+                  (isBendahara &&
+                    ["backups", "settings", "users"].includes(menu.key));
+                return (
+                  <label
+                    key={menu.key}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={locked || loading || saving}
+                      onChange={() => toggleMenu(menu.key)}
+                    />
+                    <span>{menu.label}</span>
+                  </label>
+                );
+              })}
             </div>
-          )}
+          </div>
 
           <div className="flex gap-3">
             <button className="btn-primary flex-1">
@@ -274,7 +246,6 @@ export default function UsersEditPage() {
                         email: selectedUser.email || "",
                         password: "",
                         role: selectedUser.role || "bendahara",
-                        student_id: selectedUser.student_id || "",
                         menu_access: selectedUser.menu_access?.length
                           ? selectedUser.menu_access
                           : ["dashboard"],

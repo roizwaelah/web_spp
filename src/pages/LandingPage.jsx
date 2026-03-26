@@ -14,9 +14,11 @@ import { getDefaultRouteForUser } from "../access";
 export default function LandingPage() {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
+  const [role, setRole] = useState("staff");
   const [form, setForm] = useState({
     email: "admin@madrasah.id",
     password: "password",
+    nisn: "",
   });
   const [error, setError] = useState("");
 
@@ -24,7 +26,10 @@ export default function LandingPage() {
     e.preventDefault();
     setError("");
     try {
-      const user = await login(form.email, form.password);
+      const user =
+        role === "parent"
+          ? await login({ role: "parent", nisn: form.nisn })
+          : await login({ email: form.email, password: form.password });
       navigate(getDefaultRouteForUser(user));
     } catch (err) {
       setError(err?.response?.data?.message || "Login gagal");
@@ -55,37 +60,71 @@ export default function LandingPage() {
               Gunakan akun Admin, Bendahara/TU, atau Orang Tua.
             </p>
 
+            <div className="mt-5 grid grid-cols-2 rounded-2xl bg-slate-200 p-1">
+              <button
+                type="button"
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${role === "staff" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+                onClick={() => setRole("staff")}
+              >
+                Admin / TU
+              </button>
+              <button
+                type="button"
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${role === "parent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
+                onClick={() => setRole("parent")}
+              >
+                Orang Tua
+              </button>
+            </div>
+
             <form className="mt-6 space-y-4" onSubmit={submit}>
               {error && (
                 <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
                   {error}
                 </div>
               )}
-              <div>
-                <label className="label">Email</label>
-                <input
-                  className="input"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Password</label>
-                <input
-                  type="password"
-                  className="input"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-              </div>
+              {role === "parent" ? (
+                <div>
+                  <label className="label">NISN Siswa</label>
+                  <input
+                    className="input"
+                    placeholder="Masukkan NISN"
+                    value={form.nisn}
+                    onChange={(e) => setForm({ ...form, nisn: e.target.value })}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Login orang tua menggunakan NISN tanpa password.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="label">Email</label>
+                    <input
+                      className="input"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Password</label>
+                    <input
+                      type="password"
+                      className="input"
+                      value={form.password}
+                      onChange={(e) =>
+                        setForm({ ...form, password: e.target.value })
+                      }
+                    />
+                  </div>
+                </>
+              )}
               <button className="btn-primary w-full" disabled={loading}>
                 {loading ? (
                   "Memproses..."
                 ) : (
                   <>
-                    Masuk <ArrowRight size={18} />
+                    {role === "parent" ? "Masuk dengan NISN" : "Masuk"} <ArrowRight size={18} />
                   </>
                 )}
               </button>

@@ -70,3 +70,15 @@ function parent_user_by_student_id(int $studentId): ?array {
     $stmt->execute([$studentId]);
     return $stmt->fetch() ?: null;
 }
+
+function parent_login_email_for_student(array $student): string {
+    $identifier = trim((string) ($student['nisn'] ?? $student['nis'] ?? ''));
+    if ($identifier === '') {
+        $identifier = 'student-' . ($student['id'] ?? time());
+    }
+
+    $normalized = strtolower((string) preg_replace('/[^a-zA-Z0-9]+/', '.', $identifier));
+    $normalized = trim($normalized, '.') ?: 'student';
+
+    return 'parent.' . $normalized . '@parent.local';
+}

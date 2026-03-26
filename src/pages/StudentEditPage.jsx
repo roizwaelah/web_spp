@@ -8,15 +8,14 @@ import { useToastMessage } from "../hooks/useToastMessage";
 const initialForm = {
   id: null,
   nis: "",
+  nisn: "",
   name: "",
   class_id: "",
   academic_year_id: "",
   parent_name: "",
   parent_phone: "",
-  user_email: "",
   address: "",
   status: "active",
-  parent_password: "password",
 };
 
 export default function StudentEditPage() {
@@ -64,15 +63,14 @@ export default function StudentEditPage() {
     setForm({
       id: selectedStudent.id,
       nis: selectedStudent.nis,
+      nisn: selectedStudent.nisn || "",
       name: selectedStudent.name,
       class_id: String(selectedStudent.class_id),
       academic_year_id: String(selectedStudent.academic_year_id),
       parent_name: selectedStudent.parent_name,
       parent_phone: selectedStudent.parent_phone,
-      user_email: selectedStudent.user_email,
       address: selectedStudent.address || "",
       status: selectedStudent.status || "active",
-      parent_password: "password",
     });
   }, [id, selectedStudent]);
 
@@ -113,8 +111,19 @@ export default function StudentEditPage() {
               <input className="input" value={form.nis} onChange={(e) => setForm({ ...form, nis: e.target.value })} />
             </div>
             <div>
+              <label className="label">NISN</label>
+              <input className="input" value={form.nisn} onChange={(e) => setForm({ ...form, nisn: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
               <label className="label">Nama siswa</label>
               <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Nomor WhatsApp</label>
+              <input className="input" value={form.parent_phone} onChange={(e) => setForm({ ...form, parent_phone: e.target.value })} />
             </div>
           </div>
 
@@ -144,23 +153,9 @@ export default function StudentEditPage() {
             <input className="input" value={form.parent_name} onChange={(e) => setForm({ ...form, parent_name: e.target.value })} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="label">Nomor WhatsApp</label>
-              <input className="input" value={form.parent_phone} onChange={(e) => setForm({ ...form, parent_phone: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Email akun orang tua</label>
-              <input className="input" value={form.user_email} onChange={(e) => setForm({ ...form, user_email: e.target.value })} />
-            </div>
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+            Akun orang tua dibuat otomatis saat siswa disimpan. Login orang tua menggunakan NISN tanpa password.
           </div>
-
-          {!form.id && (
-            <div>
-              <label className="label">Password awal akun orang tua</label>
-              <input className="input" value={form.parent_password} onChange={(e) => setForm({ ...form, parent_password: e.target.value })} />
-            </div>
-          )}
 
           <div>
             <label className="label">Alamat</label>

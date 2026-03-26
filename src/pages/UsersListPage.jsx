@@ -60,7 +60,7 @@ export default function UsersListPage() {
       rows.filter((row) =>
         `${row.name} ${row.email} ${row.role} ${row.student_name || ""}`
           .toLowerCase()
-          .includes(filter.toLowerCase()),
+          .includes(filter.toLowerCase()) && row.role !== "parent",
       ),
     [rows, filter],
   );

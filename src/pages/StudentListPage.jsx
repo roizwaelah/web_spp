@@ -67,7 +67,7 @@ export default function StudentListPage() {
   const filtered = useMemo(
     () =>
       students.filter((item) =>
-        `${item.name} ${item.nis} ${item.parent_name} ${item.class_name}`
+        `${item.name} ${item.nis} ${item.nisn || ""} ${item.parent_name} ${item.class_name}`
           .toLowerCase()
           .includes(filter.toLowerCase()),
       ),
@@ -91,7 +91,7 @@ export default function StudentListPage() {
               <label className="label">Pencarian</label>
               <input
                 className="input w-full"
-                placeholder="Cari nama / NIS / orang tua / kelas"
+                placeholder="Cari nama / NIS / NISN / orang tua / kelas"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
@@ -116,6 +116,7 @@ export default function StudentListPage() {
         <Table
           columns={[
             { key: "nis", title: "NIS" },
+            { key: "nisn", title: "NISN" },
             { key: "name", title: "Nama" },
             { key: "class_name", title: "Kelas" },
             { key: "academic_year", title: "Tahun Ajaran" },

@@ -34,12 +34,16 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
-  const login = async (email, password) => {
+  const login = async (credentials, passwordArg = '') => {
     setLoading(true)
     try {
+      const payload =
+        typeof credentials === 'object' && credentials !== null
+          ? credentials
+          : { email: credentials, password: passwordArg }
       const { data } = await fetchRoute('login', {
         method: 'POST',
-        data: { email, password }
+        data: payload
       })
       localStorage.setItem('token', data.token)
       persistUser(data.user)
