@@ -106,7 +106,7 @@ body {
 }
 
 .badge-green {
-  @apply badge bg-sky-100 text-sky-700;
+  @apply badge bg-emerald-100 text-emerald-700;
 }
 
 .badge-amber {

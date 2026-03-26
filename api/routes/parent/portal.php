@@ -28,25 +28,67 @@ if ($route === 'parent/payments' && $method === 'POST') {
     $user = require_auth('parent');
     $student = parent_user_student($user);
     $input = json_input();
-    ensure_required($input, ['bill_id', 'payment_channel']);
+    ensure_required($input, ['payment_channel']);
     if (!setting_is_enabled('payment_gateway_enabled')) {
         response(['message' => 'Payment gateway sedang dinonaktifkan oleh admin'], 422);
     }
     $allowedChannels = ['Transfer Bank', 'QRIS', 'Virtual Account', 'E-Wallet'];
     if (!in_array($input['payment_channel'], $allowedChannels, true)) response(['message' => 'Kanal pembayaran tidak valid'], 422);
-    $stmt = $pdo->prepare("SELECT * FROM bills WHERE id=? AND student_id=? LIMIT 1");
-    $stmt->execute([$input['bill_id'], $student['id']]);
-    $bill = $stmt->fetch();
-    if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
-    if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas']);
-    $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
-    if ($pendingProof) response(['message' => 'Bukti pembayaran untuk tagihan ini masih menunggu review admin'], 422);
+    $rawBillIds = $input['bill_ids'] ?? ($input['bill_id'] ?? null);
+    if ($rawBillIds === null) response(['message' => 'Tagihan yang akan dibayar wajib dipilih'], 422);
+    if (!is_array($rawBillIds)) $rawBillIds = [$rawBillIds];
 
-    $tx = create_transaction_and_mark_paid((int) $bill['id'], (int) $student['id'], $input['payment_channel'], (float) $bill['amount'], payment_instruction($input['payment_channel']), 'paid');
-    queue_whatsapp_notification((int) $student['id'], 'Pembayaran Berhasil', "Pembayaran {$bill['bill_name']} sebesar " . idr($bill['amount']) . " berhasil diterima. Ref: {$tx['reference_no']}");
+    $billIds = [];
+    foreach ($rawBillIds as $billId) {
+        $billId = (int) $billId;
+        if ($billId > 0) $billIds[] = $billId;
+    }
+    $billIds = array_values(array_unique($billIds));
+    if (!$billIds) response(['message' => 'Tagihan yang akan dibayar wajib dipilih'], 422);
+
+    $placeholders = implode(',', array_fill(0, count($billIds), '?'));
+    $params = array_merge($billIds, [$student['id']]);
+    $stmt = $pdo->prepare("SELECT * FROM bills WHERE id IN ($placeholders) AND student_id=? ORDER BY due_date IS NULL, due_date ASC, id ASC");
+    $stmt->execute($params);
+    $bills = $stmt->fetchAll();
+    if (count($bills) !== count($billIds)) response(['message' => 'Sebagian tagihan tidak ditemukan'], 404);
+
+    foreach ($bills as $bill) {
+        if ($bill['status'] === 'paid') response(['message' => "Tagihan {$bill['bill_name']} sudah lunas"], 422);
+        $pendingProof = scalar("SELECT id FROM payment_proofs WHERE bill_id = ? AND student_id = ? AND status = 'pending' LIMIT 1", [$bill['id'], $student['id']]);
+        if ($pendingProof) response(['message' => "Bukti pembayaran untuk tagihan {$bill['bill_name']} masih menunggu review admin"], 422);
+    }
+
+    $instruction = payment_instruction($input['payment_channel']);
+    $references = [];
+    $totalAmount = 0;
+
+    try {
+        $pdo->beginTransaction();
+        foreach ($bills as $bill) {
+            $tx = create_transaction_and_mark_paid((int) $bill['id'], (int) $student['id'], $input['payment_channel'], (float) $bill['amount'], $instruction, 'paid');
+            $references[] = $tx['reference_no'];
+            $totalAmount += (float) $bill['amount'];
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        response(['message' => 'Pembayaran gagal diproses'], 500);
+    }
+
+    $billNames = array_map(static fn ($bill) => $bill['bill_name'], $bills);
+    $billSummary = count($billNames) === 1 ? $billNames[0] : count($billNames) . ' tagihan';
+    queue_whatsapp_notification((int) $student['id'], 'Pembayaran Berhasil', "Pembayaran {$billSummary} sebesar " . idr($totalAmount) . " berhasil diterima. Ref: " . implode(', ', $references));
     try_dispatch_whatsapp_queue();
-    log_activity((int) $user['id'], 'pay', 'bill', (int) $bill['id'], 'Pembayaran orang tua via ' . $input['payment_channel']);
-    response(['message' => 'Pembayaran berhasil diproses', 'reference_no' => $tx['reference_no'], 'instruction' => payment_instruction($input['payment_channel'])]);
+    log_activity((int) $user['id'], 'pay', 'bill', (int) $billIds[0], 'Pembayaran orang tua via ' . $input['payment_channel'] . ' untuk ' . count($billIds) . ' tagihan');
+    response([
+        'message' => count($billIds) > 1 ? count($billIds) . ' tagihan berhasil diproses' : 'Pembayaran berhasil diproses',
+        'reference_no' => $references[0] ?? null,
+        'reference_numbers' => $references,
+        'instruction' => $instruction,
+        'processed_bills' => count($billIds),
+        'total_amount' => $totalAmount,
+    ]);
 }
 
 if ($route === 'parent/payment-proofs' && $method === 'POST') {

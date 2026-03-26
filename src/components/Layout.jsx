@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   LogOut,
@@ -11,10 +11,11 @@ import { useAuth } from "../context/AuthContext";
 import { getHomePath, getMenuSections, isMenuItemActive } from "../access";
 import { useUI } from "../context/UIContext";
 
-export default function Layout({ title, subtitle, actions, children }) {
+export default function Layout({ title, subtitle, actions, children, showHeader = true, onNavigateAttempt }) {
   const { user, logout } = useAuth();
   const { confirm } = useUI();
   const location = useLocation();
+  const navigate = useNavigate();
   const sections = getMenuSections(user);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const homePath = getHomePath(user);
@@ -23,7 +24,15 @@ export default function Layout({ title, subtitle, actions, children }) {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
+  const canLeavePage = async () => {
+    if (!onNavigateAttempt) return true;
+    return onNavigateAttempt();
+  };
+
   const handleLogout = async () => {
+    const canProceed = await canLeavePage();
+    if (!canProceed) return;
+
     const confirmed = await confirm({
       title: "Keluar dari aplikasi",
       description: "Sesi login Anda akan diakhiri dan Anda akan kembali ke halaman masuk.",
@@ -32,6 +41,14 @@ export default function Layout({ title, subtitle, actions, children }) {
     });
     if (!confirmed) return;
     logout();
+  };
+
+  const handleMenuNavigation = async (event, to) => {
+    event.preventDefault();
+    const canProceed = await canLeavePage();
+    if (!canProceed) return;
+    setIsSidebarOpen(false);
+    navigate(to);
   };
 
   return (
@@ -77,7 +94,7 @@ export default function Layout({ title, subtitle, actions, children }) {
         <div className="space-y-4 pt-2">
           <Link
             to={homePath}
-            onClick={() => setIsSidebarOpen(false)}
+            onClick={(event) => handleMenuNavigation(event, homePath)}
             className={`dp-nav-link ${location.pathname === homePath ? "is-active" : ""}`}
           >
             <Home size={17} />
@@ -96,7 +113,7 @@ export default function Layout({ title, subtitle, actions, children }) {
                     <Link
                       key={item.to}
                       to={item.to}
-                      onClick={() => setIsSidebarOpen(false)}
+                      onClick={(event) => handleMenuNavigation(event, item.to)}
                       className={`dp-nav-link ${isMenuItemActive(item, location.pathname) ? "is-active" : ""}`}
                     >
                       <Icon size={17} />
@@ -111,7 +128,7 @@ export default function Layout({ title, subtitle, actions, children }) {
             <div className="space-y-1">
               <Link
                 to="/admin/akun"
-                onClick={() => setIsSidebarOpen(false)}
+                onClick={(event) => handleMenuNavigation(event, "/admin/akun")}
                 className={`dp-nav-link ${location.pathname === "/admin/akun" ? "is-active" : ""}`}
               >
                 <UserCog size={17} />
@@ -124,19 +141,21 @@ export default function Layout({ title, subtitle, actions, children }) {
 
       <div className="dp-content">
         <main className="space-y-4">
-          <header className="glass p-3 xl:p-3">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="mt-1 text-2xl font-bold text-slate-900 xl:text-3xl">
-                  {title}
-                </h2>
-                <p className="mt-1 max-w-4xl text-sm text-slate-500">{subtitle}</p>
+          {showHeader && (
+            <header className="glass p-3 xl:p-3">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="mt-1 text-2xl font-bold text-slate-900 xl:text-3xl">
+                    {title}
+                  </h2>
+                  <p className="mt-1 max-w-4xl text-sm text-slate-500">{subtitle}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {actions}
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {actions}
-              </div>
-            </div>
-          </header>
+            </header>
+          )}
           {children}
         </main>
       </div>

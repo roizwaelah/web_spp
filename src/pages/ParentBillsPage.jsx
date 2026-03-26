@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
@@ -6,6 +7,7 @@ import { formatCurrency, formatDate } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ParentBillsPage() {
+  const navigate = useNavigate();
   const [bills, setBills] = useState([]);
   const [settings, setSettings] = useState({});
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -40,25 +42,6 @@ export default function ParentBillsPage() {
   useEffect(() => {
     load();
   }, []);
-
-  const pay = async (billId, channel) => {
-    try {
-      setBusyBillId(billId);
-      const { data } = await fetchRoute("parent/payments", {
-        method: "POST",
-        data: { bill_id: billId, payment_channel: channel },
-      });
-      setMessage({ type: "success", text: data.message });
-      await load();
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: error?.response?.data?.message || "Gagal memproses pembayaran",
-      });
-    } finally {
-      setBusyBillId(null);
-    }
-  };
 
   const uploadProof = async (billId) => {
     const file = fileMap[billId];
@@ -113,50 +96,30 @@ export default function ParentBillsPage() {
     }
   };
 
+  const gatewayEnabled = settings?.payment_gateway_enabled === "1";
+  const gatewayLabel = gatewayEnabled ? "Gateway Aktif" : "Gateway Pemeliharaan";
+  const gatewayDescription = gatewayEnabled
+    ? settings?.payment_gateway_provider || "Pembayaran otomatis tersedia"
+    : "Gunakan transfer manual";
+
   return (
     <Layout
       title="Tagihan Saya"
       subtitle="Lakukan pembayaran otomatis atau unggah bukti transfer manual untuk diverifikasi admin."
-    >
-      <div
-        className={`card p-4 ${
-          settings?.payment_gateway_enabled === "1"
-            ? "border border-sky-200 bg-sky-50/70"
-            : "border border-amber-200 bg-amber-50/80"
-        }`}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p
-              className={`text-sm font-semibold ${
-                settings?.payment_gateway_enabled === "1"
-                  ? "text-sky-700"
-                  : "text-amber-900"
-              }`}
-            >
-              {settings?.payment_gateway_enabled === "1"
-                ? "Payment gateway aktif"
-                : "Pembayaran Online sedang dalam pemeliharaan"}
+      actions={
+        <div className="inline-flex items-center gap-3 rounded-md border border-slate-200 bg-white/80 px-3 py-2 text-left shadow-sm">
+          <div className="min-w-0">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Status Pembayaran
             </p>
-            <p className="mt-1 text-sm text-slate-600">
-              {settings?.payment_gateway_enabled === "1"
-                ? `Pembayaran otomatis tersedia melalui ${settings?.payment_gateway_provider || "gateway sekolah"}.`
-                : "Pembayaran otomatis sementara tidak tersedia. Silakan gunakan transfer manual dan unggah bukti pembayaran."}
-            </p>
+            <p className="truncate text-sm text-slate-700">{gatewayDescription}</p>
           </div>
-          <span
-            className={
-              settings?.payment_gateway_enabled === "1"
-                ? "badge-green"
-                : "badge-amber"
-            }
-          >
-            {settings?.payment_gateway_enabled === "1"
-              ? "Aktif"
-              : "Pemeliharaan"}
+          <span className={gatewayEnabled ? "badge-green" : "badge-amber"}>
+            {gatewayLabel}
           </span>
         </div>
-      </div>
+      }
+    >
       <Table
         emptyText={loading ? "Memuat tagihan..." : "Belum ada tagihan"}
         columns={[
@@ -233,30 +196,20 @@ export default function ParentBillsPage() {
                       Bukti pembayaran sedang menunggu review admin.
                     </div>
                   ) : settings?.payment_gateway_enabled === "1" ? (
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        "Transfer Bank",
-                        "QRIS",
-                        "Virtual Account",
-                        "E-Wallet",
-                      ].map((channel) => (
-                        <button
-                          key={channel}
-                          className="btn-secondary text-xs"
-                          disabled={isBusy}
-                          onClick={() => pay(row.id, channel)}
-                        >
-                          {channel}
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      className="btn-primary"
+                      disabled={isBusy}
+                      onClick={() => navigate(`/orang-tua/tagihan/pembayaran?bill_id=${row.id}`)}
+                    >
+                      Bayar
+                    </button>
                   ) : (
                     <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                       Pembayaran Online sedang tidak aktif. Silakan unggah bukti
                       transfer manual.
                     </div>
                   )}
-                  <div className="rounded-2xl border border-slate-200 p-3">
+                  <div className="rounded-md border border-slate-200 p-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Upload bukti transfer manual
                     </p>
