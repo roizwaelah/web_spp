@@ -164,13 +164,20 @@ export default function ParentBillsPage() {
                       Bukti pembayaran sedang menunggu review admin.
                     </div>
                   ) : (
-                    <button
-                      className="btn-primary"
-                      disabled={isBusy}
-                      onClick={() => navigate(`/orang-tua/tagihan/pembayaran?bill_id=${row.id}`)}
-                    >
-                      Bayar
-                    </button>
+                    <div className="inline-flex flex-col items-start gap-2">
+                      <button
+                        className="btn-primary"
+                        disabled={isBusy}
+                        onClick={() => navigate(`/orang-tua/tagihan/pembayaran?bill_id=${row.id}`)}
+                      >
+                        Bayar
+                      </button>
+                      {!gatewayEnabled && (
+                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                          Gateway nonaktif, gunakan transfer manual
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               );

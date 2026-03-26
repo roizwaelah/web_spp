@@ -358,7 +358,11 @@ export default function ParentPaymentPage() {
       <ModalFrame
         open={chooserOpen}
         title="Pilih metode pembayaran"
-        description="Tentukan apakah pembayaran akan dilakukan secara manual atau lewat payment gateway."
+        description={
+          gatewayEnabled
+            ? "Tentukan apakah pembayaran akan dilakukan secara manual atau lewat payment gateway."
+            : "Payment gateway sedang dinonaktifkan, jadi untuk saat ini pembayaran hanya tersedia lewat transfer manual."
+        }
         onClose={() => setChooserOpen(false)}
       >
         <div className="space-y-3">
@@ -397,6 +401,11 @@ export default function ParentPaymentPage() {
             </div>
             <WalletCards className={gatewayEnabled ? "text-sky-700" : "text-slate-400"} size={18} />
           </button>
+          {!gatewayEnabled && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Payment gateway sedang nonaktif. Silakan lanjutkan dengan metode manual untuk upload bukti transfer.
+            </div>
+          )}
         </div>
       </ModalFrame>
     </Layout>
