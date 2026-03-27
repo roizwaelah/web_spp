@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Eye, Plus, Printer, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
@@ -7,15 +7,18 @@ import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { useUI } from "../context/UIContext";
+import ModalFrame from "../components/ModalFrame";
 
 export default function PaymentListPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
   const [billRows, setBillRows] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [filters, setFilters] = useState({ class_id: "", student_id: "" });
+  const [detailTransaction, setDetailTransaction] = useState(null);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
   const navigate = useNavigate();
   const { confirm } = useUI();
 
@@ -144,6 +147,42 @@ export default function PaymentListPage() {
     }
   };
 
+  const printTransaction = async (transactionId) => {
+    try {
+      setPrinting(true);
+      const { data } = await fetchRoute("admin/transactions/receipt", {
+        method: "GET",
+        params: { transaction_id: transactionId },
+        responseType: "text",
+        transformResponse: [(value) => value],
+      });
+
+      const printWindow = window.open("", "_blank", "width=900,height=720");
+      if (!printWindow) {
+        setMessage({
+          type: "error",
+          text: "Popup diblokir browser. Izinkan popup untuk mencetak bukti pembayaran.",
+        });
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(data);
+      printWindow.document.close();
+      printWindow.focus();
+      window.setTimeout(() => {
+        printWindow.print();
+      }, 400);
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal mencetak bukti pembayaran",
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   return (
     <Layout
       title="Pembayaran"
@@ -238,15 +277,78 @@ export default function PaymentListPage() {
               headerClassName: "w-0 whitespace-nowrap",
               cellClassName: "w-0 whitespace-nowrap",
               render: (row) => (
-                <button className="btn-danger px-3 py-2" onClick={() => removeTransaction(row)}>
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex gap-2">
+                  <button className="btn-accent px-3 py-2" onClick={() => setDetailTransaction(row)}>
+                    <Eye size={16} />
+                  </button>
+                  <button className="btn-danger px-3 py-2" onClick={() => removeTransaction(row)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               ),
             },
           ]}
           rows={transactions}
         />
       </div>
+
+      <ModalFrame
+        open={!!detailTransaction}
+        title="Detail Transaksi Pembayaran"
+        description="Periksa rincian transaksi sebelum mencetak bukti pembayaran."
+        maxWidthClass="max-w-2xl"
+        onClose={() => setDetailTransaction(null)}
+      >
+        {detailTransaction ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Siswa</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.student_name}</p>
+                <p className="mt-1 text-sm text-slate-600">NIS: {detailTransaction.nis || "-"}</p>
+                <p className="text-sm text-slate-600">Kelas: {detailTransaction.class_name || "-"}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tagihan</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.bill_name}</p>
+                <p className="mt-1 text-sm text-slate-600">Periode: {detailTransaction.period || "-"}</p>
+                <p className="text-sm text-slate-600">Status: {detailTransaction.status === "paid" ? "Lunas" : detailTransaction.status}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kanal</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.payment_channel}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tanggal</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(detailTransaction.payment_date)}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nomor Referensi</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.reference_no || "-"}</p>
+              </div>
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 md:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Total Dibayar</p>
+                <p className="mt-1 text-2xl font-bold text-sky-900">{formatCurrency(detailTransaction.amount_paid)}</p>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDetailTransaction(null)}>
+                Tutup
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={printing}
+                onClick={() => printTransaction(detailTransaction.id)}
+              >
+                <Printer size={16} />
+                {printing ? "Menyiapkan..." : "Cetak (PDF)"}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </ModalFrame>
     </Layout>
   );
 }
