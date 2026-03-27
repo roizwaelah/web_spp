@@ -295,40 +295,58 @@ export default function PaymentListPage() {
       <ModalFrame
         open={!!detailTransaction}
         title="Detail Transaksi Pembayaran"
-        description="Periksa rincian transaksi sebelum mencetak bukti pembayaran."
-        maxWidthClass="max-w-2xl"
+        description=""
+        maxWidthClass="max-w-[720px]"
+        showIcon={false}
+        showHeader={false}
+        cardClassName="gap-2 p-3"
         onClose={() => setDetailTransaction(null)}
       >
         {detailTransaction ? (
           <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Siswa</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.student_name}</p>
-                <p className="mt-1 text-sm text-slate-600">NIS: {detailTransaction.nis || "-"}</p>
-                <p className="text-sm text-slate-600">Kelas: {detailTransaction.class_name || "-"}</p>
+            <div className="mx-auto w-[860px] max-w-full rounded-xl border border-slate-300 bg-white p-2.5 text-[12px] leading-tight text-slate-800">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold tracking-wide text-slate-900">MADSC PAYMENT</p>
+                  <p className="text-[11px] text-slate-600">Dokumen detail transaksi pembayaran siswa</p>
+                </div>
+                <div className="border border-slate-500 px-2.5 py-1 text-[11px] font-semibold text-slate-900">
+                  BUKTI PEMBAYARAN
+                </div>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tagihan</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.bill_name}</p>
-                <p className="mt-1 text-sm text-slate-600">Periode: {detailTransaction.period || "-"}</p>
-                <p className="text-sm text-slate-600">Status: {detailTransaction.status === "paid" ? "Lunas" : detailTransaction.status}</p>
+
+              <div className="my-1.5 border-t border-dashed border-slate-400" />
+
+              <div className="grid gap-1 md:grid-cols-2">
+                <div className="space-y-1">
+                  <p><span className="inline-block w-28 font-semibold">Diterima dari</span>: {detailTransaction.student_name}</p>
+                  <p><span className="inline-block w-28 font-semibold">Nomor Induk</span>: {detailTransaction.nis || "-"}</p>
+                  <p><span className="inline-block w-28 font-semibold">Kelas</span>: {detailTransaction.class_name || "-"}</p>
+                  <p><span className="inline-block w-28 font-semibold">Status Siswa</span>: {detailTransaction.status === "paid" ? "Lunas" : detailTransaction.status}</p>
+                </div>
+                <div className="space-y-1">
+                  <p><span className="inline-block w-28 font-semibold">Tgl. Bayar</span>: {formatDate(detailTransaction.payment_date)}</p>
+                  <p><span className="inline-block w-28 font-semibold">No. Bukti</span>: {detailTransaction.reference_no || "-"}</p>
+                  <p><span className="inline-block w-28 font-semibold">Metode</span>: {detailTransaction.payment_channel || "-"}</p>
+                  <p><span className="inline-block w-28 font-semibold">Petugas</span>: ADMIN</p>
+                </div>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kanal</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.payment_channel}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tanggal</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(detailTransaction.payment_date)}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 md:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Nomor Referensi</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{detailTransaction.reference_no || "-"}</p>
-              </div>
-              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 md:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Total Dibayar</p>
-                <p className="mt-1 text-2xl font-bold text-sky-900">{formatCurrency(detailTransaction.amount_paid)}</p>
+
+              <div className="my-1.5 border-t border-dashed border-slate-400" />
+
+              <div className="grid gap-3 md:grid-cols-[1fr_240px]">
+                <div>
+                  <p className="mb-1 font-semibold">Dengan rincian pembayaran sebagai berikut:</p>
+                  <div className="grid grid-cols-[1fr_auto] gap-2 border-y border-slate-300 py-1.5">
+                    <p>1. {detailTransaction.bill_name} ({detailTransaction.period || "-"})</p>
+                    <p className="font-semibold">{formatCurrency(detailTransaction.amount_paid)}</p>
+                  </div>
+                </div>
+                <div className="space-y-1 border-t border-slate-300 pt-1">
+                  <div className="flex justify-between"><span className="font-semibold">Jumlah</span><span>{formatCurrency(detailTransaction.amount_paid)}</span></div>
+                  <div className="flex justify-between"><span className="font-semibold">Pembayaran</span><span>{formatCurrency(detailTransaction.amount_paid)}</span></div>
+                  <div className="flex justify-between border-b border-slate-400 pb-1"><span className="font-semibold">Kembali</span><span>Rp0</span></div>
+                </div>
               </div>
             </div>
 
