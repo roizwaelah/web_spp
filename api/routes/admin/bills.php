@@ -81,25 +81,66 @@ if ($route === 'admin/bills' && $method === 'DELETE') {
     $user = require_auth();
     validate_menu_access($user, ['bills'], ['admin']);
     $input = json_input();
-    ensure_required($input, ['id']);
-    $bill = $pdo->prepare("SELECT * FROM bills WHERE id = ? LIMIT 1");
-    $bill->execute([$input['id']]);
-    $row = $bill->fetch();
-    if (!$row) {
-        response(['message' => 'Data tagihan tidak ditemukan'], 404);
+    $ids = [];
+    if (isset($input['ids']) && is_array($input['ids'])) {
+        foreach ($input['ids'] as $rawId) {
+            $id = (int) $rawId;
+            if ($id > 0) $ids[$id] = $id;
+        }
+    } elseif (!empty($input['id'])) {
+        $id = (int) $input['id'];
+        if ($id > 0) $ids[$id] = $id;
     }
-    $txCount = (int) scalar('SELECT COUNT(*) FROM transactions WHERE bill_id = ?', [$input['id']]);
-    if ($txCount > 0) {
-        response(['message' => 'Tagihan tidak bisa dihapus karena sudah memiliki transaksi'], 422);
+    $ids = array_values($ids);
+    if (!$ids) response(['message' => 'Pilih minimal satu tagihan untuk dihapus'], 422);
+
+    $deleted = 0;
+    $failed = [];
+    $billStmt = $pdo->prepare("SELECT * FROM bills WHERE id = ? LIMIT 1");
+    $deleteStmt = $pdo->prepare("DELETE FROM bills WHERE id = ?");
+
+    foreach ($ids as $billId) {
+        $billStmt->execute([$billId]);
+        $row = $billStmt->fetch();
+        if (!$row) {
+            $failed[] = ['id' => $billId, 'reason' => 'Data tagihan tidak ditemukan'];
+            continue;
+        }
+
+        $txCount = (int) scalar('SELECT COUNT(*) FROM transactions WHERE bill_id = ?', [$billId]);
+        if ($txCount > 0) {
+            $failed[] = ['id' => $billId, 'reason' => 'Sudah memiliki transaksi'];
+            continue;
+        }
+
+        $proofCount = (int) scalar('SELECT COUNT(*) FROM payment_proofs WHERE bill_id = ?', [$billId]);
+        if ($proofCount > 0) {
+            $failed[] = ['id' => $billId, 'reason' => 'Sudah memiliki bukti pembayaran'];
+            continue;
+        }
+
+        $deleteStmt->execute([$billId]);
+        $deleted++;
+        log_activity((int) $user['id'], 'delete', 'bill', $billId, 'Menghapus tagihan ' . $row['bill_name']);
     }
-    $proofCount = (int) scalar('SELECT COUNT(*) FROM payment_proofs WHERE bill_id = ?', [$input['id']]);
-    if ($proofCount > 0) {
-        response(['message' => 'Tagihan tidak bisa dihapus karena sudah memiliki bukti pembayaran'], 422);
+
+    if ($deleted === 0 && $failed) {
+        $firstReason = (string) ($failed[0]['reason'] ?? 'Gagal menghapus tagihan');
+        response(['message' => 'Tidak ada tagihan yang bisa dihapus. ' . $firstReason, 'failed' => $failed], 422);
     }
-    $stmt = $pdo->prepare("DELETE FROM bills WHERE id=?");
-    $stmt->execute([$input['id']]);
-    log_activity((int) $user['id'], 'delete', 'bill', (int) $input['id'], 'Menghapus tagihan ' . $row['bill_name']);
-    response(['message' => 'Tagihan berhasil dihapus']);
+
+    if ($failed) {
+        response([
+            'message' => "{$deleted} tagihan berhasil dihapus, " . count($failed) . " gagal dihapus",
+            'deleted' => $deleted,
+            'failed' => $failed,
+        ]);
+    }
+
+    response([
+        'message' => $deleted === 1 ? 'Tagihan berhasil dihapus' : "{$deleted} tagihan berhasil dihapus",
+        'deleted' => $deleted,
+    ]);
 }
 
 if ($route === 'admin/bills/generate' && $method === 'POST') {

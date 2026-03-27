@@ -13,6 +13,7 @@ export default function BillsListPage() {
   const [rows, setRows] = useState([]);
   const [studentSourceRows, setStudentSourceRows] = useState([]);
   const [meta, setMeta] = useState({ students: [], classes: [] });
+  const [selectedIds, setSelectedIds] = useState([]);
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState({
     status: "",
@@ -60,6 +61,11 @@ export default function BillsListPage() {
     load();
   }, [filter.status, filter.class_id, filter.student_id]);
 
+  useEffect(() => {
+    const available = new Set(rows.map((row) => String(row.id)));
+    setSelectedIds((current) => current.filter((id) => available.has(String(id))));
+  }, [rows]);
+
   const remove = async (id) => {
     const confirmed = await confirm({
       title: "Hapus tagihan",
@@ -76,6 +82,30 @@ export default function BillsListPage() {
       setMessage(error?.response?.data?.message || "Gagal menghapus tagihan");
     }
   };
+
+  const removeBulk = async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = await confirm({
+      title: "Hapus tagihan terpilih",
+      description: `${selectedIds.length} tagihan dipilih. Tagihan yang sudah punya transaksi atau bukti bayar tidak akan bisa dihapus.`,
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+    try {
+      const { data } = await fetchRoute("admin/bills", {
+        method: "DELETE",
+        data: { ids: selectedIds.map((id) => Number(id)) },
+      });
+      setMessage(data?.message || "Bulk hapus tagihan selesai diproses");
+      setSelectedIds([]);
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus tagihan terpilih");
+    }
+  };
+
+  const allSelected = rows.length > 0 && selectedIds.length === rows.length;
 
   const studentOptions = useMemo(() => {
     const studentMap = new Map();
@@ -108,47 +138,113 @@ export default function BillsListPage() {
       }
     >
       <div className="space-y-4">
-        <div className="card p-3">
-          <div className="grid gap-4 md:grid-cols-3">
-            <select
-              className="input"
-              value={filter.status}
-              onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-            >
-              <option value="">Semua status</option>
-              <option value="unpaid">Belum lunas</option>
-              <option value="paid">Lunas</option>
-            </select>
-            <select
-              className="input"
-              value={filter.class_id}
-              onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
-            >
-              <option value="">Semua kelas</option>
-              {meta.classes.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="input"
-              value={filter.student_id}
-              disabled={studentOptions.length === 0}
-              onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
-            >
-              <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
-              {studentOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} - {item.nis}
-                </option>
-              ))}
-            </select>
+        <div className={`grid gap-3 ${isAdmin ? "lg:grid-cols-[380px_minmax(0,1fr)]" : "grid-cols-1"}`}>
+          {isAdmin && (
+            <div className="card p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Bulk Action</p>
+              <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+                <button
+                  type="button"
+                  className="btn-secondary whitespace-nowrap"
+                  onClick={() => setSelectedIds(rows.map((row) => row.id))}
+                  disabled={rows.length === 0 || allSelected}
+                >
+                  Pilih Semua
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary whitespace-nowrap"
+                  onClick={() => setSelectedIds([])}
+                  disabled={selectedIds.length === 0}
+                >
+                  Batal Pilih
+                </button>
+                <button
+                  type="button"
+                  className="btn-danger whitespace-nowrap"
+                  onClick={removeBulk}
+                  disabled={selectedIds.length === 0}
+                >
+                  <Trash2 size={16} /> Hapus Terpilih ({selectedIds.length})
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="card p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Filter Tagihan</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <select
+                className="input"
+                value={filter.status}
+                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+              >
+                <option value="">Semua status</option>
+                <option value="unpaid">Belum lunas</option>
+                <option value="paid">Lunas</option>
+              </select>
+              <select
+                className="input"
+                value={filter.class_id}
+                onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
+              >
+                <option value="">Semua kelas</option>
+                {meta.classes.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input"
+                value={filter.student_id}
+                disabled={studentOptions.length === 0}
+                onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
+              >
+                <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
+                {studentOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} - {item.nis}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
         <Table
           columns={[
+            ...(isAdmin
+              ? [
+                  {
+                    key: "select",
+                    title: (
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={(e) =>
+                          setSelectedIds(e.target.checked ? rows.map((row) => row.id) : [])
+                        }
+                      />
+                    ),
+                    headerClassName: "w-0 whitespace-nowrap",
+                    cellClassName: "w-0 whitespace-nowrap",
+                    render: (row) => (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(row.id)}
+                        onChange={(e) =>
+                          setSelectedIds((current) =>
+                            e.target.checked
+                              ? [...new Set([...current, row.id])]
+                              : current.filter((id) => id !== row.id),
+                          )
+                        }
+                      />
+                    ),
+                  },
+                ]
+              : []),
             { key: "student_name", title: "Siswa" },
             { key: "class_name", title: "Kelas" },
             { key: "bill_name", title: "Tagihan" },
