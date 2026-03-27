@@ -351,7 +351,7 @@ export default function PaymentEditPage() {
                   <p className="text-[11px] text-slate-600">Konfirmasi transaksi pembayaran siswa</p>
                 </div>
                 <div className="border border-slate-500 px-2.5 py-1 text-[11px] font-semibold text-slate-900">
-                  BUKTI PEMBAYARAN
+                  KWITANSI
                 </div>
               </div>
 

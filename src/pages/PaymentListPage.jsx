@@ -311,7 +311,7 @@ export default function PaymentListPage() {
                   <p className="text-[11px] text-slate-600">Dokumen detail transaksi pembayaran siswa</p>
                 </div>
                 <div className="border border-slate-500 px-2.5 py-1 text-[11px] font-semibold text-slate-900">
-                  BUKTI PEMBAYARAN
+                  KUITANSI
                 </div>
               </div>
 

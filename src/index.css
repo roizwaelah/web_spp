@@ -165,7 +165,7 @@ body {
 }
 
 .input {
-  @apply w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[13px] text-black outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
+  @apply w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-[14px] text-black outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100;
 }
 
 .textarea {
