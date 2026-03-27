@@ -195,7 +195,7 @@ export default function FinanceEditPage() {
                 onChange={(e) => setForm({ ...form, billing_type: e.target.value })}
               >
                 <option value="monthly">Bulanan</option>
-                <option value="one_time">Sekali bayar</option>
+                <option value="one_time">Per TA</option>
               </select>
             </div>
           </div>

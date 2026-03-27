@@ -8,19 +8,8 @@ import { formatCurrency } from "../utils";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 
-const expenseCategories = [
-  "Operasional",
-  "ATK",
-  "Transport",
-  "Konsumsi",
-  "Perawatan",
-  "Utilitas",
-  "Honorarium",
-  "Kegiatan",
-  "Lainnya",
-];
-
 export default function ExpensesListPage() {
+  const [categories, setCategories] = useState([]);
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState({
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
@@ -34,6 +23,15 @@ export default function ExpensesListPage() {
   const { confirm } = useUI();
 
   useToastMessage(message, setMessage);
+
+  const loadCategories = async () => {
+    try {
+      const { data } = await fetchRoute("admin/expense-categories");
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal memuat kategori pengeluaran");
+    }
+  };
 
   const load = async () => {
     try {
@@ -55,6 +53,7 @@ export default function ExpensesListPage() {
   };
 
   useEffect(() => {
+    loadCategories();
     load();
   }, []);
 
@@ -101,9 +100,9 @@ export default function ExpensesListPage() {
               <label className="label">Kategori</label>
               <select className="input" value={filter.category} onChange={(e) => setFilter((c) => ({ ...c, category: e.target.value }))}>
                 <option value="">Semua kategori</option>
-                {expenseCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
                   </option>
                 ))}
               </select>

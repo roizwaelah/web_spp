@@ -72,12 +72,20 @@ export default function FinanceListPage() {
               title: "Tarif",
               render: (row) => formatCurrency(row.amount),
             },
-            { key: "billing_type", title: "Jenis" },
+            {
+              key: "billing_type",
+              title: "Jenis",
+              render: (row) => (row.billing_type === "one_time" ? "Per TA" : "Bulanan"),
+            },
             {
               key: "scope",
               title: "Target",
-              render: (row) =>
-                row.applies_to === "class" ? row.class_name : row.student_name,
+              render: (row) => {
+                if (row.applies_to === "class") {
+                  return row.class_name || "Semua kelas";
+                }
+                return row.student_name || "Semua siswa";
+              },
             },
             {
               key: "is_active",

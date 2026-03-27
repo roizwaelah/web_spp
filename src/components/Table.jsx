@@ -11,7 +11,7 @@ export default function Table({ columns, rows, emptyText = 'Belum ada data', str
               {safeColumns.map((column) => (
                 <th
                   key={column.key}
-                  className={`whitespace-nowrap px-3 py-2.5 text-left font-semibold text-slate-600 xl:px-3 xl:py-2 ${column.headerClassName || ""}`.trim()}
+                  className={`whitespace-nowrap px-3 py-2.5 text-left font-bold text-black xl:px-3 xl:py-2 ${column.headerClassName || ""}`.trim()}
                 >
                   {column.title}
                 </th>

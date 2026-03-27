@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, HandCoins } from "lucide-react";
+import { ArrowLeft, HandCoins, Printer } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
+import ModalFrame from "../components/ModalFrame";
 
 const initialForm = {
   class_id: "",
@@ -21,6 +22,7 @@ export default function PaymentEditPage() {
   const [message, setMessage] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -100,23 +102,49 @@ export default function PaymentEditPage() {
 
   const selectedBill = billOptions.find((item) => String(item.id) === String(form.bill_id));
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const savePayment = async () => {
+    const { data } = await fetchRoute("admin/bills/manual-payment", {
+      method: "POST",
+      data: {
+        bill_id: Number(form.bill_id),
+        payment_channel: form.payment_channel,
+        payment_date: form.payment_date,
+      },
+    });
+    return data;
+  };
+
+  const printTransaction = async (transactionId) => {
+    const { data } = await fetchRoute("admin/transactions/receipt", {
+      method: "GET",
+      params: { transaction_id: transactionId },
+      responseType: "text",
+      transformResponse: [(value) => value],
+    });
+
+    const printWindow = window.open("", "_blank", "width=900,height=720");
+    if (!printWindow) {
+      throw new Error("Popup diblokir browser. Izinkan popup untuk mencetak bukti pembayaran.");
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(data);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  };
+
+  const saveOnly = async () => {
     try {
       setSaving(true);
-      const { data } = await fetchRoute("admin/bills/manual-payment", {
-        method: "POST",
-        data: {
-          bill_id: Number(form.bill_id),
-          payment_channel: form.payment_channel,
-          payment_date: form.payment_date,
-        },
-      });
-
+      const data = await savePayment();
       setMessage({
         type: "success",
         text: `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`,
       });
+      setPaymentDialogOpen(false);
       navigate("/admin/pembayaran/list", { replace: true });
     } catch (error) {
       setMessage({
@@ -126,6 +154,33 @@ export default function PaymentEditPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveAndPrint = async () => {
+    try {
+      setSaving(true);
+      const data = await savePayment();
+      await printTransaction(data?.transaction_id);
+      setMessage({
+        type: "success",
+        text: `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`,
+      });
+      setPaymentDialogOpen(false);
+      navigate("/admin/pembayaran/list", { replace: true });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || error?.message || "Gagal mencetak pembayaran",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openPaymentDialog = (event) => {
+    event.preventDefault();
+    if (!form.bill_id) return;
+    setPaymentDialogOpen(true);
   };
 
   return (
@@ -150,7 +205,7 @@ export default function PaymentEditPage() {
           </div>
         </div>
 
-        <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={openPaymentDialog}>
           <div className="h-full">
             <label className="label">Filter kelas</label>
             <select
@@ -258,7 +313,7 @@ export default function PaymentEditPage() {
 
           <div className="flex gap-3 md:col-span-2">
             <button className="btn-primary flex-1" disabled={!form.bill_id || saving}>
-              {saving ? "Menyimpan..." : "Simpan pembayaran"}
+              Bayar
             </button>
             <button
               type="button"
@@ -276,6 +331,80 @@ export default function PaymentEditPage() {
           </div>
         </form>
       </div>
+
+      <ModalFrame
+        open={paymentDialogOpen}
+        title="Konfirmasi Transaksi Pembayaran"
+        description=""
+        maxWidthClass="max-w-[720px]"
+        showIcon={false}
+        showHeader={false}
+        cardClassName="gap-2 p-3"
+        onClose={() => setPaymentDialogOpen(false)}
+      >
+        {selectedBill ? (
+          <>
+            <div className="mx-auto w-[860px] max-w-full rounded-xl border border-slate-300 bg-white p-2.5 text-[12px] leading-tight text-slate-800">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold tracking-wide text-slate-900">MADSC PAYMENT</p>
+                  <p className="text-[11px] text-slate-600">Konfirmasi transaksi pembayaran siswa</p>
+                </div>
+                <div className="border border-slate-500 px-2.5 py-1 text-[11px] font-semibold text-slate-900">
+                  BUKTI PEMBAYARAN
+                </div>
+              </div>
+
+              <div className="my-1.5 border-t border-dashed border-slate-400" />
+
+              <div className="grid gap-1 md:grid-cols-2">
+                <div className="space-y-1">
+                  <p><span className="inline-block w-28 font-semibold">Diterima dari</span>: {selectedBill.student_name}</p>
+                  <p><span className="inline-block w-28 font-semibold">Nomor Induk</span>: {selectedBill.nis || "-"}</p>
+                  <p><span className="inline-block w-28 font-semibold">Kelas</span>: {selectedBill.class_name || "-"}</p>
+                  <p><span className="inline-block w-28 font-semibold">Status Siswa</span>: Akan Lunas</p>
+                </div>
+                <div className="space-y-1">
+                  <p><span className="inline-block w-28 font-semibold">Tgl. Bayar</span>: {formatDate(form.payment_date)}</p>
+                  <p><span className="inline-block w-28 font-semibold">No. Bukti</span>: Otomatis saat disimpan</p>
+                  <p><span className="inline-block w-28 font-semibold">Metode</span>: {form.payment_channel}</p>
+                  <p><span className="inline-block w-28 font-semibold">Petugas</span>: ADMIN</p>
+                </div>
+              </div>
+
+              <div className="my-1.5 border-t border-dashed border-slate-400" />
+
+              <div className="grid gap-3 md:grid-cols-[1fr_240px]">
+                <div>
+                  <p className="mb-1 font-semibold">Dengan rincian pembayaran sebagai berikut:</p>
+                  <div className="grid grid-cols-[1fr_auto] gap-2 border-y border-slate-300 py-1.5">
+                    <p>1. {selectedBill.bill_name} ({selectedBill.period || "-"})</p>
+                    <p className="font-semibold">{formatCurrency(selectedBill.amount)}</p>
+                  </div>
+                </div>
+                <div className="space-y-1 border-t border-slate-300 pt-1">
+                  <div className="flex justify-between"><span className="font-semibold">Jumlah</span><span>{formatCurrency(selectedBill.amount)}</span></div>
+                  <div className="flex justify-between"><span className="font-semibold">Pembayaran</span><span>{formatCurrency(selectedBill.amount)}</span></div>
+                  <div className="flex justify-between border-b border-slate-400 pb-1"><span className="font-semibold">Kembali</span><span>Rp0</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setPaymentDialogOpen(false)} disabled={saving}>
+                Batal
+              </button>
+              <button type="button" className="btn-primary" onClick={saveOnly} disabled={saving}>
+                {saving ? "Menyimpan..." : "Simpan"}
+              </button>
+              <button type="button" className="btn-primary" onClick={saveAndPrint} disabled={saving}>
+                <Printer size={16} />
+                {saving ? "Menyiapkan..." : "Cetak (PDF)"}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </ModalFrame>
     </Layout>
   );
 }

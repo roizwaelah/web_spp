@@ -217,7 +217,7 @@ body {
 }
 
 .label {
-  @apply mb-1.5 block text-[0.86rem] font-medium text-black;
+  @apply mb-1.5 block text-[0.86rem] font-semibold text-black;
 }
 
 .page-grid {
