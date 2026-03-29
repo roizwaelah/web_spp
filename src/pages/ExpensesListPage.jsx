@@ -7,6 +7,7 @@ import { fetchRoute } from "../api";
 import { formatCurrency } from "../utils";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 export default function ExpensesListPage() {
   const [categories, setCategories] = useState([]);
@@ -80,7 +81,12 @@ export default function ExpensesListPage() {
       title="Pengeluaran"
       subtitle="Kelola daftar pengeluaran operasional dan pantau biaya keluar dalam periode tertentu."
       actions={
-        <button className="btn-primary" onClick={() => navigate("/admin/pengeluaran/edit")}>
+        <button
+          className="btn-primary"
+          onClick={() => navigate("/admin/pengeluaran/edit")}
+          onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
+          onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
+        >
           <Plus size={18} /> Tambah pengeluaran
         </button>
       }
@@ -132,7 +138,12 @@ export default function ExpensesListPage() {
               title: "Aksi",
               render: (row) => (
                 <div className="flex gap-2">
-                  <button className="btn-secondary px-3 py-2" onClick={() => navigate(`/admin/pengeluaran/edit/${row.id}`)}>
+                  <button
+                    className="btn-secondary px-3 py-2"
+                    onClick={() => navigate(`/admin/pengeluaran/edit/${row.id}`)}
+                    onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
+                    onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
+                  >
                     <Pencil size={16} />
                   </button>
                   <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>

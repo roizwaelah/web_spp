@@ -8,6 +8,7 @@ import { staffMenuItems } from "../access";
 import { roleLabel } from "../utils";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 const menuLabelMap = Object.fromEntries(
   staffMenuItems.map((item) => [item.accessKey, item.label]),
@@ -73,6 +74,8 @@ export default function UsersListPage() {
         <button
           className="btn-primary"
           onClick={() => navigate("/admin/users/edit")}
+          onMouseEnter={() => prefetchRoute("/admin/users/edit")}
+          onFocus={() => prefetchRoute("/admin/users/edit")}
         >
           <Plus size={18} /> Tambah user
         </button>
@@ -123,6 +126,8 @@ export default function UsersListPage() {
                   <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/users/edit/${row.id}`)}
+                    onMouseEnter={() => prefetchRoute("/admin/users/edit")}
+                    onFocus={() => prefetchRoute("/admin/users/edit")}
                   >
                     <Pencil size={16} />
                   </button>

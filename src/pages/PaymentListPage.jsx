@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { useUI } from "../context/UIContext";
 import ModalFrame from "../components/ModalFrame";
+import { prefetchRoute } from "../prefetch";
 
 export default function PaymentListPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
@@ -211,6 +212,8 @@ export default function PaymentListPage() {
               },
             })
           }
+          onMouseEnter={() => prefetchRoute("/admin/pembayaran/edit")}
+          onFocus={() => prefetchRoute("/admin/pembayaran/edit")}
         >
           <Plus size={18} /> Input pembayaran
         </button>

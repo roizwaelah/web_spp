@@ -7,6 +7,7 @@ import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 export default function StudentListPage() {
   const [students, setStudents] = useState([]);
@@ -161,7 +162,12 @@ export default function StudentListPage() {
       title="Data Siswa"
       subtitle="Daftar lengkap siswa, pencarian cepat, impor data, dan aksi edit/hapus."
       actions={
-        <button className="btn-primary" onClick={() => navigate("/admin/siswa/edit")}> 
+        <button
+          className="btn-primary"
+          onClick={() => navigate("/admin/siswa/edit")}
+          onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
+          onFocus={() => prefetchRoute("/admin/siswa/edit")}
+        >
           <Plus size={18} /> Tambah Siswa
         </button>
       }
@@ -225,6 +231,8 @@ export default function StudentListPage() {
                   <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/siswa/edit/${row.id}`)}
+                    onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
+                    onFocus={() => prefetchRoute("/admin/siswa/edit")}
                   >
                     <Pencil size={16} />
                   </button>

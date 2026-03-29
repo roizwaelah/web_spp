@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 export default function BillsListPage() {
   const [rows, setRows] = useState([]);
@@ -128,10 +129,20 @@ export default function BillsListPage() {
       subtitle="Lihat daftar tagihan, filter status pembayaran, dan pantau status bukti pembayaran siswa."
       actions={
         <div className="flex flex-wrap gap-2">
-          <button className="btn-secondary" onClick={() => navigate("/admin/pembayaran/list")}>
+          <button
+            className="btn-secondary"
+            onClick={() => navigate("/admin/pembayaran/list")}
+            onMouseEnter={() => prefetchRoute("/admin/pembayaran/list")}
+            onFocus={() => prefetchRoute("/admin/pembayaran/list")}
+          >
             Pembayaran
           </button>
-          <button className="btn-primary" onClick={() => navigate("/admin/tagihan/edit")}>
+          <button
+            className="btn-primary"
+            onClick={() => navigate("/admin/tagihan/edit")}
+            onMouseEnter={() => prefetchRoute("/admin/tagihan/edit")}
+            onFocus={() => prefetchRoute("/admin/tagihan/edit")}
+          >
             <Plus size={18} /> Buat tagihan
           </button>
         </div>

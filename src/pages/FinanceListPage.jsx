@@ -8,6 +8,7 @@ import { formatCurrency } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 export default function FinanceListPage() {
   const [rows, setRows] = useState([]);
@@ -57,6 +58,8 @@ export default function FinanceListPage() {
         <button
           className="btn-primary"
           onClick={() => navigate("/admin/pos-keuangan/edit")}
+          onMouseEnter={() => prefetchRoute("/admin/pos-keuangan/edit")}
+          onFocus={() => prefetchRoute("/admin/pos-keuangan/edit")}
         >
           <Plus size={18} /> Tambah pos
         </button>
@@ -108,6 +111,8 @@ export default function FinanceListPage() {
                         state: { copyId: row.id },
                       })
                     }
+                    onMouseEnter={() => prefetchRoute("/admin/pos-keuangan/edit")}
+                    onFocus={() => prefetchRoute("/admin/pos-keuangan/edit")}
                     title="Salin pos"
                   >
                     <Copy size={16} />
@@ -115,6 +120,8 @@ export default function FinanceListPage() {
                   <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/pos-keuangan/edit/${row.id}`)}
+                    onMouseEnter={() => prefetchRoute("/admin/pos-keuangan/edit")}
+                    onFocus={() => prefetchRoute("/admin/pos-keuangan/edit")}
                     title="Edit pos"
                   >
                     <Pencil size={16} />

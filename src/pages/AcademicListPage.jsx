@@ -7,6 +7,7 @@ import { fetchRoute } from "../api";
 import { formatDate } from "../utils";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 export default function AcademicListPage() {
   const [rows, setRows] = useState([]);
@@ -68,6 +69,8 @@ export default function AcademicListPage() {
         <button
           className="btn-primary"
           onClick={() => navigate("/admin/tahun-ajaran/edit")}
+          onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+          onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
         >
           <Plus size={18} /> Tambah tahun ajaran
         </button>
@@ -114,6 +117,8 @@ export default function AcademicListPage() {
                   <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/tahun-ajaran/edit/${row.id}`)}
+                    onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+                    onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
                   >
                     <Pencil size={16} />
                   </button>

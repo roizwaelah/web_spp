@@ -6,6 +6,7 @@ import Table from "../components/Table";
 import { fetchRoute } from "../api";
 import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
+import { prefetchRoute } from "../prefetch";
 
 export default function ClassesListPage() {
   const [rows, setRows] = useState([]);
@@ -64,6 +65,8 @@ export default function ClassesListPage() {
         <button
           className="btn-primary"
           onClick={() => navigate("/admin/kelas/edit")}
+          onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
+          onFocus={() => prefetchRoute("/admin/kelas/edit")}
         >
           <Plus size={18} /> Tambah kelas
         </button>
@@ -101,6 +104,8 @@ export default function ClassesListPage() {
                   <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/kelas/edit/${row.id}`)}
+                    onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
+                    onFocus={() => prefetchRoute("/admin/kelas/edit")}
                   >
                     <Pencil size={16} />
                   </button>
