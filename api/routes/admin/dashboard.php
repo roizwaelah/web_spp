@@ -23,11 +23,14 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         'whatsappGatewayEnabled' => setting_is_enabled('whatsapp_gateway_enabled'),
     ];
 
-    $monthly = $pdo->query("SELECT DATE_FORMAT(payment_date, '%b') month, SUM(amount_paid) total
+    $monthly = $pdo->query("SELECT
+            DATE(payment_date) date_key,
+            DATE_FORMAT(payment_date, '%d') day,
+            SUM(amount_paid) total
         FROM transactions
-        WHERE status='paid' AND YEAR(payment_date)=YEAR(CURDATE())
-        GROUP BY DATE_FORMAT(payment_date, '%Y-%m'), DATE_FORMAT(payment_date, '%b')
-        ORDER BY MIN(payment_date)")->fetchAll();
+        WHERE status='paid' AND DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+        GROUP BY DATE(payment_date), DATE_FORMAT(payment_date, '%d')
+        ORDER BY DATE(payment_date)")->fetchAll();
 
     $channelBreakdown = $pdo->query("SELECT payment_channel, SUM(amount_paid) total
         FROM transactions WHERE status='paid' GROUP BY payment_channel ORDER BY total DESC")->fetchAll();

@@ -16,7 +16,6 @@ const INITIAL_DASHBOARD_DATA = {
   summary: {},
   integrations: {},
   monthly: [],
-  channelBreakdown: [],
   dueSoon: [],
   latestTransactions: [],
   latestExpenses: [],
@@ -26,9 +25,6 @@ const normalizeDashboardData = (payload) => ({
   summary: payload?.summary ?? {},
   integrations: payload?.integrations ?? {},
   monthly: Array.isArray(payload?.monthly) ? payload.monthly : [],
-  channelBreakdown: Array.isArray(payload?.channelBreakdown)
-    ? payload.channelBreakdown
-    : [],
   dueSoon: Array.isArray(payload?.dueSoon) ? payload.dueSoon : [],
   latestTransactions: Array.isArray(payload?.latestTransactions)
     ? payload.latestTransactions
@@ -61,10 +57,32 @@ export default function AdminDashboard() {
     loadDashboard();
   }, []);
 
-  const maxMonthlyTotal = Math.max(
-    ...data.monthly.map((item) => Number(item.total || 0)),
-    0,
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dailyIncomeMap = new Map(
+    data.monthly.map((item) => [Number(item.day || 0), Number(item.total || 0)]),
   );
+  const dailySeries = Array.from({ length: daysInMonth }, (_, idx) => {
+    const day = idx + 1;
+    return { day, total: dailyIncomeMap.get(day) || 0 };
+  });
+  const maxDailyTotal = Math.max(...dailySeries.map((item) => item.total), 0);
+  const chartMax = maxDailyTotal > 0 ? maxDailyTotal : 1;
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+  const chartHeight = 220;
+  const chartPadding = { top: 16, right: 14, bottom: 34, left: 56 };
+  const chartInnerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+  const chartWidth = Math.max(640, daysInMonth * 16 + chartPadding.left + chartPadding.right);
+  const chartInnerWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const barWidth = Math.max(6, Math.min(10, chartInnerWidth / daysInMonth - 4));
+  const gap = (chartInnerWidth - barWidth * daysInMonth) / Math.max(1, daysInMonth - 1);
+  const formatYAxis = (value) => {
+    const n = Number(value || 0);
+    if (n >= 1000000000) return `Rp ${(n / 1000000000).toFixed(1)} M`;
+    if (n >= 1000000) return `Rp ${(n / 1000000).toFixed(1)} Jt`;
+    if (n >= 1000) return `Rp ${(n / 1000).toFixed(0)} Rb`;
+    return `Rp ${n.toFixed(0)}`;
+  };
 
   return (
     <Layout
@@ -131,43 +149,16 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Payment Gateway</p>
-              <p className="mt-1 text-sm text-slate-500">
-                {data.integrations?.paymentGatewayProvider || "Belum diatur"}
-              </p>
-            </div>
-            <span className={data.integrations?.paymentGatewayEnabled ? "badge-green" : "badge-red"}>
-              {data.integrations?.paymentGatewayEnabled ? "Aktif" : "Nonaktif"}
-            </span>
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">WhatsApp Gateway</p>
-              <p className="mt-1 text-sm text-slate-500">Pengiriman notifikasi WhatsApp</p>
-            </div>
-            <span className={data.integrations?.whatsappGatewayEnabled ? "badge-green" : "badge-red"}>
-              {data.integrations?.whatsappGatewayEnabled ? "Aktif" : "Nonaktif"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-        <div className="card p-5 xl:p-5">
+      <div className="grid gap-4 xl:grid-cols-[1fr_250px] xl:items-start">
+        <div className="card w-full p-5 xl:p-5">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
               <BarChart3 size={18} />
             </div>
             <div>
-              <h3 className="section-title">Pendapatan per bulan</h3>
+              <h3 className="section-title">Pendapatan bulan ini</h3>
               <p className="text-[0.82rem] text-slate-500">
-                Ringkasan transaksi sukses per bulan berjalan.
+                Ringkasan transaksi sukses.
               </p>
             </div>
           </div>
@@ -177,73 +168,117 @@ export default function AdminDashboard() {
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 Memuat grafik...
               </div>
-            ) : data.monthly.length === 0 ? (
+            ) : dailySeries.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 Belum ada data grafik.
               </div>
             ) : (
-              data.monthly.map((item) => (
-                <div
-                  key={item.month}
-                  className="grid grid-cols-[58px_1fr_110px] items-center gap-2.5"
+              <div className="w-full overflow-hidden">
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  preserveAspectRatio="none"
+                  className="h-[220px] w-full"
+                  role="img"
+                  aria-label="Grafik pendapatan harian bulan ini"
                 >
-                  <div className="text-[0.8rem] font-semibold text-slate-900">
-                    {item.month}
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-500"
-                      style={{
-                        width: `${maxMonthlyTotal > 0 ? Math.max(8, Math.round((Number(item.total || 0) / maxMonthlyTotal) * 100)) : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="text-right text-[0.8rem] font-semibold text-slate-800">
-                    {formatCurrency(item.total)}
-                  </div>
-                </div>
-              ))
+                  {yTicks.map((tick) => {
+                    const y = chartPadding.top + chartInnerHeight * (1 - tick);
+                    const val = chartMax * tick;
+                    return (
+                      <g key={tick}>
+                        <line
+                          x1={chartPadding.left}
+                          y1={y}
+                          x2={chartWidth - chartPadding.right}
+                          y2={y}
+                          stroke="#e2e8f0"
+                          strokeDasharray="3 3"
+                        />
+                        <text
+                          x={chartPadding.left - 8}
+                          y={y + 4}
+                          textAnchor="end"
+                          fontSize="10"
+                          fill="#64748b"
+                        >
+                          {formatYAxis(val)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {dailySeries.map((item, index) => {
+                    const x = chartPadding.left + index * (barWidth + gap);
+                    const barHeight = chartInnerHeight * (item.total / chartMax);
+                    const y = chartPadding.top + chartInnerHeight - barHeight;
+                    return (
+                      <g key={item.day}>
+                        <rect
+                          x={x}
+                          y={y}
+                          width={barWidth}
+                          height={Math.max(1, barHeight)}
+                          rx="2"
+                          fill="#0ea5e9"
+                        />
+                        <text
+                          x={x + barWidth / 2}
+                          y={chartHeight - 14}
+                          textAnchor="middle"
+                          fontSize="9"
+                          fill="#334155"
+                        >
+                          {item.day}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  <line
+                    x1={chartPadding.left}
+                    y1={chartPadding.top + chartInnerHeight}
+                    x2={chartWidth - chartPadding.right}
+                    y2={chartPadding.top + chartInnerHeight}
+                    stroke="#cbd5e1"
+                  />
+                  <line
+                    x1={chartPadding.left}
+                    y1={chartPadding.top}
+                    x2={chartPadding.left}
+                    y2={chartPadding.top + chartInnerHeight}
+                    stroke="#cbd5e1"
+                  />
+                </svg>
+              </div>
             )}
           </div>
         </div>
 
-        <div className="card p-5 xl:p-5">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
-              <Wallet size={18} />
-            </div>
-            <div>
-              <h3 className="section-title">Breakdown kanal pembayaran</h3>
-              <p className="text-[0.82rem] text-slate-500">
-                Akumulasi pemasukan berdasarkan kanal.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-2.5">
-            {loading ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                Memuat data kanal...
-              </div>
-            ) : data.channelBreakdown.length === 0 ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                Belum ada data kanal.
-              </div>
-            ) : (
-              data.channelBreakdown.map((item) => (
-                <div
-                  key={item.payment_channel}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5"
-                >
-                  <div className="text-[0.82rem] font-semibold text-slate-900">
-                    {item.payment_channel}
-                  </div>
-                  <div className="badge-green">
-                    {formatCurrency(item.total)}
-                  </div>
+        <div className="xl:max-w-[250px] xl:justify-self-end">
+          <div className="card p-3">
+            <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="flex items-center gap-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-slate-900">Payment Gateway</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {data.integrations?.paymentGatewayProvider || "Belum diatur"}
+                  </p>
                 </div>
-              ))
-            )}
+                <span className={data.integrations?.paymentGatewayEnabled ? "badge-green" : "badge-red"}>
+                  {data.integrations?.paymentGatewayEnabled ? "Aktif" : "Nonaktif"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-slate-900">WhatsApp Gateway</p>
+                  <p className="mt-1 text-xs text-slate-500">Pengiriman notifikasi WhatsApp</p>
+                </div>
+                <span className={data.integrations?.whatsappGatewayEnabled ? "badge-green" : "badge-red"}>
+                  {data.integrations?.whatsappGatewayEnabled ? "Aktif" : "Nonaktif"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
