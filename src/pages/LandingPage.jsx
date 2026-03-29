@@ -9,8 +9,8 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [role, setRole] = useState("staff");
   const [form, setForm] = useState({
-    email: "admin@madrasah.id",
-    password: "password",
+    email: "",
+    password: "",
     nisn: "",
   });
   const [error, setError] = useState("");
@@ -104,9 +104,10 @@ export default function LandingPage() {
               ) : (
                 <>
                   <div>
-                    <label className="label">Email</label>
+                    <label className="label">Username</label>
                     <input
                       className="input"
+                      placeholder="Masukkan Username"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                     />
@@ -116,6 +117,7 @@ export default function LandingPage() {
                     <input
                       type="password"
                       className="input"
+                      placeholder="Masukkan Password"
                       value={form.password}
                       onChange={(e) =>
                         setForm({ ...form, password: e.target.value })

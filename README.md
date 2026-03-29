@@ -49,7 +49,7 @@ Versi enterprise / production-ready dari website SPP Madrasah berbasis:
   - `password`
 
 - **Bendahara**
-  - `bendahara@madrasah.id`
+  - `staf@madrasah.id`
   - `password`
 
 - **Orang Tua**
