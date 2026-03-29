@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Clock3, ShieldCheck, Wallet } from "lucide-react";
+import { BarChart3, ShieldCheck, Wallet } from "lucide-react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
-import { formatCurrency, formatDate } from "../utils";
+import { formatCurrency } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 
 const INITIAL_DASHBOARD_DATA = {
@@ -206,8 +206,8 @@ export default function AdminDashboard() {
                           x={chartPadding.left - 8}
                           y={y + 4}
                           textAnchor="end"
-                          fontSize="10"
-                          fill="#64748b"
+                          fontSize="11"
+                          fill="#00000"
                         >
                           {formatYAxis(val)}
                         </text>
@@ -234,8 +234,8 @@ export default function AdminDashboard() {
                           x={x + barWidth / 2}
                           y={chartHeight - 14}
                           textAnchor="middle"
-                          fontSize="9"
-                          fill="#334155"
+                          fontSize="10"
+                          fill="#000000"
                         >
                           {item.day}
                         </text>
@@ -272,10 +272,6 @@ export default function AdminDashboard() {
                   <p className="text-[13px] font-semibold text-slate-900">
                     Payment Gateway
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {data.integrations?.paymentGatewayProvider ||
-                      "Belum diatur"}
-                  </p>
                 </div>
                 <span
                   className={
@@ -295,9 +291,6 @@ export default function AdminDashboard() {
                   <p className="text-[13px] font-semibold text-slate-900">
                     WhatsApp Gateway
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Pengiriman notifikasi WhatsApp
-                  </p>
                 </div>
                 <span
                   className={
@@ -316,45 +309,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="space-y-4">
-          <div className="card p-5 xl:p-5">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="rounded-xl bg-amber-100 p-2.5 text-amber-700">
-                <Clock3 size={18} />
-              </div>
-              <div>
-                <h3 className="section-title">Jatuh tempo terdekat</h3>
-                <p className="text-[0.82rem] text-slate-500">
-                  Tagihan yang perlu segera ditindaklanjuti.
-                </p>
-              </div>
-            </div>
-            <Table
-              emptyText={
-                loading
-                  ? "Memuat data jatuh tempo..."
-                  : "Belum ada tagihan jatuh tempo"
-              }
-              columns={[
-                { key: "student_name", title: "Siswa" },
-                { key: "bill_name", title: "Tagihan" },
-                {
-                  key: "due_date",
-                  title: "Jatuh tempo",
-                  render: (row) => formatDate(row.due_date),
-                },
-                {
-                  key: "amount",
-                  title: "Nominal",
-                  render: (row) => formatCurrency(row.amount),
-                },
-              ]}
-              rows={data.dueSoon}
-            />
-          </div>
-        </div>
-
+      <div className="grid gap-4 xl:grid-cols-2">
         <div className="space-y-4">
           <div className="card p-5 xl:p-5">
             <div className="mb-3 flex items-center gap-3">
