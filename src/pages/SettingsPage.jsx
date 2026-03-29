@@ -206,10 +206,10 @@ export default function SettingsPage() {
         <div className="card p-6">
           <h3 className="section-title">Integrasi</h3>
           <div className="mt-4 space-y-4">
+              <label className="label">Payment Gateway</label>
             <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 px-4 py-3 text-sm">
               <div>
                 <p className="font-semibold text-slate-900">Aktifkan payment gateway</p>
-                <p className="text-slate-500">Jika aktif, panel pembayaran otomatis akan tampil di portal Orang Tua.</p>
               </div>
               <button
                 type="button"
@@ -255,7 +255,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="label">WhatsApp gateway URL</label>
+              <label className="label">WhatsApp Gateway</label>
               <label className="mb-2 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 px-4 py-3 text-sm">
                 <div>
                   <p className="font-semibold text-slate-900">Aktifkan WhatsApp gateway</p>

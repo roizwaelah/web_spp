@@ -32,6 +32,15 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         GROUP BY DATE(payment_date), DATE_FORMAT(payment_date, '%d')
         ORDER BY DATE(payment_date)")->fetchAll();
 
+    $monthlyExpenses = $pdo->query("SELECT
+            DATE(expense_date) date_key,
+            DATE_FORMAT(expense_date, '%d') day,
+            SUM(amount) total
+        FROM expenses
+        WHERE DATE_FORMAT(expense_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+        GROUP BY DATE(expense_date), DATE_FORMAT(expense_date, '%d')
+        ORDER BY DATE(expense_date)")->fetchAll();
+
     $channelBreakdown = $pdo->query("SELECT payment_channel, SUM(amount_paid) total
         FROM transactions WHERE status='paid' GROUP BY payment_channel ORDER BY total DESC")->fetchAll();
 
@@ -51,5 +60,5 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         FROM expenses
         ORDER BY expense_date DESC, id DESC LIMIT 6")->fetchAll();
 
-    response(compact('summary', 'monthly', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'latestExpenses', 'integrations'));
+    response(compact('summary', 'monthly', 'monthlyExpenses', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'latestExpenses', 'integrations'));
 }
