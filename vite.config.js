@@ -14,40 +14,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) {
-            return undefined;
-          }
-
-          if (id.includes("framer-motion")) {
-            return "motion";
-          }
-
-          if (id.includes("react-router") || id.includes("@remix-run")) {
-            return "router";
-          }
-
-          if (id.includes("react") || id.includes("scheduler")) {
-            return "react-vendor";
-          }
-
-          if (
-            id.includes("dompurify") ||
-            id.includes("lucide-react") ||
-            id.includes("clsx") ||
-            id.includes("tailwind-merge")
-          ) {
-            return "ui-vendor";
-          }
-
-          return "vendor";
-        },
-      },
-    },
-  },
   server: {
     proxy: {
       "/index.php": {
