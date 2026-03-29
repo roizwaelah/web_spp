@@ -1,6 +1,16 @@
 <?php
 // Route baca dan simpan pengaturan sistem.
 
+if ($route === 'admin/settings/profile' && $method === 'GET') {
+    $user = require_auth();
+    validate_menu_access($user, ['bills']);
+    $settings = list_settings();
+    response([
+        'school_name' => (string) ($settings['school_name'] ?? 'MADSC PAYMENT'),
+        'school_address' => (string) ($settings['school_address'] ?? 'Dokumen detail transaksi pembayaran siswa'),
+    ]);
+}
+
 if ($route === 'admin/settings' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['settings'], ['admin']);

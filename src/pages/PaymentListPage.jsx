@@ -33,7 +33,7 @@ export default function PaymentListPage() {
       try {
         const [{ data: metaData }, { data: settingsData }] = await Promise.all([
           fetchRoute("admin/meta"),
-          fetchRoute("admin/settings"),
+          fetchRoute("admin/settings/profile"),
         ]);
         setMeta({
           classes: Array.isArray(metaData?.classes) ? metaData.classes : [],
