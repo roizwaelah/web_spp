@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  BarChart3,
-  Clock3,
-  ShieldCheck,
-  Wallet,
-} from "lucide-react";
+import { BarChart3, Clock3, ShieldCheck, Wallet } from "lucide-react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
 import Table from "../components/Table";
@@ -29,7 +24,9 @@ const normalizeDashboardData = (payload) => ({
   latestTransactions: Array.isArray(payload?.latestTransactions)
     ? payload.latestTransactions
     : [],
-  latestExpenses: Array.isArray(payload?.latestExpenses) ? payload.latestExpenses : [],
+  latestExpenses: Array.isArray(payload?.latestExpenses)
+    ? payload.latestExpenses
+    : [],
 });
 
 export default function AdminDashboard() {
@@ -58,9 +55,16 @@ export default function AdminDashboard() {
   }, []);
 
   const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysInMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+  ).getDate();
   const dailyIncomeMap = new Map(
-    data.monthly.map((item) => [Number(item.day || 0), Number(item.total || 0)]),
+    data.monthly.map((item) => [
+      Number(item.day || 0),
+      Number(item.total || 0),
+    ]),
   );
   const dailySeries = Array.from({ length: daysInMonth }, (_, idx) => {
     const day = idx + 1;
@@ -72,10 +76,14 @@ export default function AdminDashboard() {
   const chartHeight = 220;
   const chartPadding = { top: 16, right: 14, bottom: 34, left: 56 };
   const chartInnerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
-  const chartWidth = Math.max(640, daysInMonth * 16 + chartPadding.left + chartPadding.right);
+  const chartWidth = Math.max(
+    640,
+    daysInMonth * 16 + chartPadding.left + chartPadding.right,
+  );
   const chartInnerWidth = chartWidth - chartPadding.left - chartPadding.right;
   const barWidth = Math.max(6, Math.min(10, chartInnerWidth / daysInMonth - 4));
-  const gap = (chartInnerWidth - barWidth * daysInMonth) / Math.max(1, daysInMonth - 1);
+  const gap =
+    (chartInnerWidth - barWidth * daysInMonth) / Math.max(1, daysInMonth - 1);
   const formatYAxis = (value) => {
     const n = Number(value || 0);
     if (n >= 1000000000) return `Rp ${(n / 1000000000).toFixed(1)} M`;
@@ -149,8 +157,9 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_250px] xl:items-start">
-        <div className="card w-full p-5 xl:p-5">
+      <div className="grid gap-4 xl:grid-cols-[auto_1fr] xl:items-start">
+        {/* KOLOM KIRI (Grafik): Lebarnya pas sesuai SVG (w-fit) */}
+        <div className="card w-fit max-w-full p-5 xl:p-5">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
               <BarChart3 size={18} />
@@ -166,18 +175,17 @@ export default function AdminDashboard() {
           <div className="mt-5 grid gap-2.5">
             {loading ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                Memuat grafik...
+                Memuat...
               </div>
             ) : dailySeries.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                Belum ada data grafik.
+                Belum ada data.
               </div>
             ) : (
-              <div className="w-full overflow-hidden">
+              <div className="overflow-x-auto">
                 <svg
-                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                  preserveAspectRatio="none"
-                  className="h-[220px] w-full"
+                  width={chartWidth}
+                  height={chartHeight}
                   role="img"
                   aria-label="Grafik pendapatan harian bulan ini"
                 >
@@ -209,7 +217,8 @@ export default function AdminDashboard() {
 
                   {dailySeries.map((item, index) => {
                     const x = chartPadding.left + index * (barWidth + gap);
-                    const barHeight = chartInnerHeight * (item.total / chartMax);
+                    const barHeight =
+                      chartInnerHeight * (item.total / chartMax);
                     const y = chartPadding.top + chartInnerHeight - barHeight;
                     return (
                       <g key={item.day}>
@@ -254,28 +263,52 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="xl:max-w-[250px] xl:justify-self-end">
-          <div className="card p-3">
+        <div className="w-full">
+          <div className="card w-full p-3">
             <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
+              {/* Item Payment Gateway */}
               <div className="flex items-center gap-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-slate-900">Payment Gateway</p>
+                  <p className="text-[13px] font-semibold text-slate-900">
+                    Payment Gateway
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {data.integrations?.paymentGatewayProvider || "Belum diatur"}
+                    {data.integrations?.paymentGatewayProvider ||
+                      "Belum diatur"}
                   </p>
                 </div>
-                <span className={data.integrations?.paymentGatewayEnabled ? "badge-green" : "badge-red"}>
-                  {data.integrations?.paymentGatewayEnabled ? "Aktif" : "Nonaktif"}
+                <span
+                  className={
+                    data.integrations?.paymentGatewayEnabled
+                      ? "badge-green"
+                      : "badge-red"
+                  }
+                >
+                  {data.integrations?.paymentGatewayEnabled
+                    ? "Aktif"
+                    : "Nonaktif"}
                 </span>
               </div>
-
+              {/* Item WhatsApp Gateway */}
               <div className="flex items-center gap-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-semibold text-slate-900">WhatsApp Gateway</p>
-                  <p className="mt-1 text-xs text-slate-500">Pengiriman notifikasi WhatsApp</p>
+                  <p className="text-[13px] font-semibold text-slate-900">
+                    WhatsApp Gateway
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Pengiriman notifikasi WhatsApp
+                  </p>
                 </div>
-                <span className={data.integrations?.whatsappGatewayEnabled ? "badge-green" : "badge-red"}>
-                  {data.integrations?.whatsappGatewayEnabled ? "Aktif" : "Nonaktif"}
+                <span
+                  className={
+                    data.integrations?.whatsappGatewayEnabled
+                      ? "badge-green"
+                      : "badge-red"
+                  }
+                >
+                  {data.integrations?.whatsappGatewayEnabled
+                    ? "Aktif"
+                    : "Nonaktif"}
                 </span>
               </div>
             </div>
@@ -298,7 +331,11 @@ export default function AdminDashboard() {
               </div>
             </div>
             <Table
-              emptyText={loading ? "Memuat data jatuh tempo..." : "Belum ada tagihan jatuh tempo"}
+              emptyText={
+                loading
+                  ? "Memuat data jatuh tempo..."
+                  : "Belum ada tagihan jatuh tempo"
+              }
               columns={[
                 { key: "student_name", title: "Siswa" },
                 { key: "bill_name", title: "Tagihan" },
@@ -332,7 +369,9 @@ export default function AdminDashboard() {
               </div>
             </div>
             <Table
-              emptyText={loading ? "Memuat transaksi..." : "Belum ada transaksi"}
+              emptyText={
+                loading ? "Memuat transaksi..." : "Belum ada transaksi"
+              }
               columns={[
                 { key: "student_name", title: "Siswa" },
                 { key: "bill_name", title: "Tagihan" },
@@ -383,11 +422,17 @@ export default function AdminDashboard() {
               </div>
             </div>
             <Table
-              emptyText={loading ? "Memuat pengeluaran..." : "Belum ada pengeluaran"}
+              emptyText={
+                loading ? "Memuat pengeluaran..." : "Belum ada pengeluaran"
+              }
               columns={[
                 { key: "expense_date", title: "Tanggal" },
                 { key: "title", title: "Pengeluaran" },
-                { key: "category", title: "Kategori", render: (row) => row.category || "-" },
+                {
+                  key: "category",
+                  title: "Kategori",
+                  render: (row) => row.category || "-",
+                },
                 {
                   key: "amount",
                   title: "Nominal",
