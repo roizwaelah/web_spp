@@ -41,7 +41,6 @@ function staff_menu_definitions(): array {
         ['key' => 'bills', 'label' => 'Tagihan'],
         ['key' => 'payment_proofs', 'label' => 'Bukti Pembayaran'],
         ['key' => 'reports', 'label' => 'Laporan'],
-        ['key' => 'backups', 'label' => 'Backup'],
         ['key' => 'settings', 'label' => 'Pengaturan'],
         ['key' => 'users', 'label' => 'Users'],
     ];
@@ -56,7 +55,7 @@ function default_menu_access_for_role(string $role): array {
 }
 
 function admin_only_menu_keys(): array {
-    return ['backups', 'settings', 'users'];
+    return ['settings', 'users'];
 }
 
 function normalize_menu_access(array $menuKeys): array {

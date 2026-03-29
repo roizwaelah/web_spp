@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { Download, HardDriveDownload, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
-import { fetchRoute } from "../api";
+import Table from "../components/Table";
+import { downloadRouteFile, fetchRoute } from "../api";
+import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 
 const defaults = {
@@ -19,15 +22,32 @@ const defaults = {
 
 export default function SettingsPage() {
   const [form, setForm] = useState(defaults);
+  const [backups, setBackups] = useState([]);
+  const [loadingBackups, setLoadingBackups] = useState(true);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { confirm } = useUI();
 
   useToastMessage(message, setMessage);
 
-  useEffect(() => {
-    fetchRoute("admin/settings")
+  const loadBackups = () => {
+    setLoadingBackups(true);
+    return fetchRoute("admin/backups")
       .then(({ data }) => {
+        setBackups(Array.isArray(data) ? data : []);
+      })
+      .catch((error) => {
+        setMessage(error?.response?.data?.message || "Gagal memuat data backup");
+      })
+      .finally(() => {
+        setLoadingBackups(false);
+      });
+  };
+
+  useEffect(() => {
+    Promise.all([fetchRoute("admin/settings"), loadBackups()])
+      .then(([{ data }]) => {
         setForm({
           ...defaults,
           ...data,
@@ -48,6 +68,46 @@ export default function SettingsPage() {
         setLoading(false);
       });
   }, []);
+
+  const createBackup = async () => {
+    try {
+      await fetchRoute("admin/backups", { method: "POST" });
+      setMessage("Backup database berhasil dibuat");
+      loadBackups();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal membuat backup database");
+    }
+  };
+
+  const downloadBackup = async (id) => {
+    try {
+      await downloadRouteFile("admin/backups/download", { id }, "backup.sql");
+      setMessage("");
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal mengunduh file backup");
+    }
+  };
+
+  const removeBackup = async (id) => {
+    const confirmed = await confirm({
+      title: "Hapus file backup",
+      description: "File backup yang dihapus tidak bisa dipulihkan dari aplikasi.",
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    try {
+      await fetchRoute("admin/backups", {
+        method: "DELETE",
+        data: { id },
+      });
+      setMessage("Backup berhasil dihapus");
+      loadBackups();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus backup");
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -246,6 +306,40 @@ export default function SettingsPage() {
             <button className="btn-primary w-full" disabled={loading || saving}>
               {saving ? "Menyimpan..." : "Simpan pengaturan"}
             </button>
+          </div>
+        </div>
+
+        <div className="card p-6 xl:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="section-title">Backup Database</h3>
+            <button type="button" className="btn-primary" onClick={createBackup}>
+              <HardDriveDownload size={18} /> Buat backup
+            </button>
+          </div>
+          <div className="mt-4">
+            <Table
+              columns={[
+                { key: "filename", title: "Nama file" },
+                { key: "size_kb", title: "Ukuran (KB)" },
+                { key: "created_at", title: "Dibuat pada" },
+                {
+                  key: "actions",
+                  title: "Aksi",
+                  render: (row) => (
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-secondary" onClick={() => downloadBackup(row.id)}>
+                        <Download size={16} /> Download
+                      </button>
+                      <button type="button" className="btn-danger" onClick={() => removeBackup(row.id)}>
+                        <Trash2 size={16} /> Hapus
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              rows={backups}
+              emptyText={loadingBackups ? "Memuat data backup..." : "Belum ada data backup"}
+            />
           </div>
         </div>
       </form>

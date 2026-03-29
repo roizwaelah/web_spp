@@ -75,7 +75,7 @@ export default function UsersEditPage() {
         (menuKey) =>
           !(
             isBendahara &&
-            ["backups", "settings", "users"].includes(menuKey)
+            ["settings", "users"].includes(menuKey)
           ),
       ),
     ),
@@ -210,7 +210,7 @@ export default function UsersEditPage() {
                 const locked =
                   menu.key === "dashboard" ||
                   (isBendahara &&
-                    ["backups", "settings", "users"].includes(menu.key));
+                    ["settings", "users"].includes(menu.key));
                 return (
                   <label
                     key={menu.key}

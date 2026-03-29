@@ -18,7 +18,6 @@ import ExpensesListPage from './pages/ExpensesListPage'
 import ExpensesEditPage from './pages/ExpensesEditPage'
 import PaymentProofsPage from './pages/PaymentProofsPage'
 import ReportsPage from './pages/ReportsPage'
-import BackupPage from './pages/BackupPage'
 import SettingsPage from './pages/SettingsPage'
 import ParentDashboard from './pages/ParentDashboard'
 import ParentBillsPage from './pages/ParentBillsPage'
@@ -66,7 +65,7 @@ export default function App() {
       <Route path="/admin/bukti-pembayaran" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="payment_proofs"><PaymentProofsPage /></ProtectedRoute>} />
       <Route path="/admin/laporan" element={<ProtectedRoute role={['admin', 'bendahara']} menuKey="reports"><ReportsPage /></ProtectedRoute>} />
       <Route path="/admin/akun" element={<ProtectedRoute role={['admin', 'bendahara']}><StaffAccountPage /></ProtectedRoute>} />
-      <Route path="/admin/backup" element={<ProtectedRoute role="admin" menuKey="backups"><BackupPage /></ProtectedRoute>} />
+      <Route path="/admin/backup" element={<Navigate to="/admin/pengaturan" replace />} />
       <Route path="/admin/pengaturan" element={<ProtectedRoute role="admin" menuKey="settings"><SettingsPage /></ProtectedRoute>} />
       <Route path="/admin/users" element={<Navigate to="/admin/users/list" replace />} />
       <Route path="/admin/users/list" element={<ProtectedRoute role="admin" menuKey="users"><UsersListPage /></ProtectedRoute>} />

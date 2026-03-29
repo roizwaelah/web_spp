@@ -213,7 +213,7 @@ body {
 }
 
 .section-title {
-  @apply text-[1rem] font-bold text-slate-900;
+  @apply text-[1rem] font-bold text-orange-600 uppercase;
 }
 
 .label {

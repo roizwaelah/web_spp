@@ -3,14 +3,14 @@
 
 if ($route === 'admin/backups' && $method === 'GET') {
     $user = require_auth();
-    validate_menu_access($user, ['backups'], ['admin']);
+    validate_menu_access($user, ['backups', 'settings'], ['admin']);
     $rows = $pdo->query("SELECT id, filename, ROUND(size_bytes/1024,2) size_kb, DATE_FORMAT(created_at, '%d-%m-%Y %H:%i') created_at FROM backups ORDER BY id DESC")->fetchAll();
     response($rows);
 }
 
 if ($route === 'admin/backups' && $method === 'POST') {
     $user = require_auth();
-    validate_menu_access($user, ['backups'], ['admin']);
+    validate_menu_access($user, ['backups', 'settings'], ['admin']);
     $tables = ['academic_years','classes','students','users','user_menu_access','finance_posts','expenses','bills','transactions','notifications','payment_proofs','settings','audit_logs'];
     $content = "-- Backup SPP Madrasah Enterprise
 -- Generated at: " . date('Y-m-d H:i:s') . "
@@ -41,7 +41,7 @@ if ($route === 'admin/backups' && $method === 'POST') {
 
 if ($route === 'admin/backups/download' && $method === 'GET') {
     $user = require_auth();
-    validate_menu_access($user, ['backups'], ['admin']);
+    validate_menu_access($user, ['backups', 'settings'], ['admin']);
     $id = query('id');
     ensure_required(['id' => $id], ['id']);
     $stmt = $pdo->prepare("SELECT * FROM backups WHERE id=? LIMIT 1");
@@ -56,7 +56,7 @@ if ($route === 'admin/backups/download' && $method === 'GET') {
 
 if ($route === 'admin/backups' && $method === 'DELETE') {
     $user = require_auth();
-    validate_menu_access($user, ['backups'], ['admin']);
+    validate_menu_access($user, ['backups', 'settings'], ['admin']);
     $input = json_input();
     ensure_required($input, ['id']);
     $stmt = $pdo->prepare("SELECT * FROM backups WHERE id=? LIMIT 1");

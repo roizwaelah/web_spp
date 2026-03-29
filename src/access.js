@@ -3,7 +3,6 @@ import {
   BookOpenCheck,
   CalendarRange,
   CreditCard,
-  DatabaseBackup,
   FileCheck2,
   FileSpreadsheet,
   HandCoins,
@@ -26,7 +25,6 @@ export const staffMenuItems = [
   { accessKey: "students", to: "/admin/siswa/list", label: "Data Siswa", icon: Users, matchPrefixes: ["/admin/siswa"] },
   { accessKey: "classes", to: "/admin/kelas/list", label: "Data Kelas", icon: Layers3, matchPrefixes: ["/admin/kelas"] },
   { accessKey: "academic_years", to: "/admin/tahun-ajaran/list", label: "Tahun Ajaran", icon: CalendarRange, matchPrefixes: ["/admin/tahun-ajaran"] },
-  { accessKey: "backups", to: "/admin/backup", label: "Backup", icon: DatabaseBackup, matchPrefixes: ["/admin/backup"] },
   { accessKey: "settings", to: "/admin/pengaturan", label: "Pengaturan", icon: Settings, matchPrefixes: ["/admin/pengaturan"] },
   { accessKey: "users", to: "/admin/users/list", label: "Users", icon: UserCog, matchPrefixes: ["/admin/users"] },
 ];
