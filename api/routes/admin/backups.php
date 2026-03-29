@@ -42,14 +42,25 @@ if ($route === 'admin/backups' && $method === 'POST') {
 if ($route === 'admin/backups/download' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['backups', 'settings'], ['admin']);
-    $id = query('id');
+    $id = (int) query('id', 0);
     ensure_required(['id' => $id], ['id']);
+    if ($id <= 0) response(['message' => 'ID backup tidak valid'], 422);
     $stmt = $pdo->prepare("SELECT * FROM backups WHERE id=? LIMIT 1");
     $stmt->execute([$id]);
     $file = $stmt->fetch();
     if (!$file || !file_exists($file['path'])) response(['message' => 'File backup tidak ditemukan'], 404);
+
+    $backupDir = API_ROOT . '/storage/backups';
+    if (!is_path_inside_dir((string) $file['path'], $backupDir)) {
+        response(['message' => 'Akses file backup tidak valid'], 403);
+    }
+
+    $safeFilename = sanitize_filename((string) ($file['filename'] ?? 'backup.sql'));
     header('Content-Type: application/sql');
-    header('Content-Disposition: attachment; filename="' . basename($file['filename']) . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Content-Disposition: attachment; filename="' . basename($safeFilename) . '"');
     readfile($file['path']);
     exit;
 }

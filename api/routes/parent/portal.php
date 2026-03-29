@@ -119,6 +119,11 @@ if ($route === 'parent/payment-proofs' && $method === 'POST') {
         if ($pendingProof) response(['message' => "Bukti pembayaran untuk {$bill['bill_name']} masih menunggu review admin"], 422);
     }
 
+    $notes = trim((string) ($_POST['notes'] ?? ''));
+    if ($notes !== '' && mb_strlen($notes) > 500) {
+        response(['message' => 'Catatan maksimal 500 karakter'], 422);
+    }
+
     $file = save_uploaded_file('file', 'payment-proofs');
     if (!$file) response(['message' => 'File bukti pembayaran wajib diunggah'], 422);
 
@@ -127,7 +132,7 @@ if ($route === 'parent/payment-proofs' && $method === 'POST') {
         $stmt = $pdo->prepare("INSERT INTO payment_proofs (bill_id, student_id, proof_file_name, proof_path, mime_type, size_bytes, status, notes, created_at)
             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, NOW())");
         foreach ($bills as $bill) {
-            $stmt->execute([$bill['id'], $student['id'], $file['filename'], $file['path'], $file['mime_type'], $file['size_bytes'], $_POST['notes'] ?? null]);
+            $stmt->execute([$bill['id'], $student['id'], $file['filename'], $file['path'], $file['mime_type'], $file['size_bytes'], $notes !== '' ? $notes : null]);
         }
         $pdo->commit();
     } catch (Throwable $e) {

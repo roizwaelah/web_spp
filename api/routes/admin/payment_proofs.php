@@ -27,17 +27,30 @@ if ($route === 'admin/payment-proofs' && $method === 'GET') {
 if ($route === 'admin/payment-proofs/file' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['payment_proofs']);
-    $proofId = query('id', '');
-    if (!$proofId) response(['message' => 'ID bukti pembayaran wajib diisi'], 422);
+    $proofId = (int) query('id', 0);
+    if ($proofId <= 0) response(['message' => 'ID bukti pembayaran wajib diisi'], 422);
     $stmt = $pdo->prepare("SELECT proof_file_name, proof_path, mime_type FROM payment_proofs WHERE id = ? LIMIT 1");
     $stmt->execute([$proofId]);
     $proof = $stmt->fetch();
     if (!$proof) response(['message' => 'Bukti tidak ditemukan'], 404);
     if (!$proof['proof_path'] || !file_exists($proof['proof_path'])) response(['message' => 'File bukti tidak ditemukan'], 404);
 
-    header('Content-Type: ' . ($proof['mime_type'] ?: 'application/octet-stream'));
+    $proofDir = API_ROOT . '/storage/payment-proofs';
+    if (!is_path_inside_dir((string) $proof['proof_path'], $proofDir)) {
+        response(['message' => 'Akses file tidak valid'], 403);
+    }
+
+    $mimeType = (string) ($proof['mime_type'] ?: 'application/octet-stream');
+    $safeFileName = sanitize_filename((string) ($proof['proof_file_name'] ?: 'proof-file'));
+    $isInlineAllowed = in_array($mimeType, ['application/pdf', 'image/jpeg', 'image/png'], true);
+    $disposition = $isInlineAllowed ? 'inline' : 'attachment';
+
+    header('Content-Type: ' . $mimeType);
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
     header('Content-Length: ' . filesize($proof['proof_path']));
-    header('Content-Disposition: inline; filename="' . basename((string) $proof['proof_file_name']) . '"');
+    header('Content-Disposition: ' . $disposition . '; filename="' . basename($safeFileName) . '"');
     readfile($proof['proof_path']);
     exit;
 }
