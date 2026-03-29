@@ -47,11 +47,11 @@ export default function LandingPage() {
                 Sistem Pembayaran Terintegrasi
               </p>
               <h1 className="mt-2.5 text-[2.1rem] font-black leading-tight text-white lg:text-[2.8rem]">
-                Portal pembayaran SPP yang lebih tertata, jelas, dan nyaman dipakai.
+                Portal pembayaran SPP yang lebih tertata, jelas, nyaman, dan transparan.
               </h1>
               <p className="mt-4 max-w-2xl text-[0.95rem] leading-6 text-slate-100/88 lg:text-[1rem]">
                 Kelola tagihan siswa, verifikasi pembayaran, dan akses portal orang tua
-                dalam satu sistem yang rapi untuk Admin, Bendahara/TU, dan wali siswa
+                dalam satu sistem yang rapi untuk Bendahara/TU, dan wali siswa
                 MA Darussalam Cilongok.
               </p>
             </div>
@@ -63,9 +63,6 @@ export default function LandingPage() {
                 Akses Portal
               </p>
               <h2 className="mt-2 text-[1.75rem] font-bold text-slate-900">Masuk ke sistem</h2>
-              <p className="mt-2 text-[0.92rem] leading-6 text-slate-600">
-                Gunakan akun Admin, Bendahara/TU, atau Orang Tua sesuai kebutuhan akses.
-              </p>
             </div>
 
             <div className="mt-5 grid grid-cols-2 rounded-2xl bg-slate-200 p-1.5">
@@ -74,7 +71,7 @@ export default function LandingPage() {
                 className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${role === "staff" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
                 onClick={() => setRole("staff")}
               >
-                Admin / TU
+                Staf
               </button>
               <button
                 type="button"
@@ -101,7 +98,7 @@ export default function LandingPage() {
                     onChange={(e) => setForm({ ...form, nisn: e.target.value })}
                   />
                   <p className="mt-2 text-xs text-slate-500">
-                    Login orang tua menggunakan NISN tanpa password.
+                    Login orang tua menggunakan NISN Siswa.
                   </p>
                 </div>
               ) : (

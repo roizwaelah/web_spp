@@ -73,7 +73,11 @@ export default function StaffAccountPage() {
 
           <div>
             <label className="label">Role</label>
-            <input className="input" value={user?.role === "bendahara" ? "Bendahara / TU" : "Admin"} disabled />
+            <input
+              className="input"
+              value={user?.role === "bendahara" ? "Bendahara" : "Admin"}
+              disabled
+            />
           </div>
 
           <div>

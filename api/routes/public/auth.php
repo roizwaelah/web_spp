@@ -92,7 +92,7 @@ if ($route === 'admin/meta' && $method === 'GET') {
         'students' => $pdo->query('SELECT id, name, nis, nisn FROM students ORDER BY name')->fetchAll(),
         'roles' => [
             ['value' => 'admin', 'label' => 'Admin'],
-            ['value' => 'bendahara', 'label' => 'Bendahara / TU'],
+            ['value' => 'bendahara', 'label' => 'Bendahara'],
         ],
         'menuOptions' => staff_menu_definitions(),
     ]);

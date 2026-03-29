@@ -48,7 +48,7 @@ Versi enterprise / production-ready dari website SPP Madrasah berbasis:
   - `admin@madrasah.id`
   - `password`
 
-- **Bendahara / TU**
+- **Bendahara**
   - `bendahara@madrasah.id`
   - `password`
 
@@ -143,7 +143,7 @@ Project ini sudah lebih siap untuk production, tetapi untuk production penuh tet
 
 ## Hal yang sudah ditingkatkan dibanding versi sebelumnya
 
-- Role **Bendahara / TU**
+- Role **Bendahara**
 - CRUD lengkap **edit/hapus**
 - Master **kelas** dan **tahun ajaran** terpisah
 - Upload **bukti pembayaran**
