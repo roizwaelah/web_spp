@@ -157,7 +157,7 @@ export default function BillsListPage() {
                   onClick={() => setSelectedIds([])}
                   disabled={selectedIds.length === 0}
                 >
-                  Batal Pilih
+                  Batal
                 </button>
                 <button
                   type="button"

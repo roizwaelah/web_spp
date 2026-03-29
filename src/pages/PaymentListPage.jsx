@@ -11,6 +11,10 @@ import ModalFrame from "../components/ModalFrame";
 
 export default function PaymentListPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
+  const [schoolProfile, setSchoolProfile] = useState({
+    school_name: "MADSC PAYMENT",
+    school_address: "Dokumen detail transaksi pembayaran siswa",
+  });
   const [billRows, setBillRows] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [filters, setFilters] = useState({ class_id: "", student_id: "" });
@@ -27,10 +31,19 @@ export default function PaymentListPage() {
   useEffect(() => {
     const loadMeta = async () => {
       try {
-        const { data } = await fetchRoute("admin/meta");
+        const [{ data: metaData }, { data: settingsData }] = await Promise.all([
+          fetchRoute("admin/meta"),
+          fetchRoute("admin/settings"),
+        ]);
         setMeta({
-          classes: Array.isArray(data?.classes) ? data.classes : [],
-          students: Array.isArray(data?.students) ? data.students : [],
+          classes: Array.isArray(metaData?.classes) ? metaData.classes : [],
+          students: Array.isArray(metaData?.students) ? metaData.students : [],
+        });
+        setSchoolProfile({
+          school_name: (settingsData?.school_name || "MADSC PAYMENT").trim() || "MADSC PAYMENT",
+          school_address:
+            (settingsData?.school_address || "Dokumen detail transaksi pembayaran siswa").trim() ||
+            "Dokumen detail transaksi pembayaran siswa",
         });
       } catch (error) {
         setMessage({
@@ -307,8 +320,8 @@ export default function PaymentListPage() {
             <div className="mx-auto w-[860px] max-w-full rounded-xl border border-slate-300 bg-white p-2.5 text-[12px] leading-tight text-slate-800">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold tracking-wide text-slate-900">MADSC PAYMENT</p>
-                  <p className="text-[11px] text-slate-600">Dokumen detail transaksi pembayaran siswa</p>
+                  <p className="text-sm font-bold tracking-wide text-slate-900">{schoolProfile.school_name}</p>
+                  <p className="text-[11px] text-slate-600">{schoolProfile.school_address}</p>
                 </div>
                 <div className="border border-slate-500 px-2.5 py-1 text-[11px] font-semibold text-slate-900">
                   KUITANSI
