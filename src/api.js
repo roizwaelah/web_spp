@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const apiBase =
-  import.meta.env.VITE_API_URL || "/index.php?route=";
+  import.meta.env.VITE_API_URL || "/api/index.php?route=";
 
 export const api = axios.create({
   baseURL: apiBase,

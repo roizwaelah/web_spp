@@ -11,6 +11,19 @@ require_once API_ROOT . '/utils/notifications.php';
 require_once API_ROOT . '/utils/payment.php';
 require_once API_ROOT . '/bootstrap/app_helpers.php';
 
+set_exception_handler(static function (Throwable $e): void {
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    error_log('[API_FATAL] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    echo json_encode([
+        'message' => 'Terjadi kesalahan pada server',
+        'debug' => env_value('APP_ENV', 'development') === 'development' ? $e->getMessage() : null,
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
 $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
 $allowedOriginsRaw = env_value('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173');
 $allowedOrigins = array_values(array_filter(array_map('trim', explode(',', (string) $allowedOriginsRaw))));

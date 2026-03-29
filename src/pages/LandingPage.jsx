@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForUser } from "../access";
+import {
+  prefetchParentCore,
+  prefetchRoute,
+  prefetchStaffCore,
+  schedulePrefetch,
+} from "../prefetch";
 
 export default function LandingPage() {
   const { login, loading } = useAuth();
@@ -15,6 +21,16 @@ export default function LandingPage() {
   });
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    schedulePrefetch(() => {
+      if (role === "parent") {
+        prefetchParentCore();
+      } else {
+        prefetchStaffCore();
+      }
+    });
+  }, [role]);
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
@@ -23,9 +39,15 @@ export default function LandingPage() {
         role === "parent"
           ? await login({ role: "parent", nisn: form.nisn })
           : await login({ email: form.email, password: form.password });
-      navigate(getDefaultRouteForUser(user));
+      const nextRoute = getDefaultRouteForUser(user);
+      prefetchRoute(nextRoute);
+      navigate(nextRoute);
     } catch (err) {
-      setError(err?.response?.data?.message || "Login gagal");
+      const status = err?.response?.status;
+      const message =
+        err?.response?.data?.message ||
+        (status ? `Login gagal (HTTP ${status})` : "Login gagal");
+      setError(message);
     }
   };
 

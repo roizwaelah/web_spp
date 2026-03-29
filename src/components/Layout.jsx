@@ -10,6 +10,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { getHomePath, getMenuSections, isMenuItemActive } from "../access";
 import { useUI } from "../context/UIContext";
+import { prefetchRoute } from "../prefetch";
 
 export default function Layout({ title, subtitle, actions, children, showHeader = true, onNavigateAttempt }) {
   const { user, logout } = useAuth();
@@ -95,6 +96,8 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
           <Link
             to={homePath}
             onClick={(event) => handleMenuNavigation(event, homePath)}
+            onMouseEnter={() => prefetchRoute(homePath)}
+            onFocus={() => prefetchRoute(homePath)}
             className={`dp-nav-link ${location.pathname === homePath ? "is-active" : ""}`}
           >
             <Home size={17} />
@@ -114,6 +117,8 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
                       key={item.to}
                       to={item.to}
                       onClick={(event) => handleMenuNavigation(event, item.to)}
+                      onMouseEnter={() => prefetchRoute(item.to)}
+                      onFocus={() => prefetchRoute(item.to)}
                       className={`dp-nav-link ${isMenuItemActive(item, location.pathname) ? "is-active" : ""}`}
                     >
                       <Icon size={17} />
@@ -129,6 +134,8 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
               <Link
                 to="/admin/akun"
                 onClick={(event) => handleMenuNavigation(event, "/admin/akun")}
+                onMouseEnter={() => prefetchRoute("/admin/akun")}
+                onFocus={() => prefetchRoute("/admin/akun")}
                 className={`dp-nav-link ${location.pathname === "/admin/akun" ? "is-active" : ""}`}
               >
                 <UserCog size={17} />
