@@ -26,7 +26,15 @@ function decode_token(string $token): ?array {
     $expected = base64url_encode(hash_hmac('sha256', $header . '.' . $body, $secret, true));
     if (!hash_equals($expected, $signature)) return null;
     $payload = json_decode(base64url_decode($body), true);
-    if (!$payload || (($payload['exp'] ?? 0) < time())) return null;
+    if (!$payload) return null;
+    $now = time();
+    $leeway = 30;
+    if (($payload['exp'] ?? 0) < ($now - $leeway)) return null;
+    if (isset($payload['iat']) && (int) $payload['iat'] > ($now + $leeway)) return null;
+    $expectedAud = 'web_spp_client';
+    if (isset($payload['aud']) && $payload['aud'] !== $expectedAud) return null;
+    $expectedIss = env_value('APP_NAME', 'web_spp_api');
+    if (isset($payload['iss']) && $payload['iss'] !== $expectedIss) return null;
     return $payload;
 }
 

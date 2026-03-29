@@ -4,9 +4,12 @@
 if ($route === 'login' && $method === 'POST') {
     $input = json_input();
     $role = trim((string) ($input['role'] ?? ''));
+    $ip = client_ip();
+    rate_limit_or_fail('login:ip:' . $ip, 30, 300, 'Terlalu banyak percobaan login dari IP ini. Coba lagi 5 menit.');
 
     if ($role === 'parent' || !empty($input['nisn'])) {
         ensure_required($input, ['nisn']);
+        rate_limit_or_fail('login:parent:' . $ip . ':' . sha1((string) $input['nisn']), 10, 300, 'Terlalu banyak percobaan login orang tua. Coba lagi 5 menit.');
         $stmt = $pdo->prepare("SELECT u.* FROM users u
             JOIN students s ON s.id = u.student_id
             WHERE u.role = 'parent' AND s.nisn = ? LIMIT 1");
@@ -15,6 +18,7 @@ if ($route === 'login' && $method === 'POST') {
         if (!$user) response(['message' => 'NISN orang tua tidak ditemukan'], 422);
     } else {
         ensure_required($input, ['email', 'password']);
+        rate_limit_or_fail('login:staff:' . $ip . ':' . sha1(strtolower(trim((string) $input['email']))), 10, 300, 'Terlalu banyak percobaan login staff. Coba lagi 5 menit.');
         $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
         $stmt->execute([trim((string) $input['email'])]);
         $user = $stmt->fetch();
@@ -23,7 +27,15 @@ if ($route === 'login' && $method === 'POST') {
         }
     }
 
-    $payload = ['id' => $user['id'], 'role' => $user['role'], 'exp' => time() + (86400 * 7)];
+    $payload = [
+        'id' => $user['id'],
+        'role' => $user['role'],
+        'iat' => time(),
+        'exp' => time() + (86400 * 7),
+        'iss' => env_value('APP_NAME', 'web_spp_api'),
+        'aud' => 'web_spp_client',
+        'jti' => bin2hex(random_bytes(16)),
+    ];
     log_activity((int) $user['id'], 'login', 'auth', (int) $user['id'], 'Pengguna login ke sistem');
     response([
         'token' => generate_token($payload),

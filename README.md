@@ -141,6 +141,15 @@ Project ini sudah lebih siap untuk production, tetapi untuk production penuh tet
 - Hardening auth & refresh token
 - Permission file server yang aman
 
+## Dokumen keamanan
+
+- Lihat [SECURITY.md](./SECURITY.md) untuk baseline hardening dan checklist:
+  - GDPR
+  - PCI DSS
+  - HTTP/CSP headers
+  - anti scraping
+  - DNSSEC (operasional domain)
+
 ## Hal yang sudah ditingkatkan dibanding versi sebelumnya
 
 - Role **Bendahara**
