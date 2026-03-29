@@ -58,6 +58,8 @@ export default function ReportsPage() {
     title: "LAPORAN KAS MADRASAH",
     periodLabel: "-",
     academicYear: "-",
+    principalName: "",
+    treasurerName: "",
   });
 
   useToastMessage(message, setMessage);
@@ -120,6 +122,8 @@ export default function ReportsPage() {
           title: "LAPORAN KAS MADRASAH",
           periodLabel: "-",
           academicYear: "-",
+          principalName: "",
+          treasurerName: "",
         },
       );
       setLoadedParamsKey(currentParamsKey);
@@ -431,6 +435,9 @@ export default function ReportsPage() {
             table { width: 100%; border-collapse: collapse; font-size: 11px; }
             th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
             th { background: #f1f5f9; font-weight: 700; text-align: center; }
+            .signature-wrap { margin-top: 24px; display: flex; justify-content: space-between; gap: 20px; }
+            .signature-col { width: 45%; text-align: center; font-size: 12px; }
+            .signature-line { margin-top: 56px; padding-top: 4px; font-weight: 700; }
             @media print {
               body { margin: 10mm; }
             }
@@ -447,6 +454,16 @@ export default function ReportsPage() {
             </thead>
             <tbody>${monthlyPrefixRow}${bodyRows}${monthlySuffixRow}</tbody>
           </table>
+          <div class="signature-wrap">
+            <div class="signature-col">
+              Mengetahui,<br/>Kepala Madrasah
+              <div class="signature-line">(${escapeHtml(reportHeader.principalName || ".................................")})</div>
+            </div>
+            <div class="signature-col">
+              &nbsp;<br/>Bendahara
+              <div class="signature-line">(${escapeHtml(reportHeader.treasurerName || ".................................")})</div>
+            </div>
+          </div>
         </body>
       </html>
     `);

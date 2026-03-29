@@ -9,6 +9,8 @@ function settings_defaults(): array {
     return [
         'school_name' => '',
         'school_address' => '',
+        'principal_name' => '',
+        'treasurer_name' => '',
         'bank_account' => '',
         'qris_text' => '',
         'payment_gateway_enabled' => '0',
@@ -46,6 +48,14 @@ function sanitize_settings_payload(array $input): array {
 
     if (isset($clean['school_address']) && mb_strlen($clean['school_address']) > 500) {
         response(['message' => 'Alamat madrasah maksimal 500 karakter'], 422);
+    }
+
+    if (isset($clean['principal_name']) && mb_strlen($clean['principal_name']) > 120) {
+        response(['message' => 'Nama Kepala Madrasah maksimal 120 karakter'], 422);
+    }
+
+    if (isset($clean['treasurer_name']) && mb_strlen($clean['treasurer_name']) > 120) {
+        response(['message' => 'Nama Bendahara maksimal 120 karakter'], 422);
     }
 
     if (isset($clean['bank_account']) && mb_strlen($clean['bank_account']) > 500) {

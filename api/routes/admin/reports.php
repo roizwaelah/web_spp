@@ -69,11 +69,15 @@ if (!function_exists('build_reports_header')) {
         if ($schoolName === '') $schoolName = 'MADRASAH';
         $activeYear = trim((string) scalar("SELECT name FROM academic_years WHERE is_active = 1 ORDER BY id DESC LIMIT 1"));
         if ($activeYear === '') $activeYear = '-';
+        $principalName = trim(setting_value('principal_name', ''));
+        $treasurerName = trim(setting_value('treasurer_name', ''));
 
         return [
             'title' => 'LAPORAN KAS ' . mb_strtoupper($schoolName),
             'periodLabel' => reports_month_label_id($startDate),
             'academicYear' => $activeYear,
+            'principalName' => $principalName,
+            'treasurerName' => $treasurerName,
         ];
     }
 }
@@ -371,6 +375,21 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
             echo "<td style=\"text-align:right;font-weight:bold;\">{$escape($closingBalance)}</td>";
             echo "</tr>";
             echo "</tbody></table>";
+            echo "<br/>";
+            echo "<table border=\"0\" style=\"width:100%; border-collapse:collapse;\">";
+            echo "<tr>";
+            echo "<td style=\"width:50%; text-align:center;\">Mengetahui,<br/>Kepala Madrasah</td>";
+            echo "<td style=\"width:50%; text-align:center;\">&nbsp;<br/>Bendahara</td>";
+            echo "</tr>";
+            echo "<tr>";
+            echo "<td style=\"height:64px;\"></td>";
+            echo "<td style=\"height:64px;\"></td>";
+            echo "</tr>";
+            echo "<tr>";
+            echo "<td style=\"width:50%; text-align:center; font-weight:bold;\">(" . $escape($reportHeader['principalName'] !== '' ? $reportHeader['principalName'] : '.................................') . ")</td>";
+            echo "<td style=\"width:50%; text-align:center; font-weight:bold;\">(" . $escape($reportHeader['treasurerName'] !== '' ? $reportHeader['treasurerName'] : '.................................') . ")</td>";
+            echo "</tr>";
+            echo "</table>";
             exit;
         }
 
@@ -395,6 +414,21 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
             echo "</tr>";
         }
         echo "</tbody></table>";
+        echo "<br/>";
+        echo "<table border=\"0\" style=\"width:100%; border-collapse:collapse;\">";
+        echo "<tr>";
+        echo "<td style=\"width:50%; text-align:center;\">Mengetahui,<br/>Kepala Madrasah</td>";
+        echo "<td style=\"width:50%; text-align:center;\">&nbsp;<br/>Bendahara</td>";
+        echo "</tr>";
+        echo "<tr>";
+        echo "<td style=\"height:64px;\"></td>";
+        echo "<td style=\"height:64px;\"></td>";
+        echo "</tr>";
+        echo "<tr>";
+        echo "<td style=\"width:50%; text-align:center; font-weight:bold;\">(" . $escape($reportHeader['principalName'] !== '' ? $reportHeader['principalName'] : '.................................') . ")</td>";
+        echo "<td style=\"width:50%; text-align:center; font-weight:bold;\">(" . $escape($reportHeader['treasurerName'] !== '' ? $reportHeader['treasurerName'] : '.................................') . ")</td>";
+        echo "</tr>";
+        echo "</table>";
         exit;
     }
 

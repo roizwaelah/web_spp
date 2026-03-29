@@ -6,15 +6,15 @@ import { useToastMessage } from "../hooks/useToastMessage";
 const defaults = {
   school_name: "",
   school_address: "",
+  principal_name: "",
+  treasurer_name: "",
   bank_account: "",
-  qris_text: "",
   payment_gateway_enabled: false,
   payment_gateway_provider: "",
   payment_gateway_key: "",
   whatsapp_gateway_enabled: false,
   whatsapp_gateway_url: "",
   whatsapp_gateway_token: "",
-  receipt_footer: "",
 };
 
 export default function SettingsPage() {
@@ -105,6 +105,30 @@ export default function SettingsPage() {
                 }
               />
             </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="label">Kepala Madrasah</label>
+                <input
+                  className="input"
+                  value={form.principal_name}
+                  disabled={loading || saving}
+                  onChange={(e) =>
+                    setForm({ ...form, principal_name: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Bendahara</label>
+                <input
+                  className="input"
+                  value={form.treasurer_name}
+                  disabled={loading || saving}
+                  onChange={(e) =>
+                    setForm({ ...form, treasurer_name: e.target.value })
+                  }
+                />
+              </div>
+            </div>
             <div>
               <label className="label">Rekening bank</label>
               <textarea
@@ -113,17 +137,6 @@ export default function SettingsPage() {
                 disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, bank_account: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="label">Text QRIS</label>
-              <textarea
-                className="textarea"
-                value={form.qris_text}
-                disabled={loading || saving}
-                onChange={(e) =>
-                  setForm({ ...form, qris_text: e.target.value })
                 }
               />
             </div>
@@ -227,17 +240,6 @@ export default function SettingsPage() {
                 disabled={loading || saving}
                 onChange={(e) =>
                   setForm({ ...form, whatsapp_gateway_token: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="label">Footer kuitansi</label>
-              <textarea
-                className="textarea"
-                value={form.receipt_footer}
-                disabled={loading || saving}
-                onChange={(e) =>
-                  setForm({ ...form, receipt_footer: e.target.value })
                 }
               />
             </div>
