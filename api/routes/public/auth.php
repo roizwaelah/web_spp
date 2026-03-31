@@ -102,6 +102,7 @@ if ($route === 'admin/meta' && $method === 'GET') {
         'classes' => $pdo->query('SELECT id, name FROM classes WHERE is_active=1 ORDER BY name')->fetchAll(),
         'years' => $pdo->query('SELECT id, name FROM academic_years ORDER BY id DESC')->fetchAll(),
         'students' => $pdo->query('SELECT id, name, nis, nisn FROM students ORDER BY name')->fetchAll(),
+        'finance_posts' => $pdo->query("SELECT id, name, billing_type, applies_to FROM finance_posts WHERE is_active=1 ORDER BY name")->fetchAll(),
         'roles' => [
             ['value' => 'admin', 'label' => 'Admin'],
             ['value' => 'bendahara', 'label' => 'Bendahara'],

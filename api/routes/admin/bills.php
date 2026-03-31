@@ -77,6 +77,34 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
     ]);
 }
 
+if ($route === 'admin/bills/remind' && $method === 'POST') {
+    $user = require_auth();
+    validate_menu_access($user, ['bills']);
+    rate_limit_or_fail('bill-remind:user:' . (int) ($user['id'] ?? 0), 30, 300, 'Terlalu sering kirim pengingat. Coba lagi beberapa menit lagi.');
+
+    $input = json_input();
+    $billId = (int) ($input['bill_id'] ?? 0);
+    if ($billId <= 0) {
+        response(['message' => 'ID tagihan wajib diisi'], 422);
+    }
+
+    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.id student_id
+        FROM bills b
+        JOIN students s ON s.id = b.student_id
+        WHERE b.id = ? LIMIT 1");
+    $stmt->execute([$billId]);
+    $bill = $stmt->fetch();
+    if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
+    if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas, pengingat tidak perlu dikirim'], 422);
+
+    $message = "Assalamu'alaikum, tagihan {$bill['bill_name']} periode {$bill['period']} untuk {$bill['student_name']} sebesar " . idr($bill['amount']) . " jatuh tempo {$bill['due_date']}.";
+    queue_whatsapp_notification((int) $bill['student_id'], 'Pengingat Tagihan', $message);
+    try_dispatch_whatsapp_queue();
+
+    log_activity((int) $user['id'], 'notify', 'bill', (int) $bill['id'], 'Kirim pengingat tagihan ke siswa ' . $bill['student_name']);
+    response(['message' => 'Pengingat WhatsApp berhasil dikirim']);
+}
+
 if ($route === 'admin/bills' && $method === 'DELETE') {
     $user = require_auth();
     validate_menu_access($user, ['bills'], ['admin']);
@@ -154,6 +182,10 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
     if (!empty($input['due_date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $input['due_date'])) {
         response(['message' => 'Format jatuh tempo harus YYYY-MM-DD'], 422);
     }
+    $financePostId = isset($input['finance_post_id']) ? (int) $input['finance_post_id'] : 0;
+    if ($financePostId > 0 && !scalar('SELECT id FROM finance_posts WHERE id = ? LIMIT 1', [$financePostId])) {
+        response(['message' => 'Pos keuangan tidak ditemukan'], 404);
+    }
     $studentFilter = $input['student_id'] ?? null;
     if ($studentFilter && !scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$studentFilter])) {
         response(['message' => 'Siswa tidak ditemukan'], 404);
@@ -168,7 +200,12 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
     $created = 0;
 
     foreach ($students as $student) {
-        foreach (finance_posts_for_student((int) $student['id']) as $post) {
+        $posts = finance_posts_for_student((int) $student['id']);
+        if ($financePostId > 0) {
+            $posts = array_values(array_filter($posts, static fn($post) => (int) ($post['id'] ?? 0) === $financePostId));
+        }
+
+        foreach ($posts as $post) {
             if ($post['billing_type'] === 'one_time') {
                 $existsPaid = scalar('SELECT COUNT(*) FROM bills WHERE student_id = ? AND finance_post_id = ?', [$student['id'], $post['id']]);
                 if ($existsPaid) continue;

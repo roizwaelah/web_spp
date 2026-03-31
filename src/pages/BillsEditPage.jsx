@@ -6,11 +6,12 @@ import { fetchRoute } from "../api";
 import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function BillsEditPage() {
-  const [meta, setMeta] = useState({ students: [] });
+  const [meta, setMeta] = useState({ students: [], finance_posts: [] });
   const [form, setForm] = useState({
     period: new Date().toISOString().slice(0, 7),
     due_date: "",
     student_id: "",
+    finance_post_id: "",
   });
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function BillsEditPage() {
       .then((metaRes) => {
         setMeta({
           students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+          finance_posts: Array.isArray(metaRes.data?.finance_posts) ? metaRes.data.finance_posts : [],
         });
       })
       .catch((error) => {
@@ -38,6 +40,7 @@ export default function BillsEditPage() {
           period: form.period,
           due_date: form.due_date || undefined,
           student_id: form.student_id || undefined,
+          finance_post_id: form.finance_post_id || undefined,
         },
       });
 
@@ -89,6 +92,21 @@ export default function BillsEditPage() {
             />
           </div>
           <div>
+            <label className="label">Pos (opsional)</label>
+            <select
+              className="input"
+              value={form.finance_post_id}
+              onChange={(e) => setForm({ ...form, finance_post_id: e.target.value })}
+            >
+              <option value="">Semua pos aktif</option>
+              {meta.finance_posts.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label">Siswa tertentu (opsional)</label>
             <select
               className="input"
@@ -114,6 +132,7 @@ export default function BillsEditPage() {
                   period: new Date().toISOString().slice(0, 7),
                   due_date: "",
                   student_id: "",
+                  finance_post_id: "",
                 })
               }
             >

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Send, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
@@ -16,6 +16,7 @@ export default function BillsListPage() {
   const [meta, setMeta] = useState({ students: [], classes: [] });
   const [selectedIds, setSelectedIds] = useState([]);
   const [message, setMessage] = useState("");
+  const [sendingBillId, setSendingBillId] = useState(null);
   const [filter, setFilter] = useState({
     status: "",
     class_id: "",
@@ -103,6 +104,22 @@ export default function BillsListPage() {
       load();
     } catch (error) {
       setMessage(error?.response?.data?.message || "Gagal menghapus tagihan terpilih");
+    }
+  };
+
+  const sendReminder = async (billId) => {
+    try {
+      setSendingBillId(billId);
+      const { data } = await fetchRoute("admin/bills/remind", {
+        method: "POST",
+        data: { bill_id: billId },
+      });
+      setMessage(data?.message || "Pengingat WhatsApp berhasil dikirim");
+      load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal mengirim pengingat WhatsApp");
+    } finally {
+      setSendingBillId(null);
     }
   };
 
@@ -299,15 +316,27 @@ export default function BillsListPage() {
                   <span className="badge-slate">-</span>
                 ),
             },
-            ...(isAdmin
+            ...((user?.role === "admin" || user?.role === "bendahara")
               ? [
                   {
                     key: "actions",
                     title: "Aksi",
                     render: (row) => (
-                      <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="btn-secondary px-3 py-2"
+                          onClick={() => sendReminder(row.id)}
+                          disabled={sendingBillId === row.id || row.status === "paid"}
+                          title={row.status === "paid" ? "Tagihan sudah lunas" : "Kirim pengingat WhatsApp"}
+                        >
+                          <Send size={16} />
+                        </button>
+                        {isAdmin && (
+                          <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     ),
                   },
                 ]
