@@ -40,11 +40,11 @@ function sanitize_settings_payload(array $input): array {
     if (!$clean) response(['message' => 'Tidak ada pengaturan yang dapat disimpan'], 422);
 
     if (array_key_exists('school_name', $clean) && $clean['school_name'] === '') {
-        response(['message' => 'Nama madrasah wajib diisi'], 422);
+        response(['message' => 'Nama Lembaga wajib diisi'], 422);
     }
 
     if (isset($clean['school_name']) && mb_strlen($clean['school_name']) > 120) {
-        response(['message' => 'Nama madrasah maksimal 120 karakter'], 422);
+        response(['message' => 'Nama Lembaga maksimal 120 karakter'], 422);
     }
 
     if (isset($clean['school_address']) && mb_strlen($clean['school_address']) > 500) {

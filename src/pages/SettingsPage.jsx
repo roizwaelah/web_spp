@@ -154,11 +154,11 @@ export default function SettingsPage() {
   return (
     <Layout
       title="Pengaturan Sistem"
-      subtitle="Atur profil madrasah, rekening pembayaran, payment gateway, dan WhatsApp gateway."
+      subtitle="Atur profil lembaga, rekening pembayaran, payment gateway, dan WhatsApp gateway."
     >
       <form className="grid gap-6 xl:grid-cols-2" onSubmit={submit}>
         <div className="card p-6">
-          <h3 className="section-title">Profil madrasah</h3>
+          <h3 className="section-title">Profil Lembaga</h3>
           <div className="mt-4 space-y-4">
             {loading && (
               <div className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
@@ -166,7 +166,7 @@ export default function SettingsPage() {
               </div>
             )}
             <div>
-              <label className="label">Nama madrasah</label>
+              <label className="label">Nama Lembaga</label>
               <input
                 className="input"
                 value={form.school_name}
@@ -189,7 +189,7 @@ export default function SettingsPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="label">Kepala Madrasah</label>
+                <label className="label">Kepala Lembaga</label>
                 <input
                   className="input"
                   value={form.principal_name}
