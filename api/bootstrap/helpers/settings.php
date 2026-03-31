@@ -19,6 +19,7 @@ function settings_defaults(): array {
         'whatsapp_gateway_enabled' => '0',
         'whatsapp_gateway_url' => '',
         'whatsapp_gateway_token' => '',
+        'whatsapp_test_target' => '',
         'receipt_footer' => '',
     ];
 }
@@ -94,6 +95,13 @@ function sanitize_settings_payload(array $input): array {
 
     if (isset($clean['whatsapp_gateway_token']) && mb_strlen($clean['whatsapp_gateway_token']) > 255) {
         response(['message' => 'Token WhatsApp maksimal 255 karakter'], 422);
+    }
+
+    if (isset($clean['whatsapp_test_target']) && $clean['whatsapp_test_target'] !== '') {
+        $testTargetDigits = preg_replace('/\D+/', '', $clean['whatsapp_test_target']) ?? '';
+        if (strlen($testTargetDigits) < 10 || strlen($testTargetDigits) > 16) {
+            response(['message' => 'Nomor WhatsApp tujuan tes tidak valid'], 422);
+        }
     }
 
     $whatsappEnabled = ($clean['whatsapp_gateway_enabled'] ?? setting_value('whatsapp_gateway_enabled', '0')) === '1';

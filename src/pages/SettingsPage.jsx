@@ -18,6 +18,7 @@ const defaults = {
   whatsapp_gateway_enabled: false,
   whatsapp_gateway_url: "",
   whatsapp_gateway_token: "",
+  whatsapp_test_target: "",
 };
 
 export default function SettingsPage() {
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
   const { confirm } = useUI();
 
   useToastMessage(message, setMessage);
@@ -126,6 +128,26 @@ export default function SettingsPage() {
       setMessage(error?.response?.data?.message || "Gagal menyimpan pengaturan");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const sendWhatsappTest = async () => {
+    if (!form.whatsapp_test_target?.trim()) {
+      setMessage("Nomor WA tujuan tes wajib diisi");
+      return;
+    }
+
+    setSendingTest(true);
+    try {
+      const { data } = await fetchRoute("admin/settings/whatsapp-test", {
+        method: "POST",
+        data: { target: form.whatsapp_test_target },
+      });
+      setMessage(data?.message || "Tes WhatsApp berhasil dikirim");
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Tes WhatsApp gagal dikirim");
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -302,6 +324,28 @@ export default function SettingsPage() {
                   setForm({ ...form, whatsapp_gateway_token: e.target.value })
                 }
               />
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+              <div>
+                <label className="label">Nomor WA tujuan tes</label>
+                <input
+                  className="input"
+                  placeholder="628xxxxxxxxxx"
+                  value={form.whatsapp_test_target}
+                  disabled={loading || saving || sendingTest}
+                  onChange={(e) =>
+                    setForm({ ...form, whatsapp_test_target: e.target.value })
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                className="btn-secondary w-full md:w-auto"
+                onClick={sendWhatsappTest}
+                disabled={loading || saving || sendingTest}
+              >
+                {sendingTest ? "Mengirim tes..." : "Kirim tes WhatsApp"}
+              </button>
             </div>
             <button className="btn-primary w-full" disabled={loading || saving}>
               {saving ? "Menyimpan..." : "Simpan pengaturan"}
