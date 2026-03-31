@@ -1,6 +1,29 @@
 <?php
 // Route daftar, generate, dan hapus tagihan.
 
+function build_bill_reminder_message(array $bill, array $student): string {
+    $schoolName = trim(setting_value('school_name', 'Madrasah'));
+    if ($schoolName === '') $schoolName = 'Madrasah';
+
+    $period = trim((string) ($bill['period'] ?? '-'));
+    $studentName = trim((string) ($student['name'] ?? $bill['student_name'] ?? '-'));
+    $className = trim((string) ($student['class_name'] ?? $bill['class_name'] ?? '-'));
+    $billName = trim((string) ($bill['bill_name'] ?? '-'));
+    $amountText = idr((float) ($bill['amount'] ?? 0));
+
+    return implode("\n", [
+        "_Assalamu'alaikum wr.wb._",
+        "Kepada Bapak/Ibu/Wali siswa {$schoolName}, ijin kami kirimkan tagihan periode {$period} sebagai berikut:",
+        "- Nama        : {$studentName}",
+        "- Kelas       : {$className}",
+        "- Jenis       : {$billName}",
+        "- Nominal     : {$amountText}",
+        "Silahkan bisa dibayarkan secara offline dengan datang langsung ke petugas kami atau bisa dibayarkan secara online melalui kanal https://spp.madarussalamcilongok.sch.id.",
+        "Atas perhatiannya kami ucapkan terima kasih.",
+        "_Wassalamu'alaikum wr.wb_",
+    ]);
+}
+
 if ($route === 'admin/bills' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['bills']);
@@ -97,7 +120,8 @@ if ($route === 'admin/bills/remind' && $method === 'POST') {
     if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
     if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas, pengingat tidak perlu dikirim'], 422);
 
-    $message = "Assalamu'alaikum, tagihan {$bill['bill_name']} periode {$bill['period']} untuk {$bill['student_name']} sebesar " . idr($bill['amount']) . " jatuh tempo {$bill['due_date']}.";
+    $studentDetail = student_row((int) $bill['student_id']) ?? ['name' => $bill['student_name'], 'class_name' => '-'];
+    $message = build_bill_reminder_message($bill, $studentDetail);
     queue_whatsapp_notification((int) $bill['student_id'], 'Pengingat Tagihan', $message);
     try_dispatch_whatsapp_queue();
 
@@ -218,7 +242,14 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
             $created++;
 
             $studentDetail = student_row((int) $student['id']);
-            $message = "Assalamu'alaikum, tagihan {$post['name']} periode {$period} untuk {$studentDetail['name']} sebesar " . idr($post['amount']) . " jatuh tempo {$dueDate}.";
+            if (!$studentDetail) {
+                $studentDetail = ['name' => '-', 'class_name' => '-'];
+            }
+            $message = build_bill_reminder_message([
+                'period' => $period,
+                'bill_name' => $post['name'],
+                'amount' => $post['amount'],
+            ], $studentDetail);
             queue_whatsapp_notification((int) $student['id'], 'Pengingat Tagihan', $message);
         }
     }
