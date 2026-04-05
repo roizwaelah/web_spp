@@ -70,13 +70,9 @@ export default function LandingPage() {
                 Sistem Pembayaran Terintegrasi
               </p>
               <h1 className="mt-2.5 text-[2.1rem] font-black leading-tight text-white lg:text-[2.8rem]">
-                Portal pembayaran SPP yang lebih tertata, jelas, nyaman, dan transparan.
+                Portal pembayaran SPP yang lebih tertata, jelas, nyaman, dan
+                transparan.
               </h1>
-              <p className="mt-4 max-w-2xl text-[0.95rem] leading-6 text-slate-100/88 lg:text-[1rem]">
-                Kelola tagihan siswa, verifikasi pembayaran, dan akses portal orang tua
-                dalam satu sistem yang rapi untuk Bendahara/TU, dan wali siswa
-                MA Darussalam Cilongok.
-              </p>
             </div>
           </section>
 
@@ -85,7 +81,9 @@ export default function LandingPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
                 Akses Portal
               </p>
-              <h2 className="mt-2 text-[1.75rem] font-bold text-slate-900">Masuk ke sistem</h2>
+              <h2 className="mt-2 text-[1.75rem] font-bold text-slate-900">
+                Masuk ke sistem
+              </h2>
             </div>
 
             <div className="mt-5 grid grid-cols-2 rounded-2xl bg-slate-200 p-1.5">
@@ -132,7 +130,9 @@ export default function LandingPage() {
                       className="input"
                       placeholder="Masukkan Username"
                       value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, email: e.target.value })
+                      }
                     />
                   </div>
                   <div>
@@ -151,9 +151,17 @@ export default function LandingPage() {
                         type="button"
                         className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:text-slate-700"
                         onClick={() => setShowPassword((prev) => !prev)}
-                        aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                        aria-label={
+                          showPassword
+                            ? "Sembunyikan password"
+                            : "Tampilkan password"
+                        }
                       >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {showPassword ? (
+                          <EyeOff size={16} />
+                        ) : (
+                          <Eye size={16} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -164,7 +172,8 @@ export default function LandingPage() {
                   "Memproses..."
                 ) : (
                   <>
-                    {role === "parent" ? "Masuk dengan NISN" : "Masuk"} <ArrowRight size={18} />
+                    {role === "parent" ? "Masuk dengan NISN" : "Masuk"}{" "}
+                    <ArrowRight size={18} />
                   </>
                 )}
               </button>

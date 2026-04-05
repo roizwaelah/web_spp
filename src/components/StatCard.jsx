@@ -11,8 +11,8 @@ export default function StatCard({
   return (
     <div className={`kpi ${className}`.trim()}>
       <div className={`mb-3 h-1.5 w-14 rounded-full ${accentClass}`.trim()} />
-      <p className={`text-[0.82rem] uppercase tracking-wide ${titleClass}`.trim()}>{title}</p>
-      <h3 className={`mt-2 text-2xl font-bold leading-tight xl:text-[1.7rem] ${valueClass}`.trim()}>{value}</h3>
+      <p className={`text-[0.78rem] uppercase tracking-wide ${titleClass}`.trim()}>{title}</p>
+      <h3 className={`mt-2 text-xl font-bold leading-tight xl:text-[1.2rem] ${valueClass}`.trim()}>{value}</h3>
       <p className={`mt-1.5 text-[0.72rem] ${helperClass}`.trim()}>{helper}</p>
     </div>
   )

@@ -4,7 +4,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,13 +28,16 @@ const INITIAL_DASHBOARD_DATA = {
   dueSoon: [],
   latestTransactions: [],
   latestExpenses: [],
+  billingOverview: {},
 };
 
 const normalizeDashboardData = (payload) => ({
   summary: payload?.summary ?? {},
   integrations: payload?.integrations ?? {},
   monthly: Array.isArray(payload?.monthly) ? payload.monthly : [],
-  monthlyExpenses: Array.isArray(payload?.monthlyExpenses) ? payload.monthlyExpenses : [],
+  monthlyExpenses: Array.isArray(payload?.monthlyExpenses)
+    ? payload.monthlyExpenses
+    : [],
   dueSoon: Array.isArray(payload?.dueSoon) ? payload.dueSoon : [],
   latestTransactions: Array.isArray(payload?.latestTransactions)
     ? payload.latestTransactions
@@ -39,6 +45,7 @@ const normalizeDashboardData = (payload) => ({
   latestExpenses: Array.isArray(payload?.latestExpenses)
     ? payload.latestExpenses
     : [],
+  billingOverview: payload?.billingOverview ?? {},
 });
 
 export default function AdminDashboard() {
@@ -72,9 +79,17 @@ export default function AdminDashboard() {
     now.getMonth() + 1,
     0,
   ).getDate();
-  const dailyIncomeMap = new Map(data.monthly.map((item) => [Number(item.day || 0), Number(item.total || 0)]));
+  const dailyIncomeMap = new Map(
+    data.monthly.map((item) => [
+      Number(item.day || 0),
+      Number(item.total || 0),
+    ]),
+  );
   const dailyExpenseMap = new Map(
-    data.monthlyExpenses.map((item) => [Number(item.day || 0), Number(item.total || 0)]),
+    data.monthlyExpenses.map((item) => [
+      Number(item.day || 0),
+      Number(item.total || 0),
+    ]),
   );
   const dailySeries = Array.from({ length: daysInMonth }, (_, idx) => {
     const day = idx + 1;
@@ -91,6 +106,24 @@ export default function AdminDashboard() {
     if (n >= 1000) return `Rp ${(n / 1000).toFixed(0)} Rb`;
     return `Rp ${n.toFixed(0)}`;
   };
+  const billingOverview = data.billingOverview || {};
+  const billingPeriodRaw = String(billingOverview.period || "");
+  const billingPeriodDate = /^\d{4}-\d{2}$/.test(billingPeriodRaw)
+    ? new Date(`${billingPeriodRaw}-01T00:00:00`)
+    : new Date();
+  const monthLabel = billingPeriodDate.toLocaleString("id-ID", {
+    month: "long",
+  });
+  const yearLabel = billingPeriodDate.getFullYear();
+  const paidStudents = Number(billingOverview.paid_students || 0);
+  const unpaidStudents = Number(billingOverview.unpaid_students || 0);
+  const paidAmount = Number(billingOverview.paid_amount || 0);
+  const unpaidAmount = Number(billingOverview.unpaid_amount || 0);
+  const donutData = [
+    { key: "paid", name: "Sudah Lunas", value: paidStudents, amount: paidAmount, color: "#65a30d" },
+    { key: "unpaid", name: "Belum Lunas", value: unpaidStudents, amount: unpaidAmount, color: "#dc2626" },
+  ];
+  const donutTotal = paidStudents + unpaidStudents;
 
   const StatusDot = ({ active }) => (
     <span
@@ -100,19 +133,38 @@ export default function AdminDashboard() {
   );
 
   const WhatsAppIcon = ({ size = 16, className = "" }) => (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      className={className}
+      fill="currentColor"
+      aria-hidden
+    >
       <path d="M19.11 4.93A9.93 9.93 0 0 0 3.86 17.02L2.57 21.5l4.62-1.21A9.93 9.93 0 1 0 19.11 4.93Zm-7.06 16.31a8.23 8.23 0 0 1-4.19-1.14l-.3-.18-2.74.72.73-2.67-.2-.31a8.24 8.24 0 1 1 6.7 3.58Zm4.52-6.17c-.25-.12-1.47-.72-1.7-.8-.23-.08-.4-.12-.57.12-.17.25-.65.8-.8.96-.15.17-.3.19-.56.06-.25-.12-1.07-.4-2.03-1.28-.75-.66-1.26-1.48-1.4-1.73-.15-.25-.02-.39.1-.51.11-.11.25-.3.37-.45.12-.15.16-.25.25-.42.08-.17.04-.31-.02-.43-.06-.12-.57-1.36-.78-1.87-.21-.49-.42-.42-.58-.43h-.5c-.17 0-.43.06-.65.31-.23.25-.88.86-.88 2.1s.9 2.44 1.03 2.61c.12.17 1.76 2.7 4.27 3.79.6.26 1.07.42 1.43.54.6.19 1.14.16 1.58.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.15-1.18-.06-.1-.23-.15-.48-.27Z" />
     </svg>
   );
 
   const BanknoteIcon = ({ size = 15, className = "" }) => (
-    <svg viewBox="0 0 24 24" width={size} height={size} className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      className={className}
+      aria-hidden
+    >
       <rect x="1.5" y="4.5" width="21" height="15" rx="2.4" fill="#4e8b47" />
       <rect x="3" y="6" width="18" height="12" rx="1.8" fill="#78a95a" />
       <circle cx="12" cy="12" r="3.8" fill="#4e8b47" />
       <circle cx="12" cy="12" r="2.8" fill="#78a95a" />
-      <path d="M7 9.5a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7Zm10 0a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7Z" fill="#3f6f3e" />
-      <path d="M12.65 9.35c-.19-.08-.45-.12-.78-.12-.53 0-.9.25-.9.62 0 .41.36.58.94.77.76.26 1.39.59 1.39 1.43 0 .7-.5 1.22-1.3 1.36v.72h-.69v-.69a3.2 3.2 0 0 1-1.28-.33l.19-.62c.31.17.73.33 1.19.33.59 0 .98-.29.98-.72 0-.4-.29-.65-.9-.86-.83-.28-1.42-.58-1.42-1.39 0-.67.48-1.18 1.23-1.31v-.7h.69v.67c.5.01.84.13 1.09.25l-.23.62Z" fill="#2f5a30" />
+      <path
+        d="M7 9.5a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7Zm10 0a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7Z"
+        fill="#3f6f3e"
+      />
+      <path
+        d="M12.65 9.35c-.19-.08-.45-.12-.78-.12-.53 0-.9.25-.9.62 0 .41.36.58.94.77.76.26 1.39.59 1.39 1.43 0 .7-.5 1.22-1.3 1.36v.72h-.69v-.69a3.2 3.2 0 0 1-1.28-.33l.19-.62c.31.17.73.33 1.19.33.59 0 .98-.29.98-.72 0-.4-.29-.65-.9-.86-.83-.28-1.42-.58-1.42-1.39 0-.67.48-1.18 1.23-1.31v-.7h.69v.67c.5.01.84.13 1.09.25l-.23.62Z"
+        fill="#2f5a30"
+      />
     </svg>
   );
 
@@ -135,7 +187,9 @@ export default function AdminDashboard() {
             aria-label="Status Payment Gateway"
           >
             <BanknoteIcon size={15} className="shrink-0" />
-            <StatusDot active={Boolean(data.integrations?.paymentGatewayEnabled)} />
+            <StatusDot
+              active={Boolean(data.integrations?.paymentGatewayEnabled)}
+            />
           </div>
           <div
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/85 px-2 py-1.5"
@@ -143,7 +197,9 @@ export default function AdminDashboard() {
             aria-label="Status WhatsApp Gateway"
           >
             <WhatsAppIcon size={15} className="text-emerald-600" />
-            <StatusDot active={Boolean(data.integrations?.whatsappGatewayEnabled)} />
+            <StatusDot
+              active={Boolean(data.integrations?.whatsappGatewayEnabled)}
+            />
           </div>
         </div>
       }
@@ -201,13 +257,14 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="card w-full p-5 xl:p-5">
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="card w-full p-5 xl:col-span-2 xl:p-5">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
               <BarChart3 size={18} />
             </div>
             <div>
-              <h3 className="section-title">Cashflow</h3>
+              <h3 className="section-title">Cashflow {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}</h3>
               <p className="text-[0.82rem] text-slate-500">
                 Pergerakan pemasukan dan pengeluaran harian bulan berjalan.
               </p>
@@ -245,20 +302,96 @@ export default function AdminDashboard() {
                       width={58}
                     />
                     <Tooltip
-                      formatter={(value, name) => [formatCurrency(value), name === "income" ? "Pemasukan" : "Pengeluaran"]}
+                      formatter={(value, name) => [
+                        formatCurrency(value),
+                        name === "income" ? "Pemasukan" : "Pengeluaran",
+                      ]}
                       labelFormatter={(label) => `Tanggal ${label}`}
                     />
                     <Legend
-                      formatter={(value) => (value === "income" ? "Pemasukan" : "Pengeluaran")}
+                      formatter={(value) =>
+                        value === "income" ? "Pemasukan" : "Pengeluaran"
+                      }
                     />
-                    <Bar dataKey="income" fill="#0ea5e9" radius={[3, 3, 0, 0]} maxBarSize={14} />
-                    <Bar dataKey="expense" fill="#f43f5e" radius={[3, 3, 0, 0]} maxBarSize={14} />
+                    <Bar
+                      dataKey="income"
+                      fill="#0ea5e9"
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={14}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      fill="#f43f5e"
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={14}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
           </div>
         </div>
+
+        <div className="card p-5 xl:p-5">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="section-title">Komparasi Pembayaran</h3>
+              <p className="text-[0.82rem] text-slate-500">
+                {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 h-[210px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={donutData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={48}
+                  outerRadius={76}
+                  paddingAngle={2}
+                  stroke="#fff"
+                  strokeWidth={2}
+                  label={(entry) =>
+                    entry?.value > 0 ? `${entry.value} Siswa` : ""
+                  }
+                  labelLine={false}
+                >
+                  {donutData.map((entry) => (
+                    <Cell key={entry.key} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    `${value} Siswa (${formatCurrency(props?.payload?.amount || 0)})`,
+                    name,
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+            {donutData.map((item) => (
+              <div key={item.key} className="rounded-lg border border-slate-200 p-2">
+                <div className="mb-1 flex items-center gap-1.5 font-semibold text-slate-700">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  {item.name}
+                </div>
+                <div className="text-slate-600">Siswa: {item.value}</div>
+                <div className="text-slate-700">{formatCurrency(item.amount)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="space-y-4">
           <div className="card p-5 xl:p-5">

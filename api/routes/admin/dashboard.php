@@ -23,6 +23,41 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         'whatsappGatewayEnabled' => setting_is_enabled('whatsapp_gateway_enabled'),
     ];
 
+    $currentPeriod = date('Y-m');
+    $monthlyBillingRows = $pdo->prepare("SELECT student_id,
+            SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid_amount,
+            SUM(CASE WHEN status <> 'paid' THEN amount ELSE 0 END) AS unpaid_amount,
+            SUM(CASE WHEN status <> 'paid' THEN 1 ELSE 0 END) AS unpaid_count
+        FROM bills
+        WHERE period = ?
+        GROUP BY student_id");
+    $monthlyBillingRows->execute([$currentPeriod]);
+    $billingByStudent = $monthlyBillingRows->fetchAll();
+
+    $paidStudents = 0;
+    $unpaidStudents = 0;
+    $paidAmount = 0.0;
+    $unpaidAmount = 0.0;
+    foreach ($billingByStudent as $row) {
+        $rowPaidAmount = (float) ($row['paid_amount'] ?? 0);
+        $rowUnpaidAmount = (float) ($row['unpaid_amount'] ?? 0);
+        $paidAmount += $rowPaidAmount;
+        $unpaidAmount += $rowUnpaidAmount;
+        if ((int) ($row['unpaid_count'] ?? 0) > 0) {
+            $unpaidStudents++;
+        } else {
+            $paidStudents++;
+        }
+    }
+
+    $billingOverview = [
+        'period' => $currentPeriod,
+        'paid_students' => $paidStudents,
+        'unpaid_students' => $unpaidStudents,
+        'paid_amount' => $paidAmount,
+        'unpaid_amount' => $unpaidAmount,
+    ];
+
     $monthly = $pdo->query("SELECT
             DATE(payment_date) date_key,
             DATE_FORMAT(payment_date, '%d') day,
@@ -60,5 +95,5 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         FROM expenses
         ORDER BY expense_date DESC, id DESC LIMIT 6")->fetchAll();
 
-    response(compact('summary', 'monthly', 'monthlyExpenses', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'latestExpenses', 'integrations'));
+    response(compact('summary', 'monthly', 'monthlyExpenses', 'channelBreakdown', 'dueSoon', 'latestTransactions', 'latestExpenses', 'integrations', 'billingOverview'));
 }

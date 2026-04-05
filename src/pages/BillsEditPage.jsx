@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CalendarCheck2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -14,6 +14,9 @@ export default function BillsEditPage() {
     finance_post_id: "",
   });
   const [message, setMessage] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentDropdownOpen, setStudentDropdownOpen] = useState(false);
+  const studentDropdownRef = useRef(null);
   const navigate = useNavigate();
 
   useToastMessage(message, setMessage);
@@ -50,6 +53,35 @@ export default function BillsEditPage() {
     }
   };
 
+  const filteredStudents = useMemo(() => {
+    const keyword = studentSearch.trim().toLowerCase();
+    return meta.students.filter((item) => {
+      if (!keyword) return true;
+      const haystack = `${item.name || ""} ${item.nis || ""}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [meta.students, studentSearch]);
+
+  useEffect(() => {
+    const activeStudent = meta.students.find((item) => String(item.id) === String(form.student_id));
+    if (activeStudent) {
+      setStudentSearch(`${activeStudent.name} - ${activeStudent.nis}`);
+    } else {
+      setStudentSearch("");
+    }
+  }, [form.student_id, meta.students]);
+
+  useEffect(() => {
+    const handleOutside = (event) => {
+      if (!studentDropdownRef.current) return;
+      if (!studentDropdownRef.current.contains(event.target)) {
+        setStudentDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
   return (
     <Layout
       title="Buat Tagihan"
@@ -73,53 +105,91 @@ export default function BillsEditPage() {
         </div>
 
         <form className="space-y-4" onSubmit={submit}>
-          <div>
-            <label className="label">Periode</label>
-            <input
-              type="month"
-              className="input"
-              value={form.period}
-              onChange={(e) => setForm({ ...form, period: e.target.value })}
-            />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="label">Jatuh tempo</label>
+              <input
+                type="date"
+                className="input"
+                value={form.due_date}
+                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="label">Periode</label>
+              <input
+                type="month"
+                className="input"
+                value={form.period}
+                onChange={(e) => setForm({ ...form, period: e.target.value })}
+              />
+            </div>
           </div>
-          <div>
-            <label className="label">Jatuh tempo</label>
-            <input
-              type="date"
-              className="input"
-              value={form.due_date}
-              onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="label">Pos (opsional)</label>
-            <select
-              className="input"
-              value={form.finance_post_id}
-              onChange={(e) => setForm({ ...form, finance_post_id: e.target.value })}
-            >
-              <option value="">Semua pos aktif</option>
-              {meta.finance_posts.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">Siswa tertentu (opsional)</label>
-            <select
-              className="input"
-              value={form.student_id}
-              onChange={(e) => setForm({ ...form, student_id: e.target.value })}
-            >
-              <option value="">Semua siswa</option>
-              {meta.students.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} - {item.nis}
-                </option>
-              ))}
-            </select>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="label">Pos Pembayaran</label>
+              <select
+                className="input"
+                value={form.finance_post_id}
+                onChange={(e) => setForm({ ...form, finance_post_id: e.target.value })}
+              >
+                <option value="">Semua pos aktif</option>
+                {meta.finance_posts.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Siswa</label>
+              <div className="relative" ref={studentDropdownRef}>
+                <input
+                  className="input"
+                  placeholder="Semua siswa (ketik nama / NIS)"
+                  value={studentSearch}
+                  onFocus={() => setStudentDropdownOpen(true)}
+                  onChange={(e) => {
+                    setStudentSearch(e.target.value);
+                    setStudentDropdownOpen(true);
+                    setForm((current) => ({ ...current, student_id: "" }));
+                  }}
+                />
+                {studentDropdownOpen ? (
+                  <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <button
+                      type="button"
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                      onClick={() => {
+                        setForm((current) => ({ ...current, student_id: "" }));
+                        setStudentSearch("");
+                        setStudentDropdownOpen(false);
+                      }}
+                    >
+                      Semua siswa
+                    </button>
+                    {filteredStudents.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-slate-500">Siswa tidak ditemukan.</p>
+                    ) : (
+                      filteredStudents.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                          onClick={() => {
+                            setForm((current) => ({ ...current, student_id: String(item.id) }));
+                            setStudentSearch(`${item.name} - ${item.nis}`);
+                            setStudentDropdownOpen(false);
+                          }}
+                        >
+                          {item.name} - {item.nis}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-3">
@@ -127,14 +197,16 @@ export default function BillsEditPage() {
             <button
               type="button"
               className="btn-secondary"
-              onClick={() =>
+              onClick={() => {
                 setForm({
                   period: new Date().toISOString().slice(0, 7),
                   due_date: "",
                   student_id: "",
                   finance_post_id: "",
-                })
-              }
+                });
+                setStudentSearch("");
+                setStudentDropdownOpen(false);
+              }}
             >
               Reset
             </button>

@@ -101,3 +101,91 @@ function parent_login_email_for_student(array $student): string {
 
     return 'parent.' . $normalized . '@parent.local';
 }
+
+function generate_receipt_links_for_student(int $studentId, array $referenceNumbers, string $officerName = 'ADMIN'): array {
+    $studentId = (int) $studentId;
+    if ($studentId <= 0) return [];
+
+    $refs = array_values(array_unique(array_filter(array_map(
+        static fn($ref) => trim((string) $ref),
+        $referenceNumbers
+    ))));
+    if (!$refs) return [];
+
+    $settings = list_settings();
+    $links = [];
+    $linkMode = strtolower(trim((string) env_value('SUPABASE_RECEIPT_LINK_MODE', 'auto')));
+    if (!in_array($linkMode, ['auto', 'public', 'signed'], true)) $linkMode = 'auto';
+
+    foreach ($refs as $referenceNo) {
+        $row = receipt_row_by_reference($studentId, $referenceNo);
+        if (!$row) continue;
+
+        $receiptHtml = render_payment_receipt_html($row, $settings, $officerName);
+        $receiptPdf = render_pdf_from_html($receiptHtml);
+
+        $shareUrl = '';
+        $supabaseUpload = upload_receipt_pdf_to_supabase($receiptPdf, $referenceNo, $studentId);
+        if ($supabaseUpload) {
+            $signedUrl = trim((string) ($supabaseUpload['signed_url'] ?? ''));
+            $publicUrl = trim((string) ($supabaseUpload['public_url'] ?? ''));
+            if ($linkMode === 'public') {
+                $shareUrl = $publicUrl !== '' ? $publicUrl : $signedUrl;
+            } elseif ($linkMode === 'signed') {
+                $shareUrl = $signedUrl !== '' ? $signedUrl : $publicUrl;
+            } else {
+                $shareUrl = $signedUrl !== '' ? $signedUrl : $publicUrl;
+            }
+        }
+
+        if ($shareUrl === '') {
+            $savedPublic = save_receipt_pdf_to_local_public($receiptPdf, $referenceNo, $studentId);
+            if ($savedPublic) {
+                $shareUrl = trim((string) ($savedPublic['url'] ?? ''));
+            }
+        }
+
+        if ($shareUrl === '') {
+            $savedLocal = save_receipt_pdf_to_local($receiptPdf, $referenceNo, $studentId);
+            if ($savedLocal) {
+                $shareUrl = (string) (build_local_receipt_signed_url((string) $savedLocal['relative_path']) ?? '');
+            }
+        }
+
+        if ($shareUrl !== '') {
+            $links[] = [
+                'reference_no' => $referenceNo,
+                'url' => $shareUrl,
+            ];
+        }
+    }
+
+    return $links;
+}
+
+function build_receipt_notification_message(string $billSummary, float $totalAmount, array $referenceNumbers, array $receiptLinks = []): string {
+    $cleanBillSummary = trim($billSummary) !== '' ? trim($billSummary) : 'tagihan';
+    $refs = array_values(array_filter(array_map(
+        static fn($ref) => trim((string) $ref),
+        $referenceNumbers
+    )));
+    $refLine = $refs ? implode(', ', $refs) : '-';
+    $linkLines = [];
+    foreach ($receiptLinks as $row) {
+        $url = trim((string) ($row['url'] ?? ''));
+        if ($url === '') continue;
+        $ref = trim((string) ($row['reference_no'] ?? ''));
+        $linkLines[] = $ref !== '' ? ("- {$ref}: {$url}") : ("- {$url}");
+    }
+
+    $message = "Terima Kasih. Pembayaran {$cleanBillSummary} sebesar " . idr($totalAmount) . " berhasil diterima.\n"
+        . "No. Referensi: {$refLine}";
+    if ($linkLines) {
+        $message .= "\nKuitansi pembayaran telah tersedia."
+            . "\nKuitansi juga bisa diunduh pada menu Riwayat Pembayaran di portal orang tua.";
+    } else {
+        $message .= "\nKuitansi bisa diunduh pada menu Riwayat Pembayaran di portal orang tua.";
+    }
+
+    return $message;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
@@ -33,10 +33,67 @@ export default function ParentTransactionsPage() {
     load();
   }, []);
 
-  const downloadReceipt = async (transactionId) => {
+  const groupedRows = useMemo(() => {
+    const byReference = new Map();
+
+    for (const row of rows) {
+      const key = row.reference_no ? `REF:${row.reference_no}` : `TX:${row.id}`;
+      if (!byReference.has(key)) {
+        byReference.set(key, {
+          id: key,
+          payment_date: row.payment_date || "",
+          reference_no: row.reference_no || "",
+          payment_channel: row.payment_channel || "-",
+          amount_paid: 0,
+          status: row.status || "pending",
+          transaction_ids: [],
+          bill_names: [],
+        });
+      }
+
+      const entry = byReference.get(key);
+      entry.amount_paid += Number(row.amount_paid || 0);
+      entry.transaction_ids.push(Number(row.id));
+      if (row.bill_name) entry.bill_names.push(String(row.bill_name));
+      if (
+        row.payment_date &&
+        String(row.payment_date).localeCompare(String(entry.payment_date || "")) > 0
+      ) {
+        entry.payment_date = row.payment_date;
+      }
+      if (row.status === "failed") {
+        entry.status = "failed";
+      } else if (row.status !== "paid" && entry.status !== "failed") {
+        entry.status = "pending";
+      } else if (entry.status !== "failed" && entry.status !== "pending") {
+        entry.status = "paid";
+      }
+    }
+
+    return Array.from(byReference.values())
+      .map((row) => {
+        const uniqueBillNames = Array.from(new Set(row.bill_names));
+        const billNameLabel =
+          uniqueBillNames.length <= 2
+            ? uniqueBillNames.join(", ")
+            : `${uniqueBillNames[0]}, ${uniqueBillNames[1]} +${uniqueBillNames.length - 2} pos`;
+
+        return {
+          ...row,
+          bill_name: billNameLabel || "-",
+        };
+      })
+      .sort((a, b) => String(b.payment_date || "").localeCompare(String(a.payment_date || "")));
+  }, [rows]);
+
+  const downloadReceipt = async ({ transactionId, referenceNo }) => {
     try {
-      setDownloadingId(transactionId);
-      await downloadRouteFile("parent/receipt", { transaction_id: transactionId }, "bukti-pembayaran.html");
+      setDownloadingId(referenceNo || transactionId);
+      if (referenceNo) {
+        await downloadRouteFile("parent/receipt", { reference_no: referenceNo }, `${referenceNo}.pdf`);
+      } else {
+        await downloadRouteFile("parent/receipt", { transaction_id: transactionId }, "bukti-pembayaran.pdf");
+      }
       setMessage({ type: "", text: "" });
     } catch (error) {
       setMessage({
@@ -74,15 +131,20 @@ export default function ParentTransactionsPage() {
             render: (row) => (
               <button
                 className="btn-secondary"
-                disabled={downloadingId === row.id || row.status !== "paid"}
-                onClick={() => downloadReceipt(row.id)}
+                disabled={downloadingId === (row.reference_no || row.transaction_ids?.[0]) || row.status !== "paid"}
+                onClick={() =>
+                  downloadReceipt({
+                    transactionId: row.transaction_ids?.[0],
+                    referenceNo: row.reference_no || "",
+                  })
+                }
               >
-                {downloadingId === row.id ? "Memproses..." : "Download"}
+                {downloadingId === (row.reference_no || row.transaction_ids?.[0]) ? "Memproses..." : "Download"}
               </button>
             ),
           },
         ]}
-        rows={rows}
+        rows={groupedRows}
       />
     </Layout>
   );

@@ -40,8 +40,18 @@ export default function ParentNotificationsPage() {
       <Table
         emptyText={loading ? "Memuat notifikasi..." : "Belum ada notifikasi"}
         columns={[
-          { key: "title", title: "Judul" },
-          { key: "message", title: "Pesan" },
+          {
+            key: "title",
+            title: "Judul",
+            headerClassName: "w-[180px]",
+            cellClassName: "w-[180px] align-top",
+          },
+          {
+            key: "message",
+            title: "Pesan",
+            headerClassName: "w-[460px]",
+            cellClassName: "w-[460px] align-top",
+          },
           { key: "channel", title: "Kanal", render: (row) => channelLabel(row.channel) },
           {
             key: "status",
@@ -52,7 +62,13 @@ export default function ParentNotificationsPage() {
               </span>
             ),
           },
-          { key: "created_at", title: "Dibuat", render: (row) => formatDate(row.created_at) },
+          {
+            key: "created_at",
+            title: "Dibuat",
+            headerClassName: "w-28 whitespace-nowrap",
+            cellClassName: "w-28 whitespace-nowrap",
+            render: (row) => formatDate(row.created_at),
+          },
         ]}
         rows={rows}
       />

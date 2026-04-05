@@ -8,6 +8,7 @@ require_once API_ROOT . '/core/helpers.php';
 require_once API_ROOT . '/core/db.php';
 require_once API_ROOT . '/core/auth.php';
 require_once API_ROOT . '/utils/notifications.php';
+require_once API_ROOT . '/utils/supabase_storage.php';
 require_once API_ROOT . '/utils/payment.php';
 require_once API_ROOT . '/bootstrap/app_helpers.php';
 
@@ -83,6 +84,8 @@ $pdo = db();
 
 if (!is_dir(API_ROOT . '/storage/backups')) @mkdir(API_ROOT . '/storage/backups', 0777, true);
 if (!is_dir(API_ROOT . '/storage/payment-proofs')) @mkdir(API_ROOT . '/storage/payment-proofs', 0777, true);
+if (!is_dir(API_ROOT . '/storage/receipts')) @mkdir(API_ROOT . '/storage/receipts', 0777, true);
+if (!is_dir(API_ROOT . '/public/receipts')) @mkdir(API_ROOT . '/public/receipts', 0777, true);
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS user_menu_access (
     user_id INT NOT NULL,

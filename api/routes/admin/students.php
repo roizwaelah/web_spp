@@ -9,7 +9,13 @@ if ($route === 'admin/students' && $method === 'GET') {
         FROM students s
         LEFT JOIN classes c ON c.id=s.class_id
         LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
-        ORDER BY s.id DESC")->fetchAll();
+        ORDER BY c.name ASC, s.name ASC, s.id ASC")->fetchAll();
+    foreach ($rows as &$row) {
+        $rawPhone = trim((string) ($row['parent_phone'] ?? ''));
+        $normalizedPhone = normalize_wa_target($rawPhone);
+        if ($normalizedPhone !== '') $row['parent_phone'] = $normalizedPhone;
+    }
+    unset($row);
     response($rows);
 }
 
@@ -26,10 +32,24 @@ if ($route === 'admin/students' && $method === 'POST') {
         response(['message' => 'NISN sudah digunakan siswa lain'], 422);
     }
 
+    $parentPhoneInput = trim((string) ($input['parent_phone'] ?? ''));
+    $parentPhoneClean = preg_replace('/[\s\-().]+/', '', $parentPhoneInput) ?? '';
+    $parentPhone = normalize_wa_target($parentPhoneClean);
+    $isValidParentPhone = $parentPhone !== ''
+        && preg_match('/^\d+$/', $parentPhone)
+        && strlen($parentPhone) >= 10
+        && strlen($parentPhone) <= 16
+        && (str_starts_with($parentPhoneClean, '0')
+            || str_starts_with($parentPhoneClean, '+62')
+            || str_starts_with($parentPhoneClean, '62'));
+    if (!$isValidParentPhone) {
+        response(['message' => 'Nomor HP orang tua tidak valid. Gunakan awalan 0 atau +62.'], 422);
+    }
+
     $stmt = $pdo->prepare("INSERT INTO students (nis, nisn, name, class_id, academic_year_id, parent_name, parent_phone, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
         $input['nis'], $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
-        $input['parent_name'], $input['parent_phone'],
+        $input['parent_name'], $parentPhone,
         $input['address'] ?? null, $input['status'] ?? 'active'
     ]);
     $studentId = (int) $pdo->lastInsertId();
@@ -62,10 +82,24 @@ if ($route === 'admin/students' && $method === 'PUT') {
         response(['message' => 'NISN sudah digunakan siswa lain'], 422);
     }
 
+    $parentPhoneInput = trim((string) ($input['parent_phone'] ?? ''));
+    $parentPhoneClean = preg_replace('/[\s\-().]+/', '', $parentPhoneInput) ?? '';
+    $parentPhone = normalize_wa_target($parentPhoneClean);
+    $isValidParentPhone = $parentPhone !== ''
+        && preg_match('/^\d+$/', $parentPhone)
+        && strlen($parentPhone) >= 10
+        && strlen($parentPhone) <= 16
+        && (str_starts_with($parentPhoneClean, '0')
+            || str_starts_with($parentPhoneClean, '+62')
+            || str_starts_with($parentPhoneClean, '62'));
+    if (!$isValidParentPhone) {
+        response(['message' => 'Nomor HP orang tua tidak valid. Gunakan awalan 0 atau +62.'], 422);
+    }
+
     $stmt = $pdo->prepare("UPDATE students SET nis=?, nisn=?, name=?, class_id=?, academic_year_id=?, parent_name=?, parent_phone=?, address=?, status=? WHERE id=?");
     $stmt->execute([
         $input['nis'], $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
-        $input['parent_name'], $input['parent_phone'],
+        $input['parent_name'], $parentPhone,
         $input['address'] ?? null, $input['status'] ?? 'active', $input['id']
     ]);
     $parentUser = parent_user_by_student_id((int) $input['id']);
@@ -552,15 +586,24 @@ if ($route === 'admin/students/import' && $method === 'POST') {
             continue;
         }
 
-        $parentPhone = trim((string) ($row['parent_phone'] ?? $row['no_hp_orang_tua'] ?? ''));
-        if (!preg_match('/^\d{8,16}$/', $parentPhone)) {
+        $parentPhoneRaw = trim((string) ($row['parent_phone'] ?? $row['no_hp_orang_tua'] ?? ''));
+        $parentPhoneNormalizedInput = preg_replace('/[\s\-().]+/', '', $parentPhoneRaw) ?? '';
+        $parentPhone = normalize_wa_target($parentPhoneNormalizedInput);
+        $isValidParentPhone = $parentPhone !== ''
+            && preg_match('/^\d+$/', $parentPhone)
+            && strlen($parentPhone) >= 10
+            && strlen($parentPhone) <= 16
+            && (str_starts_with($parentPhoneNormalizedInput, '0')
+                || str_starts_with($parentPhoneNormalizedInput, '+62')
+                || str_starts_with($parentPhoneNormalizedInput, '62'));
+        if (!$isValidParentPhone) {
             $skippedInvalidParentPhone++;
             if (count($validationErrors) < 200) {
                 $validationErrors[] = [
                     'row' => $excelRow,
                     'column' => 'no_hp_orang_tua',
-                    'message' => 'Nomor HP orang tua tidak valid (8-16 digit).',
-                    'value' => $parentPhone,
+                    'message' => 'Nomor HP orang tua tidak valid. Gunakan awalan 0 atau +62 (contoh: 081234567890 / +6281234567890).',
+                    'value' => $parentPhoneRaw,
                 ];
             }
             continue;

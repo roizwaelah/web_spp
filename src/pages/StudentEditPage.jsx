@@ -153,10 +153,6 @@ export default function StudentEditPage() {
             <input className="input" value={form.parent_name} onChange={(e) => setForm({ ...form, parent_name: e.target.value })} />
           </div>
 
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-            Akun orang tua dibuat otomatis saat siswa disimpan. Login orang tua menggunakan NISN tanpa password.
-          </div>
-
           <div>
             <label className="label">Alamat</label>
             <textarea className="textarea" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />

@@ -6,3 +6,4 @@ require_once API_ROOT . '/bootstrap/helpers/validation.php';
 require_once API_ROOT . '/bootstrap/helpers/access.php';
 require_once API_ROOT . '/bootstrap/helpers/storage_and_logs.php';
 require_once API_ROOT . '/bootstrap/helpers/student_finance.php';
+require_once API_ROOT . '/bootstrap/helpers/receipt.php';

@@ -78,7 +78,9 @@ if ($route === 'parent/payments' && $method === 'POST') {
 
     $billNames = array_map(static fn ($bill) => $bill['bill_name'], $bills);
     $billSummary = count($billNames) === 1 ? $billNames[0] : count($billNames) . ' tagihan';
-    queue_whatsapp_notification((int) $student['id'], 'Pembayaran Berhasil', "Pembayaran {$billSummary} sebesar " . idr($totalAmount) . " berhasil diterima. Ref: " . implode(', ', $references));
+    $receiptLinks = generate_receipt_links_for_student((int) $student['id'], $references, 'ADMIN');
+    $receiptMessage = build_receipt_notification_message($billSummary, (float) $totalAmount, $references, $receiptLinks);
+    queue_whatsapp_notification((int) $student['id'], 'Kuitansi Pembayaran', $receiptMessage);
     try_dispatch_whatsapp_queue();
     log_activity((int) $user['id'], 'pay', 'bill', (int) $billIds[0], 'Pembayaran orang tua via ' . $input['payment_channel'] . ' untuk ' . count($billIds) . ' tagihan');
     response([
@@ -140,8 +142,22 @@ if ($route === 'parent/payment-proofs' && $method === 'POST') {
         response(['message' => 'Gagal menyimpan bukti pembayaran'], 500);
     }
 
+    $totalAmount = 0.0;
+    foreach ($bills as $bill) {
+        $totalAmount += (float) ($bill['amount'] ?? 0);
+    }
+
     $billSummary = count($bills) === 1 ? $bills[0]['bill_name'] : count($bills) . ' tagihan';
     queue_whatsapp_notification((int) $student['id'], 'Bukti Pembayaran Diterima', "Bukti pembayaran untuk {$billSummary} berhasil diunggah dan menunggu verifikasi admin.");
+    $adminNotes = $notes !== '' ? $notes : '-';
+    $adminMessage = "Orang tua baru saja mengunggah bukti transfer.\n"
+        . "Siswa: {$student['name']}\n"
+        . "Kelas: " . ($student['class_name'] ?: '-') . "\n"
+        . "Tagihan: {$billSummary}\n"
+        . "Total: " . idr($totalAmount) . "\n"
+        . "Catatan: {$adminNotes}\n"
+        . "Waktu: " . date('Y-m-d H:i:s');
+    send_admin_whatsapp_notification('Bukti Transfer Baru', $adminMessage);
     try_dispatch_whatsapp_queue();
     log_activity((int) $user['id'], 'upload', 'payment_proof', (int) $billIds[0], 'Unggah bukti pembayaran untuk ' . count($billIds) . ' tagihan');
     response(['message' => count($billIds) > 1 ? 'Bukti pembayaran berhasil diunggah untuk beberapa tagihan dan menunggu verifikasi' : 'Bukti pembayaran berhasil diunggah dan menunggu verifikasi']);
@@ -169,38 +185,95 @@ if ($route === 'parent/receipt' && $method === 'GET') {
 
     $transactionId = query('transaction_id');
     $billId = query('bill_id');
-    if (!$transactionId && !$billId) response(['message' => 'ID transaksi atau tagihan wajib diisi'], 422);
-    if ($transactionId) {
-        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period FROM transactions t JOIN bills b ON b.id=t.bill_id WHERE t.id=? AND t.student_id=? LIMIT 1");
+    $referenceNo = trim((string) query('reference_no', ''));
+    if (!$transactionId && !$billId && $referenceNo === '') {
+        response(['message' => 'ID transaksi, tagihan, atau nomor referensi wajib diisi'], 422);
+    }
+
+    $fetchByReference = static function (PDO $pdo, string $refNo, int $studentId): array {
+        $stmtRows = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name AS student_name, s.nis, c.name AS class_name, ay.name AS academic_year
+            FROM transactions t
+            JOIN bills b ON b.id=t.bill_id
+            JOIN students s ON s.id=t.student_id
+            LEFT JOIN classes c ON c.id=s.class_id
+            LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+            WHERE t.reference_no = ? AND t.student_id = ?
+            ORDER BY t.id ASC");
+        $stmtRows->execute([$refNo, $studentId]);
+        $rows = $stmtRows->fetchAll();
+        if (!$rows) return [];
+
+        $first = $rows[0];
+        $items = [];
+        $total = 0.0;
+        foreach ($rows as $txRow) {
+            $amount = (float) ($txRow['amount_paid'] ?? 0);
+            $total += $amount;
+            $items[] = [
+                'bill_name' => (string) ($txRow['bill_name'] ?? '-'),
+                'period' => (string) ($txRow['period'] ?? '-'),
+                'amount' => $amount,
+            ];
+        }
+        $first['items'] = $items;
+        $first['amount_paid'] = $total;
+        return $first;
+    };
+
+    $row = null;
+    if ($referenceNo !== '') {
+        $row = $fetchByReference($pdo, $referenceNo, (int) $student['id']);
+    } elseif ($transactionId) {
+        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name AS student_name, s.nis, c.name AS class_name, ay.name AS academic_year
+            FROM transactions t
+            JOIN bills b ON b.id=t.bill_id
+            JOIN students s ON s.id=t.student_id
+            LEFT JOIN classes c ON c.id=s.class_id
+            LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+            WHERE t.id=? AND t.student_id=? LIMIT 1");
         $stmt->execute([$transactionId, $student['id']]);
-        $row = $stmt->fetch();
+        $baseRow = $stmt->fetch();
+        if ($baseRow) {
+            $baseReference = trim((string) ($baseRow['reference_no'] ?? ''));
+            if ($baseReference !== '') {
+                $row = $fetchByReference($pdo, $baseReference, (int) $student['id']);
+            }
+            if (!$row) $row = $baseRow;
+        }
     } else {
-        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period FROM transactions t JOIN bills b ON b.id=t.bill_id WHERE b.id=? AND t.student_id=? ORDER BY t.id DESC LIMIT 1");
+        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name AS student_name, s.nis, c.name AS class_name, ay.name AS academic_year
+            FROM transactions t
+            JOIN bills b ON b.id=t.bill_id
+            JOIN students s ON s.id=t.student_id
+            LEFT JOIN classes c ON c.id=s.class_id
+            LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+            WHERE b.id=? AND t.student_id=? ORDER BY t.id DESC LIMIT 1");
         $stmt->execute([$billId, $student['id']]);
         $row = $stmt->fetch();
+        if ($row) {
+            $baseReference = trim((string) ($row['reference_no'] ?? ''));
+            if ($baseReference !== '') {
+                $groupedRow = $fetchByReference($pdo, $baseReference, (int) $student['id']);
+                if ($groupedRow) $row = $groupedRow;
+            }
+        }
     }
     if (!$row) response(['message' => 'Bukti pembayaran tidak ditemukan'], 404);
     $settings = list_settings();
-    $receiptTitle = trim((string) ($settings['school_name'] ?? 'SPP Madrasah'));
-    $receiptFooter = trim((string) ($settings['receipt_footer'] ?? ''));
-    $statusLabel = $row['status'] === 'paid' ? 'LUNAS' : strtoupper((string) $row['status']);
 
-    header('Content-Type: text/html; charset=utf-8');
-    header('Content-Disposition: attachment; filename="bukti-pembayaran-' . ($row['reference_no'] ?: $row['id']) . '.html"');
-    echo "<html><head><title>Bukti Pembayaran</title><style>body{font-family:Arial,sans-serif;padding:30px;background:#f8fafc}.card{max-width:650px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:28px}.title{color:#047857;font-size:28px;font-weight:700}.row{margin:10px 0;color:#334155}.label{font-weight:700;display:inline-block;width:170px}</style></head><body>";
-    echo "<div class='card'><div class='title'>Bukti Pembayaran " . htmlspecialchars($receiptTitle) . "</div>";
-    echo "<div class='row'><span class='label'>Nama Siswa</span>" . htmlspecialchars($student['name']) . "</div>";
-    echo "<div class='row'><span class='label'>Tagihan</span>" . htmlspecialchars($row['bill_name']) . "</div>";
-    echo "<div class='row'><span class='label'>Periode</span>" . htmlspecialchars($row['period']) . "</div>";
-    echo "<div class='row'><span class='label'>Kanal</span>" . htmlspecialchars($row['payment_channel']) . "</div>";
-    echo "<div class='row'><span class='label'>Nominal</span>" . idr($row['amount_paid']) . "</div>";
-    echo "<div class='row'><span class='label'>Referensi</span>" . htmlspecialchars($row['reference_no']) . "</div>";
-    echo "<div class='row'><span class='label'>Tanggal</span>" . htmlspecialchars($row['payment_date']) . "</div>";
-    echo "<div class='row'><span class='label'>Status</span>" . htmlspecialchars($statusLabel) . "</div>";
-    echo "<div class='row' style='margin-top:24px'>Dokumen ini dicetak otomatis oleh sistem " . htmlspecialchars($receiptTitle) . ".</div>";
-    if ($receiptFooter !== '') {
-        echo "<div class='row'>" . nl2br(htmlspecialchars($receiptFooter)) . "</div>";
+    $receiptHtml = render_payment_receipt_html($row, $settings, 'ADMIN');
+    $receiptPdf = render_pdf_from_html($receiptHtml);
+    $referenceNo = (string) ($row['reference_no'] ?: ('TRX' . str_pad((string) ($row['id'] ?? 0), 10, '0', STR_PAD_LEFT)));
+    $receiptRef = preg_replace('/[^a-zA-Z0-9._-]/', '-', $referenceNo);
+    $receiptRef = trim((string) $receiptRef, '-') ?: 'TRX0000000000';
+    try {
+        upload_receipt_pdf_to_supabase($receiptPdf, $referenceNo, (int) ($student['id'] ?? 0));
+    } catch (Throwable $e) {
+        error_log('[SUPABASE_RECEIPT_UPLOAD][parent] ' . $e->getMessage());
     }
-    echo "</div></body></html>";
+
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="' . $receiptRef . '.pdf"');
+    echo $receiptPdf;
     exit;
 }

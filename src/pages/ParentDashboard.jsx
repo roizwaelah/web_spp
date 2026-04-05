@@ -55,7 +55,7 @@ export default function ParentDashboard() {
           {data.student?.class_name || "-"} | Wali: {data.student?.parent_name || "-"}
         </p>
         <p className="mt-2 text-sm text-slate-600">
-          Madrasah: <span className="font-semibold">{data.settings?.school_name || "-"}</span>
+          Lembaga: <span className="font-semibold">{data.settings?.school_name || "-"}</span>
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

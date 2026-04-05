@@ -110,3 +110,34 @@ if ($route === 'admin/meta' && $method === 'GET') {
         'menuOptions' => staff_menu_definitions(),
     ]);
 }
+
+if ($route === 'public/receipt-file' && $method === 'GET') {
+    $relativePath = str_replace('\\', '/', trim((string) query('path', '')));
+    $exp = (int) query('exp', 0);
+    $sig = trim((string) query('sig', ''));
+    if ($relativePath === '' || $exp <= 0 || $sig === '') response(['message' => 'Link kuitansi tidak valid'], 422);
+    if (str_contains($relativePath, '..') || !str_starts_with($relativePath, 'receipts/')) {
+        response(['message' => 'Path kuitansi tidak valid'], 403);
+    }
+    if (!is_valid_local_receipt_signature($relativePath, $exp, $sig)) {
+        response(['message' => 'Link kuitansi kedaluwarsa atau tidak valid'], 403);
+    }
+
+    $fullPath = API_ROOT . '/storage/' . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    if (!file_exists($fullPath) || !is_file($fullPath)) {
+        response(['message' => 'File kuitansi tidak ditemukan'], 404);
+    }
+    $receiptDir = API_ROOT . '/storage/receipts';
+    if (!is_path_inside_dir($fullPath, $receiptDir)) {
+        response(['message' => 'Akses file tidak valid'], 403);
+    }
+
+    header('Content-Type: application/pdf');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, max-age=300');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($fullPath));
+    header('Content-Disposition: inline; filename="' . basename($fullPath) . '"');
+    readfile($fullPath);
+    exit;
+}

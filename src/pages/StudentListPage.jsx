@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import ModalFrame from "../components/ModalFrame";
 import Table from "../components/Table";
@@ -15,9 +15,27 @@ export default function StudentListPage() {
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [classes, setClasses] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
   const [importErrorModalOpen, setImportErrorModalOpen] = useState(false);
   const [importErrorSummary, setImportErrorSummary] = useState(null);
   const [importValidationErrors, setImportValidationErrors] = useState([]);
+  const [promoteModalOpen, setPromoteModalOpen] = useState(false);
+  const [sourceClassId, setSourceClassId] = useState("");
+  const [sourceAcademicYearId, setSourceAcademicYearId] = useState("");
+  const [targetClassId, setTargetClassId] = useState("");
+  const [targetAcademicYearId, setTargetAcademicYearId] = useState("");
+  const [sourceSelectedIds, setSourceSelectedIds] = useState([]);
+  const [targetSelectedIds, setTargetSelectedIds] = useState([]);
+  const [movedStudentIds, setMovedStudentIds] = useState([]);
+  const [isSavingPromotion, setIsSavingPromotion] = useState(false);
+  const [graduateModalOpen, setGraduateModalOpen] = useState(false);
+  const [graduateSourceClassId, setGraduateSourceClassId] = useState("");
+  const [graduateSourceAcademicYearId, setGraduateSourceAcademicYearId] = useState("");
+  const [graduateSourceSelectedIds, setGraduateSourceSelectedIds] = useState([]);
+  const [graduatedStudentIds, setGraduatedStudentIds] = useState([]);
+  const [graduateTargetSelectedIds, setGraduateTargetSelectedIds] = useState([]);
+  const [isSavingGraduation, setIsSavingGraduation] = useState(false);
   const navigate = useNavigate();
   const { confirm } = useUI();
 
@@ -25,8 +43,19 @@ export default function StudentListPage() {
 
   const load = async () => {
     try {
-      const studentsRes = await fetchRoute("admin/students");
+      const [studentsRes, metaRes] = await Promise.all([
+        fetchRoute("admin/students"),
+        fetchRoute("admin/meta"),
+      ]);
       const rows = Array.isArray(studentsRes.data) ? studentsRes.data : [];
+      const classRows = Array.isArray(metaRes?.data?.classes)
+        ? metaRes.data.classes
+        : [];
+      const yearRows = Array.isArray(metaRes?.data?.years)
+        ? metaRes.data.years
+        : [];
+      setClasses(classRows);
+      setAcademicYears(yearRows);
       setStudents(rows);
       return rows;
     } catch (error) {
@@ -157,19 +186,323 @@ export default function StudentListPage() {
     [students, filter],
   );
 
+  const studentsByClass = useMemo(() => {
+    const map = new Map();
+    for (const row of students) {
+      const cid = String(row.class_id || "");
+      if (!cid) continue;
+      if (!map.has(cid)) map.set(cid, []);
+      map.get(cid).push(row);
+    }
+    for (const [key, list] of map.entries()) {
+      map.set(
+        key,
+        list.slice().sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id")),
+      );
+    }
+    return map;
+  }, [students]);
+
+  const sourceStudents = useMemo(() => {
+    if (!sourceClassId) return [];
+    const movedSet = new Set(movedStudentIds.map(String));
+    const base = studentsByClass.get(String(sourceClassId)) || [];
+    return base.filter(
+      (item) =>
+        !movedSet.has(String(item.id)) &&
+        (!sourceAcademicYearId || String(item.academic_year_id) === String(sourceAcademicYearId)),
+    );
+  }, [sourceClassId, sourceAcademicYearId, studentsByClass, movedStudentIds]);
+
+  const targetStudents = useMemo(() => {
+    if (!targetClassId) return [];
+    const movedSet = new Set(movedStudentIds.map(String));
+    const base = studentsByClass.get(String(targetClassId)) || [];
+    const movedRows = (studentsByClass.get(String(sourceClassId)) || []).filter((item) =>
+      movedSet.has(String(item.id)),
+    );
+    const merged = [...base, ...movedRows];
+    return merged.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id"));
+  }, [targetClassId, sourceClassId, studentsByClass, movedStudentIds]);
+
+  const movedSet = useMemo(
+    () => new Set(movedStudentIds.map(String)),
+    [movedStudentIds],
+  );
+
+  const graduateMovedSet = useMemo(
+    () => new Set(graduatedStudentIds.map(String)),
+    [graduatedStudentIds],
+  );
+
+  const resetPromotionState = () => {
+    setSourceSelectedIds([]);
+    setTargetSelectedIds([]);
+    setMovedStudentIds([]);
+  };
+
+  const resetGraduationState = () => {
+    setGraduateSourceSelectedIds([]);
+    setGraduateTargetSelectedIds([]);
+    setGraduatedStudentIds([]);
+  };
+
+  const openPromoteModal = () => {
+    setPromoteModalOpen(true);
+    resetPromotionState();
+    if (!sourceClassId && classes.length > 0) {
+      setSourceClassId(String(classes[0].id));
+    }
+    if (!sourceAcademicYearId && academicYears.length > 0) {
+      setSourceAcademicYearId(String(academicYears[0].id));
+    }
+    if (!targetClassId && classes.length > 1) {
+      setTargetClassId(String(classes[1].id));
+    }
+    if (!targetAcademicYearId && academicYears.length > 0) {
+      setTargetAcademicYearId(String(academicYears[0].id));
+    }
+  };
+
+  const openGraduateModal = () => {
+    setGraduateModalOpen(true);
+    resetGraduationState();
+    if (!graduateSourceClassId && classes.length > 0) {
+      setGraduateSourceClassId(String(classes[0].id));
+    }
+    if (!graduateSourceAcademicYearId && academicYears.length > 0) {
+      setGraduateSourceAcademicYearId(String(academicYears[0].id));
+    }
+  };
+
+  useEffect(() => {
+    if (!promoteModalOpen || !sourceClassId) return;
+    const base = (studentsByClass.get(String(sourceClassId)) || []).filter(
+      (row) =>
+        !sourceAcademicYearId ||
+        String(row.academic_year_id) === String(sourceAcademicYearId),
+    );
+    setSourceSelectedIds(base.map((row) => String(row.id)));
+    setTargetSelectedIds([]);
+  }, [promoteModalOpen, sourceClassId, sourceAcademicYearId, studentsByClass]);
+
+  const graduationSourceStudents = useMemo(() => {
+    if (!graduateSourceClassId) return [];
+    const base = studentsByClass.get(String(graduateSourceClassId)) || [];
+    return base.filter(
+      (row) =>
+        row.status === "active" &&
+        !graduateMovedSet.has(String(row.id)) &&
+        (!graduateSourceAcademicYearId ||
+          String(row.academic_year_id) === String(graduateSourceAcademicYearId)),
+    );
+  }, [graduateSourceClassId, graduateSourceAcademicYearId, studentsByClass, graduateMovedSet]);
+
+  const graduationTargetStudents = useMemo(() => {
+    if (!graduateSourceClassId) return [];
+    const base = studentsByClass.get(String(graduateSourceClassId)) || [];
+    return base
+      .filter((row) => graduateMovedSet.has(String(row.id)))
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id"));
+  }, [graduateSourceClassId, studentsByClass, graduateMovedSet]);
+
+  useEffect(() => {
+    if (!graduateModalOpen || !graduateSourceClassId) return;
+    const base = (studentsByClass.get(String(graduateSourceClassId)) || []).filter(
+      (row) =>
+        row.status === "active" &&
+        (!graduateSourceAcademicYearId ||
+          String(row.academic_year_id) === String(graduateSourceAcademicYearId)),
+    );
+    setGraduateSourceSelectedIds(base.map((row) => String(row.id)));
+    setGraduateTargetSelectedIds([]);
+  }, [graduateModalOpen, graduateSourceClassId, graduateSourceAcademicYearId, studentsByClass]);
+
+  const moveRight = () => {
+    if (!sourceSelectedIds.length) return;
+    const selectedSet = new Set(sourceSelectedIds.map(String));
+    const selectedRows = sourceStudents.filter((row) => selectedSet.has(String(row.id)));
+    if (!selectedRows.length) return;
+    setMovedStudentIds((current) => {
+      const merged = new Set(current.map(String));
+      selectedRows.forEach((row) => merged.add(String(row.id)));
+      return Array.from(merged);
+    });
+    setSourceSelectedIds([]);
+  };
+
+  const moveLeft = () => {
+    if (!targetSelectedIds.length) return;
+    const selectedSet = new Set(targetSelectedIds.map(String));
+    setMovedStudentIds((current) =>
+      current.filter((id) => !selectedSet.has(String(id))),
+    );
+    setTargetSelectedIds([]);
+  };
+
+  const moveGraduateRight = () => {
+    if (!graduateSourceSelectedIds.length) return;
+    const selectedSet = new Set(graduateSourceSelectedIds.map(String));
+    const selectedRows = graduationSourceStudents.filter((row) => selectedSet.has(String(row.id)));
+    if (!selectedRows.length) return;
+    setGraduatedStudentIds((current) => {
+      const merged = new Set(current.map(String));
+      selectedRows.forEach((row) => merged.add(String(row.id)));
+      return Array.from(merged);
+    });
+    setGraduateSourceSelectedIds([]);
+  };
+
+  const moveGraduateLeft = () => {
+    if (!graduateTargetSelectedIds.length) return;
+    const selectedSet = new Set(graduateTargetSelectedIds.map(String));
+    setGraduatedStudentIds((current) =>
+      current.filter((id) => !selectedSet.has(String(id))),
+    );
+    setGraduateTargetSelectedIds([]);
+  };
+
+  const submitPromotion = async () => {
+    if (!sourceClassId || !targetClassId) {
+      setMessage({ type: "warning", text: "Pilih kelas asal dan kelas tujuan terlebih dahulu." });
+      return;
+    }
+    if (!targetAcademicYearId) {
+      setMessage({ type: "warning", text: "Pilih tahun ajaran tujuan terlebih dahulu." });
+      return;
+    }
+    if (sourceClassId === targetClassId) {
+      setMessage({ type: "warning", text: "Kelas asal dan tujuan tidak boleh sama." });
+      return;
+    }
+    if (!movedStudentIds.length) {
+      setMessage({ type: "warning", text: "Pilih minimal satu siswa untuk dipindahkan." });
+      return;
+    }
+
+    const confirmMove = await confirm({
+      title: "Simpan perpindahan kelas",
+      description: `Pindahkan ${movedStudentIds.length} siswa ke kelas tujuan?`,
+      confirmLabel: "Ya, simpan",
+    });
+    if (!confirmMove) return;
+
+    const targetClassIdNum = Number(targetClassId);
+    const targetAcademicYearIdNum = Number(targetAcademicYearId);
+    const rowsToMove = students.filter((row) => movedSet.has(String(row.id)));
+    setIsSavingPromotion(true);
+    try {
+      await Promise.all(
+        rowsToMove.map((row) =>
+          fetchRoute("admin/students", {
+            method: "PUT",
+            data: {
+              id: row.id,
+              nis: row.nis,
+              nisn: row.nisn,
+              name: row.name,
+              class_id: targetClassIdNum,
+              academic_year_id: targetAcademicYearIdNum,
+              parent_name: row.parent_name,
+              parent_phone: row.parent_phone,
+              address: row.address ?? "",
+              status: row.status || "active",
+            },
+          }),
+        ),
+      );
+      setMessage({ type: "success", text: `${rowsToMove.length} siswa berhasil dipindahkan kelas.` });
+      setPromoteModalOpen(false);
+      resetPromotionState();
+      await load();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal menyimpan perpindahan kelas",
+      });
+    } finally {
+      setIsSavingPromotion(false);
+    }
+  };
+
+  const submitGraduation = async () => {
+    if (!graduateSourceClassId) {
+      setMessage({ type: "warning", text: "Pilih kelas asal terlebih dahulu." });
+      return;
+    }
+    if (!graduateSourceAcademicYearId) {
+      setMessage({ type: "warning", text: "Pilih tahun ajaran asal terlebih dahulu." });
+      return;
+    }
+    if (!graduatedStudentIds.length) {
+      setMessage({ type: "warning", text: "Pilih minimal satu siswa untuk diluluskan." });
+      return;
+    }
+
+    const confirmGraduate = await confirm({
+      title: "Simpan kelulusan siswa",
+      description: `Ubah status ${graduatedStudentIds.length} siswa menjadi nonaktif (lulus)?`,
+      confirmLabel: "Ya, simpan",
+    });
+    if (!confirmGraduate) return;
+
+    const rowsToGraduate = students.filter((row) => graduateMovedSet.has(String(row.id)));
+    setIsSavingGraduation(true);
+    try {
+      await Promise.all(
+        rowsToGraduate.map((row) =>
+          fetchRoute("admin/students", {
+            method: "PUT",
+            data: {
+              id: row.id,
+              nis: row.nis,
+              nisn: row.nisn,
+              name: row.name,
+              class_id: Number(row.class_id),
+              academic_year_id: Number(row.academic_year_id),
+              parent_name: row.parent_name,
+              parent_phone: row.parent_phone,
+              address: row.address ?? "",
+              status: "inactive",
+            },
+          }),
+        ),
+      );
+      setMessage({ type: "success", text: `${rowsToGraduate.length} siswa berhasil diluluskan.` });
+      setGraduateModalOpen(false);
+      resetGraduationState();
+      await load();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal menyimpan data kelulusan",
+      });
+    } finally {
+      setIsSavingGraduation(false);
+    }
+  };
+
   return (
     <Layout
       title="Data Siswa"
       subtitle="Daftar lengkap siswa, pencarian cepat, impor data, dan aksi edit/hapus."
       actions={
-        <button
-          className="btn-primary"
-          onClick={() => navigate("/admin/siswa/edit")}
-          onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
-          onFocus={() => prefetchRoute("/admin/siswa/edit")}
-        >
-          <Plus size={18} /> Tambah Siswa
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn-secondary" onClick={openPromoteModal}>
+            Kenaikan
+          </button>
+          <button className="btn-secondary" onClick={openGraduateModal}>
+            Kelulusan
+          </button>
+          <button
+            className="btn-primary"
+            onClick={() => navigate("/admin/siswa/edit")}
+            onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
+            onFocus={() => prefetchRoute("/admin/siswa/edit")}
+          >
+            <Plus size={18} /> Tambah Siswa
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
@@ -222,7 +555,6 @@ export default function StudentListPage() {
                 </span>
               ),
             },
-            { key: "active_bills", title: "Tagihan Aktif" },
             {
               key: "actions",
               title: "Aksi",
@@ -246,6 +578,391 @@ export default function StudentListPage() {
           rows={filtered}
         />
       </div>
+      <ModalFrame
+        open={promoteModalOpen}
+        onClose={() => {
+          if (isSavingPromotion) return;
+          setPromoteModalOpen(false);
+          resetPromotionState();
+        }}
+        title="Naik Kelas"
+        showIcon={false}
+        maxWidthClass="max-w-5xl"
+        cardClassName="max-h-[calc(100vh-35px)]"
+      >
+        <div className="max-h-[calc(100vh-125px)] overflow-y-auto pr-1">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr]">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <label className="label">Kelas Asal</label>
+                <select
+                  className="h-7 w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[12px] leading-normal text-black outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  value={sourceClassId}
+                  onChange={(e) => {
+                    setSourceClassId(e.target.value);
+                    resetPromotionState();
+                  }}
+                >
+                  <option value="">Pilih kelas asal</option>
+                  {classes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Tahun Ajaran</label>
+                <select
+                  className="h-7 w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[12px] leading-normal text-black outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  value={sourceAcademicYearId}
+                  onChange={(e) => {
+                    setSourceAcademicYearId(e.target.value);
+                    resetPromotionState();
+                  }}
+                >
+                  <option value="">Pilih tahun ajaran</option>
+                  {academicYears.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-2 max-h-[250px] overflow-auto rounded-lg border border-slate-200 bg-white">
+              {sourceStudents.length === 0 ? (
+                <div className="px-3 py-8 text-center text-sm text-slate-500">Tidak ada siswa</div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {sourceStudents.map((row) => (
+                    <li key={row.id} className="px-3 py-1">
+                      <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={sourceSelectedIds.includes(String(row.id))}
+                          onChange={(e) => {
+                            const id = String(row.id);
+                            setSourceSelectedIds((current) =>
+                              e.target.checked
+                                ? [...current, id]
+                                : current.filter((item) => item !== id),
+                            );
+                          }}
+                        />
+                        <span>{row.name}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center gap-1.5">
+            <button
+              type="button"
+              className="btn-primary h-9 w-9 rounded-full p-0"
+              onClick={moveRight}
+              disabled={!sourceSelectedIds.length || !targetClassId || sourceClassId === targetClassId}
+              title="Pindahkan ke kanan"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn-secondary h-9 w-9 rounded-full p-0"
+              onClick={moveLeft}
+              disabled={!targetSelectedIds.length}
+              title="Tarik kembali ke kiri"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <label className="label">Kelas Tujuan</label>
+                <select
+                  className="h-7 w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[12px] leading-normal text-black outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  value={targetClassId}
+                  onChange={(e) => {
+                    setTargetClassId(e.target.value);
+                    resetPromotionState();
+                  }}
+                >
+                  <option value="">Pilih kelas tujuan</option>
+                  {classes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Tahun Ajaran</label>
+                <select
+                  className="h-7 w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[12px] leading-normal text-black outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                  value={targetAcademicYearId}
+                  onChange={(e) => setTargetAcademicYearId(e.target.value)}
+                >
+                  <option value="">Pilih tahun ajaran</option>
+                  {academicYears.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-2 max-h-[250px] overflow-auto rounded-lg border border-slate-200 bg-white">
+              {targetStudents.length === 0 ? (
+                <div className="px-3 py-8 text-center text-sm text-slate-500">Tidak ada siswa</div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {targetStudents.map((row) => {
+                    const isMoved = movedSet.has(String(row.id));
+                    return (
+                    <li key={row.id} className="px-3 py-1">
+                        <label
+                          className={`flex items-center gap-2 text-[13px] ${isMoved ? "cursor-pointer text-slate-800" : "text-slate-500"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={targetSelectedIds.includes(String(row.id))}
+                            disabled={!isMoved}
+                            onChange={(e) => {
+                              const id = String(row.id);
+                              setTargetSelectedIds((current) =>
+                                e.target.checked
+                                  ? [...current, id]
+                                  : current.filter((item) => item !== id),
+                              );
+                            }}
+                          />
+                          <span>{row.name}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+        </div>
+        <div className="modal-actions mt-2">
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={isSavingPromotion}
+            onClick={() => {
+              setPromoteModalOpen(false);
+              resetPromotionState();
+            }}
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={
+              isSavingPromotion ||
+              !movedStudentIds.length ||
+              !targetClassId ||
+              !targetAcademicYearId ||
+              sourceClassId === targetClassId
+            }
+            onClick={submitPromotion}
+          >
+            {isSavingPromotion ? "Menyimpan..." : "Simpan"}
+          </button>
+        </div>
+      </ModalFrame>
+      <ModalFrame
+        open={graduateModalOpen}
+        onClose={() => {
+          if (isSavingGraduation) return;
+          setGraduateModalOpen(false);
+          resetGraduationState();
+        }}
+        title="Kelulusan"
+        showIcon={false}
+        maxWidthClass="max-w-5xl"
+        cardClassName="max-h-[calc(100vh-35px)]"
+      >
+        <div className="max-h-[calc(100vh-125px)] overflow-y-auto pr-1">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="label">Kelas Asal</label>
+                  <select
+                    className="h-7 w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[12px] leading-normal text-black outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    value={graduateSourceClassId}
+                    onChange={(e) => {
+                      setGraduateSourceClassId(e.target.value);
+                      resetGraduationState();
+                    }}
+                  >
+                    <option value="">Pilih kelas asal</option>
+                    {classes.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Tahun Ajaran</label>
+                  <select
+                    className="h-7 w-full rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-[12px] leading-normal text-black outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    value={graduateSourceAcademicYearId}
+                    onChange={(e) => {
+                      setGraduateSourceAcademicYearId(e.target.value);
+                      resetGraduationState();
+                    }}
+                  >
+                    <option value="">Pilih tahun ajaran</option>
+                    {academicYears.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="mt-2 max-h-[250px] overflow-auto rounded-lg border border-slate-200 bg-white">
+                {graduationSourceStudents.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-sm text-slate-500">Tidak ada siswa aktif</div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {graduationSourceStudents.map((row) => (
+                      <li key={row.id} className="px-3 py-1">
+                        <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-800">
+                          <input
+                            type="checkbox"
+                            checked={graduateSourceSelectedIds.includes(String(row.id))}
+                            onChange={(e) => {
+                              const id = String(row.id);
+                              setGraduateSourceSelectedIds((current) =>
+                                e.target.checked
+                                  ? [...current, id]
+                                  : current.filter((item) => item !== id),
+                              );
+                            }}
+                          />
+                          <span className="flex-1">{row.name}</span>
+                          <span
+                            className={`inline-flex h-2.5 w-2.5 rounded-full ${Number(row.active_bills || 0) > 0 ? "bg-rose-500" : "bg-emerald-500"}`}
+                            title={
+                              Number(row.active_bills || 0) > 0
+                                ? `Masih punya ${row.active_bills} tanggungan`
+                                : "Tidak ada tanggungan"
+                            }
+                          />
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center justify-center gap-1.5">
+              <button
+                type="button"
+                className="btn-primary h-9 w-9 rounded-full p-0"
+                onClick={moveGraduateRight}
+                disabled={!graduateSourceSelectedIds.length}
+                title="Pindahkan ke kanan"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button
+                type="button"
+                className="btn-secondary h-9 w-9 rounded-full p-0"
+                onClick={moveGraduateLeft}
+                disabled={!graduateTargetSelectedIds.length}
+                title="Tarik kembali ke kiri"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <div>
+                <label className="label">Siswa Diluluskan</label>
+                <div className="h-7 rounded-md border border-slate-300 bg-slate-100 px-2 py-1 text-[12px] leading-normal text-slate-600">
+                  Status akan diubah menjadi nonaktif
+                </div>
+              </div>
+              <div className="mt-2 max-h-[250px] overflow-auto rounded-lg border border-slate-200 bg-white">
+                {graduationTargetStudents.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-sm text-slate-500">Belum ada siswa dipilih</div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {graduationTargetStudents.map((row) => (
+                      <li key={row.id} className="px-3 py-1">
+                        <label className="flex cursor-pointer items-center gap-2 text-[13px] text-slate-800">
+                          <input
+                            type="checkbox"
+                            checked={graduateTargetSelectedIds.includes(String(row.id))}
+                            onChange={(e) => {
+                              const id = String(row.id);
+                              setGraduateTargetSelectedIds((current) =>
+                                e.target.checked
+                                  ? [...current, id]
+                                  : current.filter((item) => item !== id),
+                              );
+                            }}
+                          />
+                          <span>{row.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="modal-actions mt-2 w-full justify-between">
+          <div className="mr-auto flex items-center gap-4 text-xs text-slate-700">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span>Tidak ada tanggungan</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+              <span>Masih ada tanggungan</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={isSavingGraduation}
+              onClick={() => {
+                setGraduateModalOpen(false);
+                resetGraduationState();
+              }}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={isSavingGraduation || !graduatedStudentIds.length || !graduateSourceAcademicYearId}
+              onClick={submitGraduation}
+            >
+              {isSavingGraduation ? "Menyimpan..." : "Simpan"}
+            </button>
+          </div>
+        </div>
+      </ModalFrame>
       <ModalFrame
         open={isImporting}
         onClose={() => {}}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
@@ -48,7 +48,7 @@ export default function ParentBillsPage() {
       await downloadRouteFile(
         "parent/receipt",
         { bill_id: billId },
-        "bukti-pembayaran.html",
+        "bukti-pembayaran.pdf",
       );
       setMessage({ type: "", text: "" });
     } catch (error) {
@@ -67,6 +67,10 @@ export default function ParentBillsPage() {
   const gatewayDescription = gatewayEnabled
     ? settings?.payment_gateway_provider || "Pembayaran otomatis tersedia"
     : "Gunakan transfer manual";
+  const unpaidBills = useMemo(
+    () => bills.filter((item) => item?.status !== "paid"),
+    [bills],
+  );
 
   return (
     <Layout
@@ -116,32 +120,17 @@ export default function ParentBillsPage() {
             ),
           },
           {
-            key: "proof_status",
-            title: "Bukti Bayar",
-            render: (row) =>
-              row.proof_status ? (
-                <span
-                  className={
-                    row.proof_status === "approved"
-                      ? "badge-green"
-                      : row.proof_status === "rejected"
-                        ? "badge-red"
-                        : "badge-amber"
-                  }
-                >
-                  {row.proof_status === "approved"
-                    ? "Disetujui"
-                    : row.proof_status === "rejected"
-                      ? "Ditolak"
-                      : "Menunggu"}
-                </span>
-              ) : (
-                <span className="badge-slate">-</span>
-              ),
-          },
-          {
             key: "action",
-            title: "Aksi",
+            title: (
+              <div className="inline-flex items-center gap-2">
+                <span>Aksi</span>
+                {!gatewayEnabled && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                    Bayar Otomatis non-aktif, gunakan TF manual
+                  </span>
+                )}
+              </div>
+            ),
             headerClassName: "w-0",
             cellClassName: "w-0 whitespace-nowrap",
             render: (row) => {
@@ -172,11 +161,6 @@ export default function ParentBillsPage() {
                       >
                         Bayar
                       </button>
-                      {!gatewayEnabled && (
-                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
-                          Bayar Otomatis non-aktif, gunakan TF manual
-                        </span>
-                      )}
                     </div>
                   )}
                 </div>
@@ -184,7 +168,7 @@ export default function ParentBillsPage() {
             },
           },
         ]}
-        rows={bills}
+        rows={unpaidBills}
       />
     </Layout>
   );

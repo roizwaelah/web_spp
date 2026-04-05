@@ -80,12 +80,26 @@ if ($route === 'admin/payment-proofs/review' && $method === 'POST') {
         $stmt->execute([$input['status'], $user['id'], $input['notes'] ?? null, $input['proof_id']]);
 
         if ($input['status'] === 'approved' && $proof['bill_status'] !== 'paid') {
-            create_transaction_and_mark_paid((int) $proof['bill_id'], (int) $proof['student_id'], 'Upload Bukti / Transfer Manual', (float) $proof['amount'], 'Verifikasi manual bukti pembayaran', 'paid');
-            queue_whatsapp_notification((int) $proof['student_id'], 'Bukti Pembayaran Disetujui', "Pembayaran {$proof['bill_name']} untuk {$proof['student_name']} telah diverifikasi.");
+            $tx = create_transaction_and_mark_paid((int) $proof['bill_id'], (int) $proof['student_id'], 'Transfer Manual', (float) $proof['amount'], 'Verifikasi manual bukti pembayaran', 'paid');
+            $officerName = strtoupper(trim((string) ($user['name'] ?? 'ADMIN')));
+            if ($officerName === '') $officerName = 'ADMIN';
+            $receiptLinks = generate_receipt_links_for_student((int) $proof['student_id'], [(string) ($tx['reference_no'] ?? '')], $officerName);
+            $receiptMessage = build_receipt_notification_message(
+                (string) ($proof['bill_name'] ?? 'tagihan'),
+                (float) ($proof['amount'] ?? 0),
+                [(string) ($tx['reference_no'] ?? '')],
+                $receiptLinks
+            );
+            queue_whatsapp_notification((int) $proof['student_id'], 'Kuitansi Pembayaran', $receiptMessage);
         }
 
         if ($input['status'] === 'rejected') {
-            queue_whatsapp_notification((int) $proof['student_id'], 'Bukti Pembayaran Ditolak', "Mohon unggah ulang bukti pembayaran {$proof['bill_name']} dengan data yang lebih jelas.");
+            $rejectionReason = trim((string) ($input['notes'] ?? ''));
+            queue_whatsapp_notification(
+                (int) $proof['student_id'],
+                'Bukti Pembayaran Ditolak',
+                "Bukti pembayaran {$proof['bill_name']} ditolak admin.\nAlasan: {$rejectionReason}\nMohon unggah ulang bukti pembayaran dengan data yang lebih jelas."
+            );
         }
 
         $pdo->commit();

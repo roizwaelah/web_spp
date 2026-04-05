@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchRoute } from '../api'
 
 const AuthContext = createContext(null)
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000
 
 const loadStoredUser = () => {
   const raw = localStorage.getItem('user')
@@ -26,6 +27,7 @@ const persistUser = (nextUser) => {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(loadStoredUser)
   const [loading, setLoading] = useState(false)
+  const inactivityTimerRef = useRef(null)
 
   const refreshUser = async () => {
     const { data } = await fetchRoute('me')
@@ -55,6 +57,10 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    if (inactivityTimerRef.current) {
+      window.clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+    }
     localStorage.removeItem('token')
     persistUser(null)
     setUser(null)
@@ -65,6 +71,42 @@ export function AuthProvider({ children }) {
     const needsRefresh = !user || (user.role !== 'parent' && user.menu_access == null)
     if (!token || !needsRefresh) return
     refreshUser().catch(() => logout())
+  }, [user])
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!user || !token) {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current)
+        inactivityTimerRef.current = null
+      }
+      return
+    }
+
+    const resetInactivityTimer = () => {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current)
+      }
+      inactivityTimerRef.current = window.setTimeout(() => {
+        logout()
+      }, INACTIVITY_TIMEOUT_MS)
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+    events.forEach((eventName) =>
+      window.addEventListener(eventName, resetInactivityTimer, { passive: true }),
+    )
+    resetInactivityTimer()
+
+    return () => {
+      events.forEach((eventName) =>
+        window.removeEventListener(eventName, resetInactivityTimer),
+      )
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current)
+        inactivityTimerRef.current = null
+      }
+    }
   }, [user])
 
   const value = useMemo(() => ({ user, login, logout, loading, refreshUser, setUser }), [user, loading])

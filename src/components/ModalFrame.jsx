@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 export default function ModalFrame({
   open,
   title,
@@ -10,6 +12,21 @@ export default function ModalFrame({
   onClose,
   children,
 }) {
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (

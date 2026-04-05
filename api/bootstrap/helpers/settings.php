@@ -20,6 +20,7 @@ function settings_defaults(): array {
         'whatsapp_gateway_url' => '',
         'whatsapp_gateway_token' => '',
         'whatsapp_test_target' => '',
+        'payment_proof_retention_days' => '730',
         'receipt_footer' => '',
     ];
 }
@@ -32,6 +33,11 @@ function sanitize_settings_payload(array $input): array {
         if (!in_array($key, $allowed, true)) continue;
         if (in_array($key, ['payment_gateway_enabled', 'whatsapp_gateway_enabled'], true)) {
             $clean[$key] = in_array($value, [true, 1, '1', 'true', 'on'], true) ? '1' : '0';
+            continue;
+        }
+        if ($key === 'payment_proof_retention_days') {
+            $days = (int) $value;
+            $clean[$key] = (string) $days;
             continue;
         }
         $clean[$key] = trim((string) ($value ?? ''));
@@ -102,6 +108,14 @@ function sanitize_settings_payload(array $input): array {
         if (strlen($testTargetDigits) < 10 || strlen($testTargetDigits) > 16) {
             response(['message' => 'Nomor WhatsApp tujuan tes tidak valid'], 422);
         }
+    }
+
+    if (isset($clean['payment_proof_retention_days'])) {
+        $days = (int) $clean['payment_proof_retention_days'];
+        if ($days < 30 || $days > 3650) {
+            response(['message' => 'Retensi bukti pembayaran harus antara 30 sampai 3650 hari'], 422);
+        }
+        $clean['payment_proof_retention_days'] = (string) $days;
     }
 
     $whatsappEnabled = ($clean['whatsapp_gateway_enabled'] ?? setting_value('whatsapp_gateway_enabled', '0')) === '1';
