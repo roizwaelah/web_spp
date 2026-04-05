@@ -62,7 +62,7 @@ export default function StudentEditPage() {
 
     setForm({
       id: selectedStudent.id,
-      nis: selectedStudent.nis,
+      nis: selectedStudent.nis || "",
       nisn: selectedStudent.nisn || "",
       name: selectedStudent.name,
       class_id: String(selectedStudent.class_id),
@@ -107,8 +107,8 @@ export default function StudentEditPage() {
         <form className="mt-4 space-y-4" onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="label">NIS</label>
-              <input className="input" value={form.nis} onChange={(e) => setForm({ ...form, nis: e.target.value })} />
+              <label className="label">NIM</label>
+              <input className="input" placeholder="Opsional" value={form.nis} onChange={(e) => setForm({ ...form, nis: e.target.value })} />
             </div>
             <div>
               <label className="label">NISN</label>

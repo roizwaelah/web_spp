@@ -146,7 +146,7 @@ export default function BillsEditPage() {
               <div className="relative" ref={studentDropdownRef}>
                 <input
                   className="input"
-                  placeholder="Semua siswa (ketik nama / NIS)"
+                  placeholder="Semua siswa (ketik nama / NIM)"
                   value={studentSearch}
                   onFocus={() => setStudentDropdownOpen(true)}
                   onChange={(e) => {

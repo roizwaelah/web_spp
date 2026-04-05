@@ -82,6 +82,18 @@ $route = ltrim((string) query('route', ''), '/');
 $method = request_method();
 $pdo = db();
 
+$studentsNisNullable = scalar("
+    SELECT IS_NULLABLE
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'students'
+      AND COLUMN_NAME = 'nis'
+    LIMIT 1
+");
+if ($studentsNisNullable === 'NO') {
+    $pdo->exec("ALTER TABLE students MODIFY nis VARCHAR(50) NULL");
+}
+
 if (!is_dir(API_ROOT . '/storage/backups')) @mkdir(API_ROOT . '/storage/backups', 0777, true);
 if (!is_dir(API_ROOT . '/storage/payment-proofs')) @mkdir(API_ROOT . '/storage/payment-proofs', 0777, true);
 if (!is_dir(API_ROOT . '/storage/receipts')) @mkdir(API_ROOT . '/storage/receipts', 0777, true);

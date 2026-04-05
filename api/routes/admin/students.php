@@ -1,6 +1,14 @@
 <?php
 // Route CRUD data siswa dan impor siswa.
 
+if (!function_exists('normalize_student_nis')) {
+    function normalize_student_nis($value): ?string
+    {
+        $nis = trim((string) ($value ?? ''));
+        return $nis === '' ? null : $nis;
+    }
+}
+
 if ($route === 'admin/students' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['students']);
@@ -23,10 +31,11 @@ if ($route === 'admin/students' && $method === 'POST') {
     $user = require_auth();
     validate_menu_access($user, ['students']);
     $input = json_input();
-    ensure_required($input, ['nis', 'nisn', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone']);
+    ensure_required($input, ['nisn', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone']);
 
-    if (scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$input['nis']])) {
-        response(['message' => 'NIS sudah digunakan siswa lain'], 422);
+    $nis = normalize_student_nis($input['nis'] ?? null);
+    if ($nis !== null && scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$nis])) {
+        response(['message' => 'NIM sudah digunakan siswa lain'], 422);
     }
     if (scalar('SELECT id FROM students WHERE nisn = ? LIMIT 1', [$input['nisn']])) {
         response(['message' => 'NISN sudah digunakan siswa lain'], 422);
@@ -48,7 +57,7 @@ if ($route === 'admin/students' && $method === 'POST') {
 
     $stmt = $pdo->prepare("INSERT INTO students (nis, nisn, name, class_id, academic_year_id, parent_name, parent_phone, address, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
-        $input['nis'], $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
+        $nis, $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
         $input['parent_name'], $parentPhone,
         $input['address'] ?? null, $input['status'] ?? 'active'
     ]);
@@ -57,7 +66,7 @@ if ($route === 'admin/students' && $method === 'POST') {
     $userStmt = $pdo->prepare("INSERT INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, 'parent', ?, NOW())");
     $userStmt->execute([
         $input['parent_name'],
-        parent_login_email_for_student(['id' => $studentId, 'nis' => $input['nis'], 'nisn' => $input['nisn']]),
+        parent_login_email_for_student(['id' => $studentId, 'nis' => $nis, 'nisn' => $input['nisn']]),
         password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
         $studentId
     ]);
@@ -70,13 +79,14 @@ if ($route === 'admin/students' && $method === 'PUT') {
     $user = require_auth();
     validate_menu_access($user, ['students']);
     $input = json_input();
-    ensure_required($input, ['id', 'nis', 'nisn', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone']);
+    ensure_required($input, ['id', 'nisn', 'name', 'class_id', 'academic_year_id', 'parent_name', 'parent_phone']);
 
     if (!scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$input['id']])) {
         response(['message' => 'Data siswa tidak ditemukan'], 404);
     }
-    if (scalar('SELECT id FROM students WHERE nis = ? AND id <> ? LIMIT 1', [$input['nis'], $input['id']])) {
-        response(['message' => 'NIS sudah digunakan siswa lain'], 422);
+    $nis = normalize_student_nis($input['nis'] ?? null);
+    if ($nis !== null && scalar('SELECT id FROM students WHERE nis = ? AND id <> ? LIMIT 1', [$nis, $input['id']])) {
+        response(['message' => 'NIM sudah digunakan siswa lain'], 422);
     }
     if (scalar('SELECT id FROM students WHERE nisn = ? AND id <> ? LIMIT 1', [$input['nisn'], $input['id']])) {
         response(['message' => 'NISN sudah digunakan siswa lain'], 422);
@@ -98,7 +108,7 @@ if ($route === 'admin/students' && $method === 'PUT') {
 
     $stmt = $pdo->prepare("UPDATE students SET nis=?, nisn=?, name=?, class_id=?, academic_year_id=?, parent_name=?, parent_phone=?, address=?, status=? WHERE id=?");
     $stmt->execute([
-        $input['nis'], $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
+        $nis, $input['nisn'], $input['name'], $input['class_id'], $input['academic_year_id'],
         $input['parent_name'], $parentPhone,
         $input['address'] ?? null, $input['status'] ?? 'active', $input['id']
     ]);
@@ -107,14 +117,14 @@ if ($route === 'admin/students' && $method === 'PUT') {
         $u = $pdo->prepare("UPDATE users SET name=?, email=? WHERE id=?");
         $u->execute([
             $input['parent_name'],
-            parent_login_email_for_student(['id' => $input['id'], 'nis' => $input['nis'], 'nisn' => $input['nisn']]),
+            parent_login_email_for_student(['id' => $input['id'], 'nis' => $nis, 'nisn' => $input['nisn']]),
             $parentUser['id']
         ]);
     } else {
         $u = $pdo->prepare("INSERT INTO users (name, email, password, role, student_id, created_at) VALUES (?, ?, ?, 'parent', ?, NOW())");
         $u->execute([
             $input['parent_name'],
-            parent_login_email_for_student(['id' => $input['id'], 'nis' => $input['nis'], 'nisn' => $input['nisn']]),
+            parent_login_email_for_student(['id' => $input['id'], 'nis' => $nis, 'nisn' => $input['nisn']]),
             password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
             $input['id']
         ]);
@@ -152,7 +162,7 @@ if ($route === 'admin/students/template' && $method === 'GET') {
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Template Siswa');
 
-    $headers = ['nis', 'nisn', 'nama_siswa', 'kelas', 'tahun_ajaran', 'nama_orang_tua', 'no_hp_orang_tua', 'alamat', 'status'];
+    $headers = ['nim', 'nisn', 'nama_siswa', 'kelas', 'tahun_ajaran', 'nama_orang_tua', 'no_hp_orang_tua', 'alamat', 'status'];
     $sheet->fromArray($headers, null, 'A1');
     $sheet->fromArray(['', '0087654321', 'Ahmad Fauzi', 'Kelas 10 A', '2026/2027', 'Bapak Fauzi', '081234567890', 'Jl. Contoh No. 1', 'active'], null, 'A2');
 
@@ -451,8 +461,7 @@ if ($route === 'admin/students/import' && $method === 'POST') {
             continue;
         }
 
-        $nis = trim((string) ($row['nis'] ?? $row['NIS'] ?? ''));
-        if ($nis === '') $nis = '-';
+        $nis = normalize_student_nis($row['nim'] ?? $row['NIM'] ?? $row['nis'] ?? $row['NIS'] ?? null);
 
         $className = trim((string) ($row['class_name'] ?? $row['kelas'] ?? 'Kelas Baru'));
         if ($className === '') {
@@ -519,14 +528,14 @@ if ($route === 'admin/students/import' && $method === 'POST') {
             $academicYearRows[] = ['id' => $yearId, 'name' => $yearName];
         }
 
-        $exists = scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$nis]);
-        if ($exists && $nis !== '-') {
+        $exists = $nis !== null ? scalar('SELECT id FROM students WHERE nis = ? LIMIT 1', [$nis]) : false;
+        if ($exists) {
             $skippedDuplicateNis++;
             if (count($validationErrors) < 200) {
                 $validationErrors[] = [
                     'row' => $excelRow,
-                    'column' => 'nis',
-                    'message' => 'NIS sudah terdaftar di database.',
+                    'column' => 'nim',
+                    'message' => 'NIM sudah terdaftar di database.',
                     'value' => $nis,
                 ];
             }
@@ -651,7 +660,7 @@ if ($route === 'admin/students/import' && $method === 'POST') {
     $skippedTotal = $totalRows - $imported;
     if ($imported <= 0) {
         response([
-            'message' => "Impor gagal. Tidak ada data yang tersimpan. Total baris: {$totalRows}, dilewati: {$skippedTotal} (nama kosong: {$skippedEmptyName}, NIS duplikat: {$skippedDuplicateNis}).",
+            'message' => "Impor gagal. Tidak ada data yang tersimpan. Total baris: {$totalRows}, dilewati: {$skippedTotal} (nama kosong: {$skippedEmptyName}, NIM duplikat: {$skippedDuplicateNis}).",
             'summary' => [
                 'total' => $totalRows,
                 'imported' => $imported,

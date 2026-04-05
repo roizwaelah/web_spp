@@ -512,7 +512,7 @@ export default function StudentListPage() {
               <label className="label">Pencarian</label>
               <input
                 className="input h-11 w-full"
-                placeholder="Cari nama / NIS / NISN / orang tua / kelas"
+                placeholder="Cari nama / NIM / NISN / orang tua / kelas"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
@@ -539,7 +539,11 @@ export default function StudentListPage() {
 
         <Table
           columns={[
-            { key: "nis", title: "NIS" },
+            {
+              key: "nis",
+              title: "NIM",
+              render: (row) => row.nis || "-",
+            },
             { key: "nisn", title: "NISN" },
             { key: "name", title: "Nama" },
             { key: "class_name", title: "Kelas" },

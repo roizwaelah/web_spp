@@ -354,7 +354,7 @@ export default function PaymentEditPage() {
                 placeholder={
                   studentOptions.length === 0
                     ? "Tidak ada siswa"
-                    : "Cari nama/NIS siswa..."
+                    : "Cari nama/NIM siswa..."
                 }
                 value={studentSearch}
                 disabled={studentOptions.length === 0}
