@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Eye, Plus, Printer, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute, openRouteFile } from "../api";
-import { formatCurrency, formatDate } from "../utils";
+import { formatCurrency, formatDate, formatPeriod } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { useUI } from "../context/UIContext";
 import ModalFrame from "../components/ModalFrame";
@@ -159,7 +159,9 @@ export default function PaymentListPage() {
       if (row.payment_channel) entry.channels.add(String(row.payment_channel));
       if (
         row.payment_date &&
-        String(row.payment_date).localeCompare(String(entry.latest_payment_date)) > 0
+        String(row.payment_date).localeCompare(
+          String(entry.latest_payment_date),
+        ) > 0
       ) {
         entry.latest_payment_date = row.payment_date;
       }
@@ -173,8 +175,8 @@ export default function PaymentListPage() {
         );
         const periodLabel =
           periodList.length <= 1
-            ? periodList[0] || "-"
-            : `${periodList[0]} s/d ${periodList[periodList.length - 1]}`;
+            ? formatPeriod(periodList[0] || "-")
+            : `${formatPeriod(periodList[0])} s/d ${formatPeriod(periodList[periodList.length - 1])}`;
         const channelList = Array.from(entry.channels).sort((a, b) =>
           a.localeCompare(b, "id"),
         );
@@ -207,7 +209,9 @@ export default function PaymentListPage() {
           const group = receiptMap.get(groupKey);
           if (
             tx.payment_date &&
-            String(tx.payment_date).localeCompare(String(group.payment_date || "")) > 0
+            String(tx.payment_date).localeCompare(
+              String(group.payment_date || ""),
+            ) > 0
           ) {
             group.payment_date = tx.payment_date;
           }
@@ -226,7 +230,9 @@ export default function PaymentListPage() {
             pos_count: group.items.length,
           }))
           .sort((a, b) =>
-            String(b.payment_date || "").localeCompare(String(a.payment_date || "")),
+            String(b.payment_date || "").localeCompare(
+              String(a.payment_date || ""),
+            ),
           );
 
         return {
@@ -236,7 +242,9 @@ export default function PaymentListPage() {
           transaction_count: entry.transactions.length,
           receipt_groups: receiptGroups,
           transactions: [...entry.transactions].sort((a, b) =>
-            String(b.payment_date || "").localeCompare(String(a.payment_date || "")),
+            String(b.payment_date || "").localeCompare(
+              String(a.payment_date || ""),
+            ),
           ),
         };
       })
@@ -245,7 +253,8 @@ export default function PaymentListPage() {
 
   const detailStudentRow = useMemo(
     () =>
-      groupedRows.find((row) => String(row.id) === String(detailStudentId)) || null,
+      groupedRows.find((row) => String(row.id) === String(detailStudentId)) ||
+      null,
     [groupedRows, detailStudentId],
   );
 
@@ -254,7 +263,11 @@ export default function PaymentListPage() {
     if (!detailStudentRow) setDetailStudentId("");
   }, [detailStudentId, detailStudentRow]);
 
-  const printTransaction = async ({ transactionId, referenceNo, studentId }) => {
+  const printTransaction = async ({
+    transactionId,
+    referenceNo,
+    studentId,
+  }) => {
     try {
       setPrinting(true);
       if (referenceNo && studentId) {
@@ -452,7 +465,9 @@ export default function PaymentListPage() {
               key: "latest_payment_date",
               title: "Tgl Bayar Terakhir",
               render: (row) =>
-                row.latest_payment_date ? formatDate(row.latest_payment_date) : "-",
+                row.latest_payment_date
+                  ? formatDate(row.latest_payment_date)
+                  : "-",
             },
             {
               key: "transaction_count",
@@ -704,24 +719,24 @@ export default function PaymentListPage() {
                     Dengan rincian pembayaran sebagai berikut:
                   </p>
                   <div className="border-y border-slate-300 py-1.5">
-                    {(
-                      Array.isArray(detailTransaction.items) &&
-                      detailTransaction.items.length > 0
-                        ? detailTransaction.items
-                        : [
-                            {
-                              bill_name: detailTransaction.bill_name || "-",
-                              period: detailTransaction.period || "-",
-                              amount: Number(detailTransaction.amount_paid || 0),
-                            },
-                          ]
+                    {(Array.isArray(detailTransaction.items) &&
+                    detailTransaction.items.length > 0
+                      ? detailTransaction.items
+                      : [
+                          {
+                            bill_name: detailTransaction.bill_name || "-",
+                            period: detailTransaction.period || "-",
+                            amount: Number(detailTransaction.amount_paid || 0),
+                          },
+                        ]
                     ).map((item, index) => (
                       <div
                         key={`${item.bill_name}-${item.period}-${index}`}
                         className="grid grid-cols-[1fr_auto] gap-2"
                       >
                         <p>
-                          {index + 1}. {item.bill_name} ({item.period || "-"})
+                          {index + 1}. {item.bill_name} (
+                          {formatPeriod(item.period)})
                         </p>
                         <p className="font-semibold">
                           {formatCurrency(Number(item.amount || 0))}
@@ -779,7 +794,9 @@ export default function PaymentListPage() {
                   printTransaction({
                     referenceNo: detailTransaction.reference_no,
                     studentId: detailTransaction.student_id,
-                    transactionId: detailTransaction.transaction_ids?.[0] || detailTransaction.id,
+                    transactionId:
+                      detailTransaction.transaction_ids?.[0] ||
+                      detailTransaction.id,
                   })
                 }
               >

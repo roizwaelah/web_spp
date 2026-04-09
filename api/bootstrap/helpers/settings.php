@@ -54,11 +54,11 @@ function sanitize_settings_payload(array $input): array {
     }
 
     if (isset($clean['school_address']) && mb_strlen($clean['school_address']) > 500) {
-        response(['message' => 'Alamat madrasah maksimal 500 karakter'], 422);
+        response(['message' => 'Alamat lembaga maksimal 500 karakter'], 422);
     }
 
     if (isset($clean['principal_name']) && mb_strlen($clean['principal_name']) > 120) {
-        response(['message' => 'Nama Kepala Madrasah maksimal 120 karakter'], 422);
+        response(['message' => 'Nama Kepala lembaga maksimal 120 karakter'], 422);
     }
 
     if (isset($clean['treasurer_name']) && mb_strlen($clean['treasurer_name']) > 120) {

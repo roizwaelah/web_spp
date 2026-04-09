@@ -50,7 +50,7 @@ if ($route === 'admin/transactions/receipt' && $method === 'GET') {
             JOIN bills b ON b.id=t.bill_id
             JOIN students s ON s.id=t.student_id
             LEFT JOIN classes c ON c.id=s.class_id
-            LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+            LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
             WHERE t.reference_no = ? AND t.student_id = ?
             ORDER BY t.id ASC");
         $stmtRows->execute([$refNo, $sid]);
@@ -81,7 +81,7 @@ if ($route === 'admin/transactions/receipt' && $method === 'GET') {
             JOIN bills b ON b.id=t.bill_id
             JOIN students s ON s.id=t.student_id
             LEFT JOIN classes c ON c.id=s.class_id
-            LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+            LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
             WHERE t.id=? LIMIT 1");
         $stmt->execute([$transactionId]);
         $baseRow = $stmt->fetch();

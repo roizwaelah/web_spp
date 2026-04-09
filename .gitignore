@@ -48,3 +48,4 @@ temp/
 Thumbs.db
 .htaccess
 spp.sql
+package-lock.json

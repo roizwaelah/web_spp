@@ -3,7 +3,7 @@
 
 function render_payment_receipt_html(array $row, array $settings, string $officerName = 'ADMIN'): string
 {
-    $schoolName = trim((string) ($settings['school_name'] ?? 'PP. DARUSSALAM'));
+    $schoolName = trim((string) ($settings['school_name'] ?? 'DARUSSALAM'));
     $schoolAddress = trim((string) ($settings['school_address'] ?? ''));
     $receiptFooter = trim((string) ($settings['receipt_footer'] ?? ''));
     $receiptFooter = trim((string) preg_replace('/Terima kasih telah melakukan pembayaran tepat waktu\.?/i', '', $receiptFooter));

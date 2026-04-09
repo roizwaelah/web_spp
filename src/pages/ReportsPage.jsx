@@ -36,12 +36,15 @@ export default function ReportsPage() {
       .slice(0, 10),
     end_date: new Date().toISOString().slice(0, 10),
     type: "",
+    academic_year_id: "",
+    finance_post_id: "",
     status: "",
     class_id: "",
     student_id: "",
   });
   const [rows, setRows] = useState([]);
-  const [meta, setMeta] = useState({ classes: [], students: [] });
+  const [loadedRows, setLoadedRows] = useState([]);
+  const [meta, setMeta] = useState({ classes: [], students: [], years: [], financePosts: [] });
   const [summary, setSummary] = useState({
     count: 0,
     totalIncome: 0,
@@ -51,9 +54,11 @@ export default function ReportsPage() {
     pending: 0,
   });
   const [monthFilter, setMonthFilter] = useState(defaultMonth);
+  const [allPeriodMode, setAllPeriodMode] = useState("month");
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [loadedParamsKey, setLoadedParamsKey] = useState("");
+  const [appliedType, setAppliedType] = useState("");
   const [reportHeader, setReportHeader] = useState({
     title: "LAPORAN KAS MADRASAH",
     periodLabel: "-",
@@ -74,15 +79,25 @@ export default function ReportsPage() {
         students: Array.isArray(metaRes.data?.students)
           ? metaRes.data.students
           : [],
+        years: Array.isArray(metaRes.data?.years)
+          ? metaRes.data.years
+          : [],
+        financePosts: Array.isArray(metaRes.data?.finance_posts)
+          ? metaRes.data.finance_posts
+          : Array.isArray(metaRes.data?.financePosts)
+            ? metaRes.data.financePosts
+            : [],
       });
     } catch {
-      setMeta({ classes: [], students: [] });
+      setMeta({ classes: [], students: [], years: [], financePosts: [] });
     }
   }, []);
 
   const load = async () => {
     if (!filter.type) {
       setRows([]);
+      setLoadedRows([]);
+      setAppliedType("");
       setSummary({
         count: 0,
         totalIncome: 0,
@@ -101,14 +116,89 @@ export default function ReportsPage() {
           start_date: filter.start_date,
           end_date: filter.end_date,
           ...(filter.type ? { type: filter.type } : {}),
+          ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
           ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.type === "income" && filter.finance_post_id
+            ? { finance_post_id: filter.finance_post_id }
+            : {}),
           ...(filter.class_id ? { class_id: filter.class_id } : {}),
           ...(filter.student_id ? { student_id: filter.student_id } : {}),
         },
       });
-      setRows(Array.isArray(reportsRes.data?.rows) ? reportsRes.data.rows : []);
+      const rawData = reportsRes?.data;
+      const parseLooseJson = (text) => {
+        if (typeof text !== "string") return {};
+        const raw = text.trim();
+        if (!raw) return {};
+        try { return JSON.parse(raw); } catch {}
+        const firstBrace = raw.indexOf("{");
+        const lastBrace = raw.lastIndexOf("}");
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          const sliced = raw.slice(firstBrace, lastBrace + 1);
+          try { return JSON.parse(sliced); } catch {}
+        }
+        return {};
+      };
+
+      const parsedRawData = (() => {
+        if (typeof rawData === "string") return parseLooseJson(rawData);
+        return rawData ?? {};
+      })();
+
+      const unwrap = (value) => {
+        if (value == null) return {};
+        if (typeof value === "string") return parseLooseJson(value);
+        return value;
+      };
+
+      const payload = unwrap(parsedRawData?.data ?? parsedRawData);
+      const findFirstRowArray = (node, depth = 0) => {
+        if (depth > 6 || node == null) return [];
+        if (Array.isArray(node)) {
+          if (node.length === 0) return [];
+          if (typeof node[0] === "object") return node;
+          return [];
+        }
+        if (typeof node !== "object") return [];
+
+        const preferredKeys = ["rows", "data", "result", "items", "list"];
+        for (const key of preferredKeys) {
+          if (Object.prototype.hasOwnProperty.call(node, key)) {
+            const found = findFirstRowArray(node[key], depth + 1);
+            if (found.length > 0) return found;
+          }
+        }
+
+        for (const value of Object.values(node)) {
+          const found = findFirstRowArray(value, depth + 1);
+          if (found.length > 0) return found;
+        }
+        return [];
+      };
+
+      const incomingRows = findFirstRowArray(parsedRawData);
+      const normalizedRows = (Array.isArray(incomingRows) ? incomingRows : []).map((row, idx) => {
+        const reportType =
+          row?.report_type ??
+          (String(row?.tipe || "").toLowerCase().includes("pengeluaran")
+            ? "expense"
+            : "income");
+        const reportDate = row?.report_date ?? row?.tanggal ?? "";
+        const amountNumber = Number(row?.amount ?? row?.nominal ?? 0) || 0;
+        const statusValue = row?.status ?? (reportType === "expense" ? "recorded" : "paid");
+        return {
+          ...row,
+          report_type: reportType,
+          report_date: reportDate,
+          amount: amountNumber,
+          status: statusValue,
+          _key: row?._key ?? row?.id ?? `${reportType}-${reportDate}-${idx}`,
+        };
+      });
+      setRows(normalizedRows);
+      setLoadedRows(normalizedRows);
       setSummary(
-        reportsRes.data?.summary || {
+        payload?.summary || {
           count: 0,
           totalIncome: 0,
           totalExpense: 0,
@@ -118,7 +208,7 @@ export default function ReportsPage() {
         },
       );
       setReportHeader(
-        reportsRes.data?.header || {
+        payload?.header || {
           title: "LAPORAN KAS MADRASAH",
           periodLabel: "-",
           academicYear: "-",
@@ -127,6 +217,7 @@ export default function ReportsPage() {
         },
       );
       setLoadedParamsKey(currentParamsKey);
+      setAppliedType(filter.type);
       setMessage("");
     } catch (error) {
       setMessage(error?.response?.data?.message || "Gagal memuat laporan");
@@ -167,7 +258,9 @@ export default function ReportsPage() {
     });
 
     const openingBalance =
-      filter.type === "all" ? Number(summary?.openingBalance || 0) : 0;
+      (appliedType || filter.type) === "all"
+        ? Number(summary?.openingBalance || 0)
+        : 0;
     let runningBalance = openingBalance;
     const withBalance = ascending.map((row, idx) => {
       const income = row.report_type === "income" ? Number(row.amount || 0) : 0;
@@ -184,19 +277,27 @@ export default function ReportsPage() {
     });
 
     return withBalance;
-  }, [filteredRows, filter.type, summary?.openingBalance]);
+  }, [appliedType, filter.type, filteredRows, summary?.openingBalance]);
 
-  const isIncomeDetailView = filter.type === "income";
-  const isMonthlyView = filter.type === "all";
-  const currentRows = filter.type
+  const effectiveType = appliedType || filter.type;
+  const isIncomeDetailView = effectiveType === "income";
+  const isMonthlyView = effectiveType === "all";
+  const isExpenseView = effectiveType === "expense";
+  const currentRows = effectiveType
     ? isIncomeDetailView
       ? filteredRows
-      : mutationRows
+      : mutationRows.length > 0
+        ? mutationRows
+        : filteredRows
     : [];
+  const fallbackRows = loadedRows.length > 0 ? loadedRows : rows;
+  const displayRows = currentRows.length > 0 ? currentRows : fallbackRows;
   const currentParamsKey = JSON.stringify({
     start_date: filter.start_date,
     end_date: filter.end_date,
     type: filter.type,
+    academic_year_id: filter.academic_year_id,
+    finance_post_id: filter.finance_post_id,
     status: filter.status,
     class_id: filter.class_id,
     student_id: filter.student_id,
@@ -209,6 +310,38 @@ export default function ReportsPage() {
     return "Gagal";
   };
 
+  const formatDateOnly = (value) => {
+    if (!value) return "-";
+    const dateText = String(value).trim();
+    if (dateText.length >= 10) return dateText.slice(0, 10);
+    return dateText;
+  };
+
+  const getReportTypeLabel = (type) => {
+    if (type === "all") return "Bulanan";
+    if (type === "income") return "Pemasukan";
+    if (type === "expense") return "Pengeluaran";
+    return "Keuangan";
+  };
+
+  const formatDateLabel = (dateValue) => {
+    const dateText = formatDateOnly(dateValue);
+    const parsed = new Date(`${dateText}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return dateText;
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(parsed);
+  };
+
+  const activeReportType = effectiveType;
+  const reportPeriodLabel =
+    activeReportType === "all" && allPeriodMode === "month" && reportHeader?.periodLabel && reportHeader.periodLabel !== "-"
+      ? reportHeader.periodLabel
+      : `${formatDateLabel(filter.start_date)} s.d. ${formatDateLabel(filter.end_date)}`;
+  const reportTitle = `Laporan ${getReportTypeLabel(activeReportType)} ${reportPeriodLabel}`;
+  const reportFileNameBase = reportTitle.replace(/[\\/:*?"<>|]/g, "-");
   const escapeHtml = (value) =>
     String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -233,11 +366,15 @@ export default function ReportsPage() {
       const response = await fetchRoute("admin/reports/export", {
         method: "GET",
         params: {
-          format: "xls",
+          format: "xlsx",
           start_date: filter.start_date,
           end_date: filter.end_date,
           ...(filter.type ? { type: filter.type } : {}),
+          ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
           ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.type === "income" && filter.finance_post_id
+            ? { finance_post_id: filter.finance_post_id }
+            : {}),
           ...(filter.class_id ? { class_id: filter.class_id } : {}),
           ...(filter.student_id ? { student_id: filter.student_id } : {}),
         },
@@ -245,12 +382,12 @@ export default function ReportsPage() {
       });
 
       const blob = new Blob([response.data], {
-        type: "application/vnd.ms-excel;charset=utf-8",
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "laporan-keuangan.xls";
+      link.download = `${reportFileNameBase}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -276,21 +413,21 @@ export default function ReportsPage() {
       );
       return;
     }
-    if (currentRows.length === 0) {
+    if (displayRows.length === 0) {
       setMessage("Tidak ada data untuk dicetak.");
       return;
     }
 
     const columns = isIncomeDetailView
       ? [
+          { key: "no", label: "No.", align: "center" },
           { key: "tanggal", label: "Tanggal", align: "center" },
-          { key: "siswa", label: "Siswa", align: "left" },
+          { key: "referensi", label: "Referensi", align: "center" },
+          { key: "nama_siswa", label: "Nama Siswa", align: "left" },
           { key: "kelas", label: "Kelas", align: "left" },
           { key: "pos", label: "Pos", align: "left" },
           { key: "kanal", label: "Kanal", align: "left" },
           { key: "nominal", label: "Nominal", align: "right" },
-          { key: "referensi", label: "Referensi", align: "center" },
-          { key: "status", label: "Status", align: "left" },
         ]
       : isMonthlyView
         ? [
@@ -303,36 +440,42 @@ export default function ReportsPage() {
             { key: "pengeluaran", label: "Pengeluaran", align: "right" },
             { key: "saldo", label: "Saldo", align: "right" },
           ]
-        : [
-            { key: "jenis", label: "Jenis", align: "left" },
-            { key: "tanggal", label: "Tanggal", align: "center" },
-            { key: "uraian", label: "Uraian", align: "left" },
-            { key: "kategori", label: "Kategori", align: "left" },
-            { key: "kanal", label: "Kanal", align: "left" },
-            { key: "pemasukan", label: "Pemasukan", align: "right" },
-            { key: "pengeluaran", label: "Pengeluaran", align: "right" },
-            { key: "saldo", label: "Saldo", align: "right" },
-            { key: "referensi", label: "Referensi", align: "center" },
-            { key: "status", label: "Status", align: "left" },
-          ];
+        : isExpenseView
+          ? [
+              { key: "no", label: "No.", align: "center" },
+              { key: "tanggal", label: "Tanggal", align: "center" },
+              { key: "referensi", label: "Referensi", align: "center" },
+              { key: "uraian", label: "Uraian", align: "left" },
+              { key: "kategori", label: "Kategori", align: "left" },
+              { key: "kanal", label: "Kanal", align: "left" },
+              { key: "nominal", label: "Nominal", align: "right" },
+            ]
+          : [
+              { key: "tanggal", label: "Tanggal", align: "center" },
+              { key: "referensi", label: "Referensi", align: "center" },
+              { key: "uraian", label: "Uraian", align: "left" },
+              { key: "kategori", label: "Kategori", align: "left" },
+              { key: "kanal", label: "Kanal", align: "left" },
+              { key: "nominal", label: "Nominal", align: "right" },
+            ];
 
-    const bodyRows = currentRows
+    const bodyRows = displayRows
       .map((row, idx) => {
         const cells = isIncomeDetailView
           ? [
-              { value: row.report_date, align: "center" },
+              { value: String(idx + 1), align: "center" },
+              { value: formatDateOnly(row.report_date), align: "center" },
+              { value: row.reference_no || "-", align: "center" },
               { value: row.student_name, align: "left" },
               { value: row.class_name, align: "left" },
               { value: row.item_name, align: "left" },
               { value: row.payment_channel, align: "left" },
               { value: formatCurrency(row.amount), align: "right" },
-              { value: row.reference_no || "-", align: "center" },
-              { value: toLabelStatus(row.status), align: "left" },
             ]
           : isMonthlyView
             ? [
                 { value: String(idx + 1), align: "center" },
-                { value: row.report_date, align: "center" },
+                { value: formatDateOnly(row.report_date), align: "center" },
                 { value: row.item_name, align: "left" },
                 { value: row.category || "-", align: "left" },
                 { value: row.payment_channel || "-", align: "left" },
@@ -352,34 +495,24 @@ export default function ReportsPage() {
                 },
                 { value: formatCurrency(row.mutation_balance), align: "right" },
               ]
-            : [
-                {
-                  value:
-                    row.report_type === "income" ? "Pemasukan" : "Pengeluaran",
-                  align: "left",
-                },
-                { value: row.report_date, align: "center" },
-                { value: row.item_name, align: "left" },
-                { value: row.category || "-", align: "left" },
-                { value: row.payment_channel || "-", align: "left" },
-                {
-                  value:
-                    row.mutation_income > 0
-                      ? formatCurrency(row.mutation_income)
-                      : "-",
-                  align: "right",
-                },
-                {
-                  value:
-                    row.mutation_expense > 0
-                      ? formatCurrency(row.mutation_expense)
-                      : "-",
-                  align: "right",
-                },
-                { value: formatCurrency(row.mutation_balance), align: "right" },
-                { value: row.reference_no || "-", align: "center" },
-                { value: toLabelStatus(row.status), align: "left" },
-              ];
+            : isExpenseView
+              ? [
+                  { value: String(idx + 1), align: "center" },
+                  { value: formatDateOnly(row.report_date), align: "center" },
+                  { value: row.reference_no || "-", align: "center" },
+                  { value: row.item_name, align: "left" },
+                  { value: row.category || "-", align: "left" },
+                  { value: row.payment_channel || "-", align: "left" },
+                  { value: formatCurrency(row.amount), align: "right" },
+                ]
+              : [
+                  { value: formatDateOnly(row.report_date), align: "center" },
+                  { value: row.reference_no || "-", align: "center" },
+                  { value: row.item_name, align: "left" },
+                  { value: row.category || "-", align: "left" },
+                  { value: row.payment_channel || "-", align: "left" },
+                  { value: formatCurrency(row.amount), align: "right" },
+                ];
 
         return `<tr>${cells.map((cell) => `<td style="text-align:${cell.align};">${escapeHtml(cell.value)}</td>`).join("")}</tr>`;
       })
@@ -388,7 +521,7 @@ export default function ReportsPage() {
     const openingBalance = Number(summary?.openingBalance || 0);
     const closingBalance = isMonthlyView
       ? Number(
-          currentRows[currentRows.length - 1]?.mutation_balance ??
+          displayRows[displayRows.length - 1]?.mutation_balance ??
             summary?.closingBalance ??
             openingBalance,
         )
@@ -404,6 +537,32 @@ export default function ReportsPage() {
           <td style="text-align:right;font-weight:700;"></td>
           <td style="text-align:right;font-weight:700;">${escapeHtml(formatCurrency(openingBalance))}</td>
         </tr>`
+      : "";
+    const incomeTotalRow = isIncomeDetailView
+      ? (() => {
+          const total = displayRows.reduce(
+            (acc, row) => acc + Number(row.amount || 0),
+            0,
+          );
+          return `<tr><td colspan="8" style="border:none;height:12px;"></td></tr>
+                  <tr>
+                    <td colspan="7" style="text-align:right;font-weight:700;">TOTAL</td>
+                    <td style="text-align:right;font-weight:700;">${escapeHtml(formatCurrency(total))}</td>
+                  </tr>`;
+        })()
+      : "";
+    const expenseTotalRow = isExpenseView
+      ? (() => {
+          const total = displayRows.reduce(
+            (acc, row) => acc + Number(row.amount || 0),
+            0,
+          );
+          return `<tr><td colspan="7" style="border:none;height:12px;"></td></tr>
+                  <tr>
+                    <td colspan="6" style="text-align:right;font-weight:700;">TOTAL</td>
+                    <td style="text-align:right;font-weight:700;">${escapeHtml(formatCurrency(total))}</td>
+                  </tr>`;
+        })()
       : "";
     const monthlySuffixRow = isMonthlyView
       ? `<tr>
@@ -427,7 +586,7 @@ export default function ReportsPage() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Cetak Laporan Keuangan</title>
+          <title>${escapeHtml(reportTitle)}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
             h1 { margin: 0 0 4px; font-size: 18px; text-align: center; }
@@ -444,7 +603,7 @@ export default function ReportsPage() {
           </style>
         </head>
         <body>
-          <h1>${escapeHtml(reportHeader.title || "LAPORAN KAS MADRASAH")}</h1>
+          <h1>${escapeHtml(reportTitle)}</h1>
           <p class="meta">
             Periode ${escapeHtml(reportHeader.periodLabel || "-")} T.A ${escapeHtml(reportHeader.academicYear || "-")}
           </p>
@@ -452,18 +611,18 @@ export default function ReportsPage() {
             <thead>
               <tr>${columns.map((column) => `<th style="text-align:center;">${escapeHtml(column.label)}</th>`).join("")}</tr>
             </thead>
-            <tbody>${monthlyPrefixRow}${bodyRows}${monthlySuffixRow}</tbody>
+            <tbody>${monthlyPrefixRow}${bodyRows}${monthlySuffixRow}${incomeTotalRow}${expenseTotalRow}</tbody>
           </table>
           <div class="signature-wrap">
             <div class="signature-col">
               Mengetahui,<br/>Kepala Madrasah
               <div class="signature-line">(${escapeHtml(reportHeader.principalName || ".................................")})</div>
             </div>
-            <div class="signature-col">
+<div class="signature-col">
               &nbsp;<br/>Bendahara
               <div class="signature-line">(${escapeHtml(reportHeader.treasurerName || ".................................")})</div>
             </div>
-          </div>
+</div>
         </body>
       </html>
     `);
@@ -482,156 +641,261 @@ export default function ReportsPage() {
     >
       <div className="space-y-4">
         <div className="card p-4">
-          <div className="grid gap-4 xl:grid-cols-1">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <div>
-                <label className="label">Jenis</label>
-                <select
-                  className="input"
-                  value={filter.type}
-                  onChange={(e) => {
-                    const nextType = e.target.value;
-                    if (nextType === "all") {
-                      const range = getMonthRange(monthFilter);
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="grid min-w-[280px] flex-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label className="label">Jenis</label>
+                  <select
+                    className="input"
+                    value={filter.type}
+                    onChange={(e) => {
+                      const nextType = e.target.value;
+                      if (nextType === "all") {
+                        const range =
+                          allPeriodMode === "month"
+                            ? getMonthRange(monthFilter)
+                            : { start: filter.start_date, end: filter.end_date };
+                        setFilter({
+                          ...filter,
+                          type: nextType,
+                          start_date: range.start,
+                          end_date: range.end,
+                          academic_year_id: "",
+    finance_post_id: "",
+    status: "",
+                          class_id: "",
+                          student_id: "",
+                        });
+                        return;
+                      }
                       setFilter({
                         ...filter,
                         type: nextType,
-                        start_date: range.start,
-                        end_date: range.end,
-                        status: "",
+                        academic_year_id: "",
+    finance_post_id: "",
+    status: "",
                         class_id: "",
                         student_id: "",
                       });
-                      return;
-                    }
-                    setFilter({
-                      ...filter,
-                      type: nextType,
-                      status: "",
-                      class_id: "",
-                      student_id: "",
-                    });
-                  }}
-                >
-                  <option value="">Pilih jenis laporan</option>
-                  <option value="all">Bulanan</option>
-                  <option value="income">Pemasukan</option>
-                  <option value="expense">Pengeluaran</option>
-                </select>
-              </div>
-              {filter.type === "all" ? (
-                <div>
-                  <label className="label">Periode</label>
-                  <input
-                    type="month"
-                    className="input"
-                    value={monthFilter}
-                    onChange={(e) => {
-                      const nextMonth = e.target.value;
-                      setMonthFilter(nextMonth);
-                      const range = getMonthRange(nextMonth);
-                      setFilter((prev) => ({
-                        ...prev,
-                        start_date: range.start,
-                        end_date: range.end,
-                      }));
                     }}
-                  />
+                  >
+                    <option value="">Pilih jenis laporan</option>
+                    <option value="all">Bulanan</option>
+                    <option value="income">Pemasukan</option>
+                    <option value="expense">Pengeluaran</option>
+                  </select>
                 </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="label">Tanggal mulai</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={filter.start_date}
-                      onChange={(e) =>
-                        setFilter({ ...filter, start_date: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Tanggal akhir</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={filter.end_date}
-                      onChange={(e) =>
-                        setFilter({ ...filter, end_date: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Status</label>
-                    <select
-                      className="input"
-                      value={filter.status}
-                      disabled={filter.type === "expense"}
-                      onChange={(e) =>
-                        setFilter({
-                          ...filter,
-                          status: e.target.value,
-                          student_id: "",
-                        })
-                      }
-                    >
-                      <option value="">Semua status</option>
-                      <option value="paid">Lunas</option>
-                      <option value="pending">Menunggu</option>
-                      <option value="failed">Gagal</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Kelas</label>
-                    <select
-                      className="input"
-                      value={filter.class_id}
-                      disabled={filter.type === "expense"}
-                      onChange={(e) =>
-                        setFilter({
-                          ...filter,
-                          class_id: e.target.value,
-                          student_id: "",
-                        })
-                      }
-                    >
-                      <option value="">Semua kelas</option>
-                      {meta.classes.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
+{filter.type === "all" ? (
+                  <>
+                    {allPeriodMode === "month" ? (
+                      <div>
+                        <label className="label">Periode Bulan</label>
+                        <input
+                          type="month"
+                          className="input"
+                          value={monthFilter}
+                          onChange={(e) => {
+                            const nextMonth = e.target.value;
+                            setMonthFilter(nextMonth);
+                            const range = getMonthRange(nextMonth);
+                            setFilter((prev) => ({
+                              ...prev,
+                              start_date: range.start,
+                              end_date: range.end,
+                            }));
+                          }}
+                        />
+                      </div>
+) : (
+                      <>
+                        <div>
+                          <label className="label">Tanggal mulai</label>
+                          <input
+                            type="date"
+                            className="input"
+                            value={filter.start_date}
+                            onChange={(e) =>
+                              setFilter({ ...filter, start_date: e.target.value })
+                            }
+                          />
+                        </div>
+<div>
+                          <label className="label">Tanggal akhir</label>
+                          <input
+                            type="date"
+                            className="input"
+                            value={filter.end_date}
+                            onChange={(e) =>
+                              setFilter({ ...filter, end_date: e.target.value })
+                            }
+                          />
+                        </div>
+</>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="label">Tanggal mulai</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={filter.start_date}
+                        onChange={(e) =>
+                          setFilter({ ...filter, start_date: e.target.value })
+                        }
+                      />
+                    </div>
+<div>
+                      <label className="label">Tanggal akhir</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={filter.end_date}
+                        onChange={(e) =>
+                          setFilter({ ...filter, end_date: e.target.value })
+                        }
+                      />
+                    </div>
+<div>
+                      <label className="label">Tahun Ajaran</label>
+                      <select
+                        className="input"
+                        value={filter.academic_year_id}
+                        disabled={false}
+                        onChange={(e) =>
+                          setFilter({
+                            ...filter,
+                            academic_year_id: e.target.value,
+                            student_id: "",
+                          })
+                        }
+                      >
+                        <option value="">Semua tahun ajaran</option>
+                        {meta.years.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+{filter.type === "income" ? (
+                      <div>
+                        <label className="label">Pos</label>
+                        <select
+                          className="input"
+                          value={filter.finance_post_id}
+                          onChange={(e) =>
+                            setFilter({ ...filter, finance_post_id: e.target.value })
+                          }
+                        >
+                          <option value="">Semua pos</option>
+                          {meta.financePosts.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                    <div>
+                      <label className="label">Status</label>
+                      <select
+                        className="input"
+                        value={filter.status}
+                        disabled={filter.type === "expense"}
+                        onChange={(e) =>
+                          setFilter({ ...filter, status: e.target.value })
+                        }
+                      >
+                        <option value="">Semua status</option>
+                        <option value="paid">Lunas</option>
+                        <option value="pending">Menunggu</option>
+                        <option value="recorded">Tercatat</option>
+                        <option value="failed">Gagal</option>
+                      </select>
+                    </div>
+<div>
+                      <label className="label">Kelas</label>
+                      <select
+                        className="input"
+                        value={filter.class_id}
+                        disabled={filter.type === "expense"}
+                        onChange={(e) =>
+                          setFilter({
+                            ...filter,
+                            class_id: e.target.value,
+                            student_id: "",
+                          })
+                        }
+                      >
+                        <option value="">Semua kelas</option>
+                        {meta.classes.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+<div>
+                      <label className="label">Siswa</label>
+                      <select
+                        className="input"
+                        value={filter.student_id}
+                        disabled={
+                          filter.type === "expense" || studentOptions.length === 0
+                        }
+                        onChange={(e) =>
+                          setFilter({ ...filter, student_id: e.target.value })
+                        }
+                      >
+                        <option value="">
+                          {studentOptions.length === 0
+                            ? "Tidak ada siswa"
+                            : "Semua siswa"}
                         </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Siswa</label>
-                    <select
-                      className="input"
-                      value={filter.student_id}
-                      disabled={
-                        filter.type === "expense" || studentOptions.length === 0
-                      }
-                      onChange={(e) =>
-                        setFilter({ ...filter, student_id: e.target.value })
-                      }
+                        {studentOptions.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+</>
+                )}
+              </div>
+{filter.type === "all" ? (
+                <div className="flex w-full flex-col items-start justify-center self-stretch md:w-auto md:items-end">
+                  <span className="mb-1 text-xs font-medium text-slate-600">Mode</span>
+                  <div className="inline-flex overflow-hidden rounded-md border border-slate-300">
+                    <button
+                      type="button"
+                      className={`px-2 py-1 text-xs ${allPeriodMode === "month" ? "bg-sky-600 text-white" : "bg-white text-slate-700"}`}
+                      onClick={() => {
+                        setAllPeriodMode("month");
+                        const range = getMonthRange(monthFilter);
+                        setFilter((prev) => ({
+                          ...prev,
+                          start_date: range.start,
+                          end_date: range.end,
+                        }));
+                      }}
                     >
-                      <option value="">
-                        {studentOptions.length === 0
-                          ? "Tidak ada siswa"
-                          : "Semua siswa"}
-                      </option>
-                      {studentOptions.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
+                      Bln
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-2 py-1 text-xs ${allPeriodMode === "date" ? "bg-sky-600 text-white" : "bg-white text-slate-700"}`}
+                      onClick={() => setAllPeriodMode("date")}
+                    >
+                      Tgl
+                    </button>
                   </div>
-                </>
-              )}
+</div>
+) : null}
             </div>
-            <div className="flex flex-wrap justify-center gap-3">
+<div className="flex flex-wrap justify-center gap-3">
               <button
                 className="btn-primary"
                 onClick={load}
@@ -654,7 +918,7 @@ export default function ReportsPage() {
                 <Printer size={18} /> Cetak
               </button>
             </div>
-          </div>
+</div>
         </div>
         <Table
           columns={
@@ -772,10 +1036,10 @@ export default function ReportsPage() {
                   },
                 ]
           }
-          rows={currentRows}
+          rows={displayRows}
           emptyText={
-            !filter.type
-              ? "Jenis laporan belum dipilih, Data tidak ditampilkan."
+            !effectiveType
+              ? "Jenis laporan belum ditampilkan, klik Tampilkan terlebih dahulu."
               : "Belum ada data"
           }
         />
@@ -783,3 +1047,37 @@ export default function ReportsPage() {
     </Layout>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

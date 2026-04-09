@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
@@ -47,13 +47,56 @@ export default function ClassesListPage() {
     }
   };
 
+  const romanToNumber = (rawValue) => {
+    const value = String(rawValue || "").toUpperCase();
+    if (!value || !/^[IVXLCDM]+$/.test(value)) return null;
+    const map = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+    let total = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      const current = map[value[i]] || 0;
+      const next = map[value[i + 1]] || 0;
+      total += current < next ? -current : current;
+    }
+    return total > 0 ? total : null;
+  };
+
+  const getClassOrder = (row) => {
+    const source = `${row?.name || ""} ${row?.grade_level || ""}`.toUpperCase();
+    const arabic = source.match(/\b\d+\b/);
+    if (arabic) return Number(arabic[0]);
+    const tokens = source.split(/[^A-Z0-9]+/).filter(Boolean);
+    for (const token of tokens) {
+      const roman = romanToNumber(token);
+      if (roman != null) return roman;
+    }
+    return null;
+  };
+
   const filteredRows = useMemo(
     () =>
-      rows.filter((row) =>
-        `${row.name} ${row.grade_level}`
-          .toLowerCase()
-          .includes(filter.toLowerCase()),
-      ),
+      rows
+        .filter((row) =>
+          `${row.name} ${row.grade_level}`
+            .toLowerCase()
+            .includes(filter.toLowerCase()),
+        )
+        .slice()
+        .sort((a, b) => {
+          const orderA = getClassOrder(a);
+          const orderB = getClassOrder(b);
+          if (orderA != null && orderB != null && orderA !== orderB) return orderA - orderB;
+          if (orderA != null && orderB == null) return -1;
+          if (orderA == null && orderB != null) return 1;
+          const byName = String(a.name || "").localeCompare(String(b.name || ""), "id", {
+            numeric: true,
+            sensitivity: "base",
+          });
+          if (byName !== 0) return byName;
+          return String(a.grade_level || "").localeCompare(String(b.grade_level || ""), "id", {
+            numeric: true,
+            sensitivity: "base",
+          });
+        }),
     [rows, filter],
   );
 

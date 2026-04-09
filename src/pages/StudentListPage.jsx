@@ -36,8 +36,49 @@ export default function StudentListPage() {
   const [graduatedStudentIds, setGraduatedStudentIds] = useState([]);
   const [graduateTargetSelectedIds, setGraduateTargetSelectedIds] = useState([]);
   const [isSavingGraduation, setIsSavingGraduation] = useState(false);
+  const [transitionModalOpen, setTransitionModalOpen] = useState(false);
+  const [transitionFromYearId, setTransitionFromYearId] = useState("");
+  const [transitionToYearId, setTransitionToYearId] = useState("");
+  const [transitionActivateTarget, setTransitionActivateTarget] = useState(true);
+  const [isProcessingTransition, setIsProcessingTransition] = useState(false);
+  const [transitionImpact, setTransitionImpact] = useState({
+    loading: false,
+    activeStudents: 0,
+    unpaidBills: 0,
+    unpaidStudents: 0,
+  });
   const navigate = useNavigate();
   const { confirm } = useUI();
+
+  const romanToNumber = (value) => {
+    const roman = String(value || "").toUpperCase().trim();
+    if (!roman) return null;
+    const map = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+    let total = 0;
+    let prev = 0;
+    for (let i = roman.length - 1; i >= 0; i -= 1) {
+      const current = map[roman[i]];
+      if (!current) return null;
+      if (current < prev) total -= current;
+      else total += current;
+      prev = current;
+    }
+    return total;
+  };
+
+  const classOrderFromName = (className) => {
+    const textValue = String(className || "").trim();
+    if (!textValue) return Number.MAX_SAFE_INTEGER;
+    const arabicMatch = textValue.match(/\d+/);
+    if (arabicMatch) return Number(arabicMatch[0]);
+    const tokens = textValue.split(/\s+/);
+    for (const token of tokens) {
+      const romanValue = romanToNumber(token);
+      if (romanValue != null) return romanValue;
+    }
+    return Number.MAX_SAFE_INTEGER;
+  };
+
 
   useToastMessage(message, setMessage);
 
@@ -186,6 +227,24 @@ export default function StudentListPage() {
     [students, filter],
   );
 
+  const filteredSorted = useMemo(() => {
+    const items = filtered.slice();
+    items.sort((a, b) => {
+      const classOrderDiff =
+        classOrderFromName(a.class_name) - classOrderFromName(b.class_name);
+      if (classOrderDiff !== 0) return classOrderDiff;
+
+      const classNameDiff = String(a.class_name || "").localeCompare(
+        String(b.class_name || ""),
+        "id",
+      );
+      if (classNameDiff !== 0) return classNameDiff;
+
+      return String(a.name || "").localeCompare(String(b.name || ""), "id");
+    });
+    return items;
+  }, [filtered]);
+
   const studentsByClass = useMemo(() => {
     const map = new Map();
     for (const row of students) {
@@ -275,6 +334,71 @@ export default function StudentListPage() {
     }
   };
 
+  const openTransitionModal = () => {
+    setTransitionModalOpen(true);
+
+    const activeYear = academicYears.find((item) => Number(item.is_active || 0) === 1);
+    const fallbackFrom = activeYear ? String(activeYear.id) : (academicYears[0] ? String(academicYears[0].id) : "");
+
+    let fallbackTo = "";
+    if (academicYears.length > 1) {
+      const sourceIndex = academicYears.findIndex((item) => String(item.id) === fallbackFrom);
+      if (sourceIndex >= 0 && sourceIndex < academicYears.length - 1) {
+        fallbackTo = String(academicYears[sourceIndex + 1].id);
+      } else {
+        fallbackTo = String(academicYears[0].id) === fallbackFrom
+          ? String(academicYears[1].id)
+          : String(academicYears[0].id);
+      }
+    }
+
+    setTransitionFromYearId(fallbackFrom);
+    setTransitionToYearId(fallbackTo);
+    setTransitionActivateTarget(true);
+  };
+
+  useEffect(() => {
+    if (!transitionModalOpen || !transitionFromYearId) {
+      setTransitionImpact({
+        loading: false,
+        activeStudents: 0,
+        unpaidBills: 0,
+        unpaidStudents: 0,
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    const computeImpact = async () => {
+      setTransitionImpact((current) => ({ ...current, loading: true }));
+      try {
+        const { data } = await fetchRoute("admin/academic-years/transition-impact", {
+          method: "POST",
+          data: { from_year_id: Number(transitionFromYearId) },
+        });
+
+        if (!cancelled) {
+          setTransitionImpact({
+            loading: false,
+            activeStudents: Number(data?.active_students || 0),
+            unpaidBills: Number(data?.unpaid_bills || 0),
+            unpaidStudents: Number(data?.unpaid_students || 0),
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setTransitionImpact((current) => ({ ...current, loading: false }));
+        }
+      }
+    };
+
+    computeImpact();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [transitionModalOpen, transitionFromYearId]);
   useEffect(() => {
     if (!promoteModalOpen || !sourceClassId) return;
     const base = (studentsByClass.get(String(sourceClassId)) || []).filter(
@@ -482,6 +606,50 @@ export default function StudentListPage() {
     }
   };
 
+
+  const submitAcademicYearTransition = async () => {
+    if (!transitionFromYearId || !transitionToYearId) {
+      setMessage({ type: "warning", text: "Pilih tahun ajaran asal dan tujuan terlebih dahulu." });
+      return;
+    }
+    if (String(transitionFromYearId) === String(transitionToYearId)) {
+      setMessage({ type: "warning", text: "Tahun ajaran asal dan tujuan tidak boleh sama." });
+      return;
+    }
+
+    const confirmTransition = await confirm({
+      title: "Proses transisi tahun ajaran",
+      description: "Semua siswa aktif di tahun ajaran asal akan dipindah ke tahun ajaran tujuan. Lanjutkan?",
+      confirmLabel: "Ya, proses",
+    });
+    if (!confirmTransition) return;
+
+    setIsProcessingTransition(true);
+    try {
+      const response = await fetchRoute("admin/academic-years/transition", {
+        method: "POST",
+        data: {
+          from_year_id: Number(transitionFromYearId),
+          to_year_id: Number(transitionToYearId),
+          activate_target: transitionActivateTarget ? 1 : 0,
+        },
+      });
+      setMessage({
+        type: "success",
+        text: response?.data?.message || "Transisi tahun ajaran berhasil diproses.",
+      });
+      setTransitionModalOpen(false);
+      await load();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal memproses transisi tahun ajaran",
+      });
+    } finally {
+      setIsProcessingTransition(false);
+    }
+  };
+
   return (
     <Layout
       title="Data Siswa"
@@ -493,6 +661,9 @@ export default function StudentListPage() {
           </button>
           <button className="btn-secondary" onClick={openGraduateModal}>
             Kelulusan
+          </button>
+          <button className="btn-secondary" onClick={openTransitionModal}>
+            Transisi TA
           </button>
           <button
             className="btn-primary"
@@ -579,7 +750,7 @@ export default function StudentListPage() {
               ),
             },
           ]}
-          rows={filtered}
+          rows={filteredSorted}
         />
       </div>
       <ModalFrame
@@ -968,6 +1139,100 @@ export default function StudentListPage() {
         </div>
       </ModalFrame>
       <ModalFrame
+        open={transitionModalOpen}
+        onClose={() => {
+          if (isProcessingTransition) return;
+          setTransitionModalOpen(false);
+        }}
+        title="Transisi Tahun Ajaran"
+        showIcon={false}
+        maxWidthClass="max-w-xl"
+      >
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">Tahun Ajaran Asal</label>
+              <select
+                className="input h-10"
+                value={transitionFromYearId}
+                onChange={(e) => setTransitionFromYearId(e.target.value)}
+              >
+                <option value="">Pilih tahun ajaran asal</option>
+                {academicYears.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Tahun Ajaran Tujuan</label>
+              <select
+                className="input h-10"
+                value={transitionToYearId}
+                onChange={(e) => setTransitionToYearId(e.target.value)}
+              >
+                <option value="">Pilih tahun ajaran tujuan</option>
+                {academicYears.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={transitionActivateTarget}
+              onChange={(e) => setTransitionActivateTarget(e.target.checked)}
+            />
+            Jadikan tahun ajaran tujuan sebagai tahun ajaran aktif
+          </label>
+
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Proses ini akan memindahkan semua siswa berstatus aktif dari tahun ajaran asal ke tahun ajaran tujuan.
+            Gunakan setelah proses Kenaikan/Kelulusan selesai.
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <p className="font-semibold text-slate-800">Ringkasan Dampak</p>
+            {transitionImpact.loading ? (
+              <p className="mt-1 text-slate-500">Menghitung data...</p>
+            ) : (
+              <div className="mt-1 grid gap-1 sm:grid-cols-3">
+                <p>Siswa aktif dipindah: <span className="font-semibold">{transitionImpact.activeStudents}</span></p>
+                <p>Tagihan belum lunas: <span className="font-semibold">{transitionImpact.unpaidBills}</span></p>
+                <p>Siswa bertunggakan: <span className="font-semibold">{transitionImpact.unpaidStudents}</span></p>
+              </div>
+            )}
+            {transitionImpact.unpaidBills > 0 ? (
+              <p className="mt-1 text-rose-700">Ada tunggakan pada tahun ajaran asal. Sesuai kebijakan, tunggakan tetap dibawa apa adanya.</p>
+            ) : null}
+          </div>
+
+          <div className="modal-actions mt-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={isProcessingTransition}
+              onClick={() => setTransitionModalOpen(false)}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={isProcessingTransition || !transitionFromYearId || !transitionToYearId || transitionFromYearId === transitionToYearId}
+              onClick={submitAcademicYearTransition}
+            >
+              {isProcessingTransition ? "Memproses..." : "Proses"}
+            </button>
+          </div>
+        </div>
+      </ModalFrame>
+      <ModalFrame
         open={isImporting}
         onClose={() => {}}
         title="Memvalidasi Data Import"
@@ -1026,3 +1291,11 @@ export default function StudentListPage() {
     </Layout>
   );
 }
+
+
+
+
+
+
+
+

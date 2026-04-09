@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Route daftar, generate, dan hapus tagihan.
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -15,12 +15,45 @@ function bill_payment_portal_url(): string {
     return 'https://spp.madarussalamcilongok.sch.id';
 }
 
+
+function bill_period_label(string $period): string {
+    $period = trim($period);
+    if (!preg_match('/^(\\d{4})-(\\d{2})$/', $period, $m)) {
+        return $period !== '' ? $period : '-';
+    }
+
+    $year = (int) ($m[1] ?? 0);
+    $month = (int) ($m[2] ?? 0);
+    $months = [
+        1 => 'Januari',
+        2 => 'Februari',
+        3 => 'Maret',
+        4 => 'April',
+        5 => 'Mei',
+        6 => 'Juni',
+        7 => 'Juli',
+        8 => 'Agustus',
+        9 => 'September',
+        10 => 'Oktober',
+        11 => 'November',
+        12 => 'Desember',
+    ];
+
+    if (!isset($months[$month])) {
+        return $period;
+    }
+
+    return $months[$month] . ' ' . $year;
+}
 function build_bill_reminder_message(array $bill, array $student): string {
     $schoolName = trim(setting_value('school_name', 'Madrasah'));
     if ($schoolName === '') $schoolName = 'Madrasah';
 
     $period = trim((string) ($bill['period'] ?? '-'));
+    $periodLabel = bill_period_label($period);
     $studentName = trim((string) ($student['name'] ?? $bill['student_name'] ?? '-'));
+    $studentNisn = trim((string) ($student['nisn'] ?? $bill['nisn'] ?? '-'));
+    if ($studentNisn === '') $studentNisn = '-';
     $className = trim((string) ($student['class_name'] ?? $bill['class_name'] ?? '-'));
     $billName = trim((string) ($bill['bill_name'] ?? '-'));
     $amountText = idr((float) ($bill['amount'] ?? 0));
@@ -28,8 +61,9 @@ function build_bill_reminder_message(array $bill, array $student): string {
 
     return implode("\n", [
         "_Assalamu'alaikum wr.wb._",
-        "Kepada Bapak/Ibu/Wali siswa {$schoolName}, mohon ijin kami kirimkan tagihan periode {$period} sebagai berikut:",
+        "Kepada Bapak/Ibu/Wali siswa {$schoolName}, mohon ijin kami kirimkan tagihan periode {$periodLabel} sebagai berikut:",
         "- Nama        : {$studentName}",
+        "- NISN        : {$studentNisn}",
         "- Kelas       : {$className}",
         "- Jenis       : {$billName}",
         "- Nominal     : {$amountText}",
@@ -46,12 +80,15 @@ function build_bill_reminder_summary_message(array $student, array $bills): stri
     if ($schoolName === '') $schoolName = 'Madrasah';
 
     $studentName = trim((string) ($student['name'] ?? '-'));
+    $studentNisn = trim((string) ($student['nisn'] ?? '-'));
+    if ($studentNisn === '') $studentNisn = '-';
     $className = trim((string) ($student['class_name'] ?? '-'));
     $portalUrl = bill_payment_portal_url();
     $lines = [
         "_Assalamu'alaikum wr.wb._",
         "Kepada Bapak/Ibu/Wali siswa {$schoolName}, mohon ijin kami kirimkan ringkasan tagihan sebagai berikut:",
         "- Nama        : {$studentName}",
+        "- NISN        : {$studentNisn}",
         "- Kelas       : {$className}",
         "- Rincian:",
     ];
@@ -62,7 +99,7 @@ function build_bill_reminder_summary_message(array $student, array $bills): stri
         $period = trim((string) ($bill['period'] ?? '-'));
         $amount = (float) ($bill['amount'] ?? 0);
         $total += $amount;
-        $lines[] = sprintf("%d. %s (%s) - %s", $idx + 1, $billName, $period, idr($amount));
+        $lines[] = sprintf("%d. %s (%s) - %s", $idx + 1, $billName, bill_period_label($period), idr($amount));
     }
 
     $lines[] = "- Total       : " . idr($total);
@@ -89,7 +126,7 @@ function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period =
     $period = $period !== null && preg_match('/^\d{4}-\d{2}$/', $period) ? $period : date('Y-m');
     $title = $day === 5 ? 'Pengingat Tagihan Otomatis (Tgl 5)' : 'Pengingat Tagihan Otomatis (Tgl 15)';
 
-    $stmtStudents = $pdo->prepare("SELECT DISTINCT b.student_id, s.name AS student_name
+    $stmtStudents = $pdo->prepare("SELECT DISTINCT b.student_id, s.name AS student_name, s.nisn
         FROM bills b
         JOIN students s ON s.id = b.student_id
         WHERE b.status = 'unpaid' AND b.period = ?
@@ -120,6 +157,7 @@ function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period =
         if (!$student) {
             $student = [
                 'name' => (string) ($studentRow['student_name'] ?? '-'),
+                'nisn' => (string) ($studentRow['nisn'] ?? '-'),
                 'class_name' => '-',
             ];
         }
@@ -195,17 +233,22 @@ if ($route === 'admin/bills' && $method === 'GET') {
     $status = query('status', '');
     $studentId = query('student_id', '');
     $classId = query('class_id', '');
+    $academicYearId = query('academic_year_id', '');
     $conditions = [];
     $params = [];
     if ($status) { $conditions[] = 'b.status = ?'; $params[] = $status; }
     if ($studentId) { $conditions[] = 'b.student_id = ?'; $params[] = $studentId; }
     if ($classId) { $conditions[] = 's.class_id = ?'; $params[] = $classId; }
+    if ($academicYearId) { $conditions[] = '(b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?))'; $params[] = $academicYearId; $params[] = $academicYearId; }
     $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
     $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nis, c.name class_name,
+            COALESCE(b.academic_year_id, s.academic_year_id) bill_academic_year_id,
+            ay.name academic_year_name,
             (SELECT status FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1) proof_status
         FROM bills b
         JOIN students s ON s.id=b.student_id
         LEFT JOIN classes c ON c.id=s.class_id
+        LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
         {$where}
         ORDER BY b.id DESC");
     $stmt->execute($params);
@@ -365,14 +408,14 @@ if ($route === 'admin/bills/export-tunggakan' && $method === 'GET') {
     }
     $rows = array_values($rowsByStudent);
 
-    $schoolName = trim(setting_value('school_name', 'PP. DARUSSALAM'));
-    if ($schoolName === '') $schoolName = 'PP. DARUSSALAM';
+    $schoolName = trim(setting_value('school_name', 'DARUSSALAM'));
+    if ($schoolName === '') $schoolName = 'DARUSSALAM';
     $schoolAddress = trim(setting_value('school_address', 'Kandang Aur 04/02 Desa Panusupan, Kecamatan Cilongok'));
     if ($schoolAddress === '') $schoolAddress = 'Kandang Aur 04/02 Desa Panusupan, Kecamatan Cilongok';
     $schoolCity = trim(setting_value('school_city', 'Kabupaten Banyumas - Jawa Tengah 53162'));
     if ($schoolCity === '') $schoolCity = 'Kabupaten Banyumas - Jawa Tengah 53162';
-    $schoolPhone = trim(setting_value('school_phone', '085743487277'));
-    $schoolEmail = trim(setting_value('school_email', 'ppdarsalcilongok@gmail.com'));
+    $schoolPhone = trim(setting_value('school_phone', '081234567890'));
+    $schoolEmail = trim(setting_value('school_email', 'school@mail.com'));
 
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
@@ -558,7 +601,7 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
     if (!$billIds) response(['message' => 'Tagihan yang dibayar wajib dipilih'], 422);
 
     $placeholders = implode(',', array_fill(0, count($billIds), '?'));
-    $billStmt = $pdo->prepare("SELECT b.*, s.name student_name, s.id student_id
+    $billStmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nisn, s.id student_id
         FROM bills b
         JOIN students s ON s.id = b.student_id
         WHERE b.id IN ($placeholders)");
@@ -648,7 +691,7 @@ if ($route === 'admin/bills/remind' && $method === 'POST') {
         response(['message' => 'ID tagihan wajib diisi'], 422);
     }
 
-    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.id student_id
+    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nisn, s.id student_id
         FROM bills b
         JOIN students s ON s.id = b.student_id
         WHERE b.id = ? LIMIT 1");
@@ -657,7 +700,7 @@ if ($route === 'admin/bills/remind' && $method === 'POST') {
     if (!$bill) response(['message' => 'Tagihan tidak ditemukan'], 404);
     if ($bill['status'] === 'paid') response(['message' => 'Tagihan sudah lunas, pengingat tidak perlu dikirim'], 422);
 
-    $studentDetail = student_row((int) $bill['student_id']) ?? ['name' => $bill['student_name'], 'class_name' => '-'];
+    $studentDetail = student_row((int) $bill['student_id']) ?? ['name' => $bill['student_name'], 'nisn' => ($bill['nisn'] ?? '-'), 'class_name' => '-'];
     $message = build_bill_reminder_message($bill, $studentDetail);
     queue_whatsapp_notification((int) $bill['student_id'], 'Pengingat Tagihan', $message);
     try_dispatch_whatsapp_queue();
@@ -865,7 +908,7 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
     if ($studentFilter && !scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$studentFilter])) {
         response(['message' => 'Siswa tidak ditemukan'], 404);
     }
-    $sql = $studentFilter ? 'SELECT id FROM students WHERE id=?' : 'SELECT id FROM students';
+    $sql = $studentFilter ? 'SELECT id, academic_year_id FROM students WHERE id=?' : 'SELECT id, academic_year_id FROM students';
     $stmtStudents = $pdo->prepare($sql);
     $stmtStudents->execute($studentFilter ? [$studentFilter] : []);
     $students = $stmtStudents->fetchAll();
@@ -887,9 +930,9 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
             }
             $exists = scalar('SELECT COUNT(*) FROM bills WHERE student_id = ? AND finance_post_id = ? AND period = ?', [$student['id'], $post['id'], $period]);
             if ($exists) continue;
-            $stmt = $pdo->prepare("INSERT INTO bills (student_id, finance_post_id, bill_name, period, due_date, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', NOW())");
+            $stmt = $pdo->prepare("INSERT INTO bills (student_id, academic_year_id, finance_post_id, bill_name, period, due_date, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'unpaid', NOW())");
             $dueDate = !empty($input['due_date']) ? $input['due_date'] : ($period . '-10');
-            $stmt->execute([$student['id'], $post['id'], $post['name'], $period, $dueDate, $post['amount']]);
+            $stmt->execute([$student['id'], $student['academic_year_id'] ?? null, $post['id'], $post['name'], $period, $dueDate, $post['amount']]);
             $created++;
         }
     }
@@ -897,3 +940,10 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
     log_activity((int) $user['id'], 'generate', 'bill', null, 'Generate tagihan periode ' . $period . ' sebanyak ' . $created);
     response(['message' => "Generate selesai. {$created} tagihan dibuat. Notifikasi otomatis akan dikirim pada tanggal 5 dan 15 jika masih belum dibayar."]);
 }
+
+
+
+
+
+
+

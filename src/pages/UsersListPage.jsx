@@ -27,7 +27,16 @@ export default function UsersListPage() {
   const load = () =>
     (setLoading(true),
     fetchRoute("admin/users")
-      .then(({ data }) => setRows(Array.isArray(data) ? data : []))
+      .then(({ data }) => {
+        const payload = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.rows)
+            ? data.rows
+            : Array.isArray(data?.data)
+              ? data.data
+              : [];
+        setRows(payload);
+      })
       .catch((error) => {
         setMessage(error?.response?.data?.message || "Gagal memuat data user");
       })

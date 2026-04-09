@@ -52,17 +52,18 @@ export default function SettingsPage() {
   useEffect(() => {
     Promise.all([fetchRoute("admin/settings"), loadBackups()])
       .then(([{ data }]) => {
+        const payload = data?.settings || data?.data || data || {};
         setForm({
           ...defaults,
-          ...data,
+          ...payload,
           payment_gateway_enabled:
-            data?.payment_gateway_enabled === true ||
-            data?.payment_gateway_enabled === 1 ||
-            data?.payment_gateway_enabled === "1",
+            payload?.payment_gateway_enabled === true ||
+            payload?.payment_gateway_enabled === 1 ||
+            payload?.payment_gateway_enabled === "1",
           whatsapp_gateway_enabled:
-            data?.whatsapp_gateway_enabled === true ||
-            data?.whatsapp_gateway_enabled === 1 ||
-            data?.whatsapp_gateway_enabled === "1",
+            payload?.whatsapp_gateway_enabled === true ||
+            payload?.whatsapp_gateway_enabled === 1 ||
+            payload?.whatsapp_gateway_enabled === "1",
         });
       })
       .catch((error) => {

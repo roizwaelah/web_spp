@@ -54,6 +54,90 @@ if ($route === 'admin/academic-years' && $method === 'PUT') {
     response(['message' => 'Tahun ajaran berhasil diperbarui']);
 }
 
+
+if ($route === 'admin/academic-years/transition-impact' && in_array($method, ['GET', 'POST'], true)) {
+    $user = require_auth();
+    validate_menu_access($user, ['academic_years']);
+
+    $input = $method === 'POST' ? json_input() : [];
+    $fromYearId = (int) (($input['from_year_id'] ?? 0) ?: query('from_year_id', 0));
+
+    if ($fromYearId <= 0) {
+        response(['message' => 'Tahun ajaran asal wajib dipilih'], 422);
+    }
+
+    if (!scalar('SELECT id FROM academic_years WHERE id = ? LIMIT 1', [$fromYearId])) {
+        response(['message' => 'Tahun ajaran asal tidak ditemukan'], 404);
+    }
+
+    $activeStudents = (int) scalar(
+        "SELECT COUNT(*) FROM students WHERE academic_year_id = ? AND status = 'active'",
+        [$fromYearId]
+    );
+    $unpaidBills = (int) scalar(
+        "SELECT COUNT(*) 
+         FROM bills b 
+         LEFT JOIN students s ON s.id = b.student_id
+         WHERE (b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?)) AND b.status = 'unpaid'",
+        [$fromYearId, $fromYearId]
+    );
+    $unpaidStudents = (int) scalar(
+        "SELECT COUNT(DISTINCT b.student_id) 
+         FROM bills b
+         LEFT JOIN students s ON s.id = b.student_id
+         WHERE (b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?)) AND b.status = 'unpaid'",
+        [$fromYearId, $fromYearId]
+    );
+
+    response([
+        'from_year_id' => $fromYearId,
+        'active_students' => $activeStudents,
+        'unpaid_bills' => $unpaidBills,
+        'unpaid_students' => $unpaidStudents,
+    ]);
+}
+if ($route === 'admin/academic-years/transition' && $method === 'POST') {
+    $user = require_auth();
+    validate_menu_access($user, ['academic_years']);
+
+    $input = json_input();
+    ensure_required($input, ['from_year_id', 'to_year_id']);
+
+    $fromYearId = (int) ($input['from_year_id'] ?? 0);
+    $toYearId = (int) ($input['to_year_id'] ?? 0);
+    $activateTarget = isset($input['activate_target']) ? (int) !!$input['activate_target'] : 1;
+
+    if ($fromYearId <= 0 || $toYearId <= 0) {
+        response(['message' => 'Tahun ajaran asal dan tujuan wajib dipilih'], 422);
+    }
+    if ($fromYearId === $toYearId) {
+        response(['message' => 'Tahun ajaran asal dan tujuan tidak boleh sama'], 422);
+    }
+
+    if (!scalar('SELECT id FROM academic_years WHERE id = ? LIMIT 1', [$fromYearId])) {
+        response(['message' => 'Tahun ajaran asal tidak ditemukan'], 404);
+    }
+    if (!scalar('SELECT id FROM academic_years WHERE id = ? LIMIT 1', [$toYearId])) {
+        response(['message' => 'Tahun ajaran tujuan tidak ditemukan'], 404);
+    }
+
+    $stmt = $pdo->prepare("UPDATE students SET academic_year_id = ? WHERE academic_year_id = ? AND status = 'active'");
+    $stmt->execute([$toYearId, $fromYearId]);
+    $moved = (int) $stmt->rowCount();
+
+    if ($activateTarget === 1) {
+        $pdo->exec('UPDATE academic_years SET is_active = 0');
+        $stmtActivate = $pdo->prepare('UPDATE academic_years SET is_active = 1 WHERE id = ?');
+        $stmtActivate->execute([$toYearId]);
+    }
+
+    log_activity((int) $user['id'], 'update', 'academic_year', $toYearId, 'Transisi tahun ajaran dari #' . $fromYearId . ' ke #' . $toYearId . ' untuk ' . $moved . ' siswa aktif');
+
+    response([
+        'message' => "Transisi tahun ajaran berhasil. {$moved} siswa aktif dipindahkan.",
+        'moved' => $moved,
+    ]);
+}
 if ($route === 'admin/academic-years' && $method === 'DELETE') {
     $user = require_auth();
     validate_menu_access($user, ['academic_years'], ['admin']);
@@ -71,3 +155,8 @@ if ($route === 'admin/academic-years' && $method === 'DELETE') {
     log_activity((int) $user['id'], 'delete', 'academic_year', (int) $input['id'], 'Menghapus tahun ajaran');
     response(['message' => 'Tahun ajaran berhasil dihapus']);
 }
+
+
+
+
+

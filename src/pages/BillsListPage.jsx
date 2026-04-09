@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Download, Eye, Plus, Send, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -12,10 +12,35 @@ import { useUI } from "../context/UIContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { prefetchRoute } from "../prefetch";
 
+const romanToNumber = (rawValue) => {
+  const value = String(rawValue || "").toUpperCase();
+  if (!value || !/^[IVXLCDM]+$/.test(value)) return null;
+  const map = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+  let total = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    const current = map[value[i]] || 0;
+    const next = map[value[i + 1]] || 0;
+    total += current < next ? -current : current;
+  }
+  return total > 0 ? total : null;
+};
+
+const getClassOrder = (item) => {
+  const source = `${item?.name || ""} ${item?.grade_level || ""}`.toUpperCase();
+  const arabic = source.match(/\b\d+\b/);
+  if (arabic) return Number(arabic[0]);
+  const tokens = source.split(/[^A-Z0-9]+/).filter(Boolean);
+  for (const token of tokens) {
+    const roman = romanToNumber(token);
+    if (roman != null) return roman;
+  }
+  return null;
+};
+
 export default function BillsListPage() {
   const [rows, setRows] = useState([]);
   const [studentSourceRows, setStudentSourceRows] = useState([]);
-  const [meta, setMeta] = useState({ students: [], classes: [], finance_posts: [] });
+  const [meta, setMeta] = useState({ students: [], classes: [], years: [], finance_posts: [] });
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [message, setMessage] = useState("");
   const [sendingStudentId, setSendingStudentId] = useState(null);
@@ -33,6 +58,7 @@ export default function BillsListPage() {
     status: "",
     class_id: "",
     student_id: "",
+    academic_year_id: "",
   });
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -50,12 +76,14 @@ export default function BillsListPage() {
           params: {
             ...(filter.status ? { status: filter.status } : {}),
             ...(filter.class_id ? { class_id: filter.class_id } : {}),
+            ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
           },
         }),
         fetchRoute("admin/bills", {
           params: {
             ...(filter.status ? { status: filter.status } : {}),
             ...(filter.class_id ? { class_id: filter.class_id } : {}),
+            ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
             ...(filter.student_id ? { student_id: filter.student_id } : {}),
           },
         }),
@@ -64,6 +92,7 @@ export default function BillsListPage() {
       setMeta({
         classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
         students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
+        years: Array.isArray(metaRes.data?.years) ? metaRes.data.years : [],
         finance_posts: Array.isArray(metaRes.data?.finance_posts) ? metaRes.data.finance_posts : [],
       });
       setStudentSourceRows(Array.isArray(studentRowsRes.data) ? studentRowsRes.data : []);
@@ -75,7 +104,7 @@ export default function BillsListPage() {
 
   useEffect(() => {
     load();
-  }, [filter.status, filter.class_id, filter.student_id]);
+  }, [filter.status, filter.class_id, filter.student_id, filter.academic_year_id]);
 
   useEffect(() => {
     const postIds = (meta.finance_posts || []).map((item) => Number(item.id)).filter((id) => id > 0);
@@ -84,6 +113,17 @@ export default function BillsListPage() {
       return { ...current, finance_post_ids: postIds };
     });
   }, [meta.finance_posts]);
+
+  useEffect(() => {
+    if (!Array.isArray(meta.years) || meta.years.length === 0) return;
+    setFilter((current) => {
+      if (current.academic_year_id) return current;
+      const activeYear = meta.years.find((item) => Number(item?.is_active || 0) === 1);
+      if (!activeYear?.id) return current;
+      return { ...current, academic_year_id: String(activeYear.id), student_id: "" };
+    });
+  }, [meta.years]);
+
 
   const groupedRows = useMemo(() => {
     const byStudent = new Map();
@@ -98,6 +138,7 @@ export default function BillsListPage() {
           student_name: row.student_name || "-",
           class_name: row.class_name || "-",
           periods: new Set(),
+          academicYears: new Set(),
           bills: [],
           total_amount: 0,
           has_paid: false,
@@ -108,12 +149,14 @@ export default function BillsListPage() {
       const entry = byStudent.get(studentId);
       entry.total_amount += Number(row.amount || 0);
       if (row.period) entry.periods.add(String(row.period));
+      if (row.academic_year_name) entry.academicYears.add(String(row.academic_year_name));
       if (row.status === "paid") entry.has_paid = true;
       if (row.status !== "paid") entry.has_unpaid = true;
       entry.bills.push({
         id: row.id,
         bill_name: row.bill_name || "-",
         period: row.period || "-",
+        academic_year_name: row.academic_year_name || "-",
         due_date: row.due_date || "",
         amount: Number(row.amount || 0),
         status: row.status || "unpaid",
@@ -127,6 +170,12 @@ export default function BillsListPage() {
           periodList.length <= 1
             ? periodList[0] || "-"
             : `${periodList[0]} s/d ${periodList[periodList.length - 1]}`;
+
+        const academicYearList = Array.from(entry.academicYears).sort((a, b) => a.localeCompare(b, "id"));
+        const academicYearLabel =
+          academicYearList.length <= 1
+            ? academicYearList[0] || "-"
+            : `${academicYearList[0]} s/d ${academicYearList[academicYearList.length - 1]}`;
 
         const dueDateSource = entry.bills
           .filter((item) => item.status !== "paid" && item.due_date)
@@ -147,6 +196,7 @@ export default function BillsListPage() {
           ...entry,
           period_label: periodLabel,
           due_date: nearestDueDate,
+          academic_year_label: academicYearLabel,
           status_label: statusLabel,
           status_class: statusClass,
           bills: [...entry.bills].sort((a, b) => String(a.due_date).localeCompare(String(b.due_date))),
@@ -315,6 +365,27 @@ export default function BillsListPage() {
     return Array.from(studentMap.values()).sort((a, b) => a.name.localeCompare(b.name, "id"));
   }, [studentSourceRows]);
 
+  const sortedClassOptions = useMemo(
+    () =>
+      [...(meta.classes || [])].sort((a, b) => {
+        const orderA = getClassOrder(a);
+        const orderB = getClassOrder(b);
+        if (orderA != null && orderB != null && orderA !== orderB) return orderA - orderB;
+        if (orderA != null && orderB == null) return -1;
+        if (orderA == null && orderB != null) return 1;
+        const byName = String(a.name || "").localeCompare(String(b.name || ""), "id", {
+          numeric: true,
+          sensitivity: "base",
+        });
+        if (byName !== 0) return byName;
+        return String(a.grade_level || "").localeCompare(String(b.grade_level || ""), "id", {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }),
+    [meta.classes],
+  );
+
   const allSelected = groupedRows.length > 0 && selectedStudentIds.length === groupedRows.length;
 
   return (
@@ -343,16 +414,16 @@ export default function BillsListPage() {
       }
     >
       <div className="space-y-4">
-        <div className={`grid gap-3 ${canManageBills ? "lg:grid-cols-[560px_minmax(0,1fr)]" : "grid-cols-1"}`}>
+        <div className={`grid gap-3 ${canManageBills ? "xl:grid-cols-[484px_minmax(0,1fr)]" : "grid-cols-1"}`}>
           {canManageBills && (
             <div className="card p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Tindakan Massal</p>
-              <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:overflow-x-auto">
                 {isAdmin ? (
                   <>
                     <button
                       type="button"
-                      className="btn-secondary whitespace-nowrap"
+                      className="btn-secondary whitespace-normal sm:whitespace-nowrap"
                       onClick={() => setSelectedStudentIds(groupedRows.map((row) => String(row.id)))}
                       disabled={groupedRows.length === 0 || allSelected}
                     >
@@ -360,7 +431,7 @@ export default function BillsListPage() {
                     </button>
                     <button
                       type="button"
-                      className="btn-secondary whitespace-nowrap"
+                      className="btn-secondary whitespace-normal sm:whitespace-nowrap"
                       onClick={() => setSelectedStudentIds([])}
                       disabled={selectedStudentIds.length === 0}
                     >
@@ -368,7 +439,7 @@ export default function BillsListPage() {
                     </button>
                     <button
                       type="button"
-                      className="btn-danger whitespace-nowrap"
+                      className="btn-danger whitespace-normal sm:whitespace-nowrap"
                       onClick={removeBulkByStudent}
                       disabled={selectedStudentIds.length === 0}
                     >
@@ -378,7 +449,7 @@ export default function BillsListPage() {
                 ) : null}
                 <button
                   type="button"
-                  className="btn-primary whitespace-nowrap"
+                  className="btn-primary whitespace-normal sm:whitespace-nowrap"
                   onClick={() => {
                     const postIds = (meta.finance_posts || []).map((item) => Number(item.id)).filter((id) => id > 0);
                     setExportFilter((current) => ({
@@ -397,7 +468,7 @@ export default function BillsListPage() {
 
           <div className="card p-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Filter Tagihan</p>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <select
                 className="input"
                 value={filter.status}
@@ -413,7 +484,19 @@ export default function BillsListPage() {
                 onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
               >
                 <option value="">Semua kelas</option>
-                {meta.classes.map((item) => (
+                {sortedClassOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input"
+                value={filter.academic_year_id}
+                onChange={(e) => setFilter({ ...filter, academic_year_id: e.target.value, student_id: "" })}
+              >
+                <option value="">Semua tahun ajaran</option>
+                {(meta.years || []).map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
                   </option>
@@ -528,7 +611,7 @@ export default function BillsListPage() {
       >
         {detailRow ? (
           <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
                 <p className="text-xs text-slate-500">Siswa</p>
                 <p className="font-semibold text-slate-900">{detailRow.student_name}</p>
@@ -536,6 +619,10 @@ export default function BillsListPage() {
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
                 <p className="text-xs text-slate-500">Kelas</p>
                 <p className="font-semibold text-slate-900">{detailRow.class_name}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 text-sm">
+                <p className="text-xs text-slate-500">Tahun Ajaran Tagihan</p>
+                <p className="font-semibold text-slate-900">{detailRow.academic_year_label}</p>
               </div>
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
                 <p className="text-xs text-slate-500">Status</p>
@@ -556,6 +643,7 @@ export default function BillsListPage() {
                     {canManageBills ? <th className="px-3 py-2 text-center font-semibold text-slate-700">Pilih</th> : null}
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Tagihan</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Periode</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700">TA</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Jatuh Tempo</th>
                     <th className="px-3 py-2 text-right font-semibold text-slate-700">Nominal</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
@@ -578,7 +666,7 @@ export default function BillsListPage() {
                           }}
                         />
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-slate-500" colSpan={isAdmin ? 6 : 5}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-slate-500" colSpan={isAdmin ? 7 : 6}>
                         Pilih semua tagihan belum lunas
                       </th>
                     </tr>
@@ -605,6 +693,7 @@ export default function BillsListPage() {
                       ) : null}
                       <td className="px-3 py-2 text-slate-800">{bill.bill_name}</td>
                       <td className="px-3 py-2 text-slate-600">{bill.period || "-"}</td>
+                      <td className="px-3 py-2 text-slate-600">{bill.academic_year_name || "-"}</td>
                       <td className="px-3 py-2 text-slate-600">{bill.due_date ? formatDate(bill.due_date) : "-"}</td>
                       <td className="px-3 py-2 text-right font-medium text-slate-900">{formatCurrency(bill.amount)}</td>
                       <td className="px-3 py-2">
@@ -719,3 +808,10 @@ export default function BillsListPage() {
     </Layout>
   );
 }
+
+
+
+
+
+
+
