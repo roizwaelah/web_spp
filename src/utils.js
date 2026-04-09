@@ -18,3 +18,20 @@ export const roleLabel = (role) =>
     bendahara: "Bendahara",
     parent: "Orang Tua",
   })[role] || role;
+
+export const formatPeriod = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  const monthMatch = raw.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const month = Number(monthMatch[2]);
+    if (year > 0 && month >= 1 && month <= 12) {
+      return new Intl.DateTimeFormat("id-ID", {
+        month: "long",
+        year: "numeric",
+      }).format(new Date(year, month - 1, 1));
+    }
+  }
+  return raw;
+};
