@@ -691,7 +691,7 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
             echo "<br/>";
             echo "<table border=\"0\" style=\"width:100%; border-collapse:collapse;\">";
             echo "<tr>";
-            echo "<td style=\"width:50%; text-align:center;\">Mengetahui,<br/>Pengasuh</td>";
+            echo "<td style=\"width:50%; text-align:center;\">Mengetahui,<br/>Kepala Madrasah</td>";
             echo "<td style=\"width:50%; text-align:center;\">&nbsp;<br/>Bendahara</td>";
             echo "</tr>";
             echo "<tr>";
@@ -761,7 +761,7 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
         echo "<br/>";
         echo "<table border=\"0\" style=\"width:100%; border-collapse:collapse;\">";
         echo "<tr>";
-        echo "<td style=\"width:50%; text-align:center;\">Mengetahui,<br/>Pengasuh</td>";
+        echo "<td style=\"width:50%; text-align:center;\">Mengetahui,<br/>Kepala Madrasah</td>";
         echo "<td style=\"width:50%; text-align:center;\">&nbsp;<br/>Bendahara</td>";
         echo "</tr>";
         echo "<tr>";

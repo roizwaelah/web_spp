@@ -636,7 +636,7 @@ export default function ReportsPage() {
 
   return (
     <Layout
-      title="Laporan Keuangan Real-Time"
+      title="Laporan Keuangan"
       subtitle="Mutasi keuangan: pemasukan per jenis pos dan pengeluaran operasional dalam satu kronologi laporan."
     >
       <div className="space-y-4">

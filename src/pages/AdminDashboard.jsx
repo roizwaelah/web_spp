@@ -120,8 +120,20 @@ export default function AdminDashboard() {
   const paidAmount = Number(billingOverview.paid_amount || 0);
   const unpaidAmount = Number(billingOverview.unpaid_amount || 0);
   const donutData = [
-    { key: "paid", name: "Sudah Lunas", value: paidStudents, amount: paidAmount, color: "#65a30d" },
-    { key: "unpaid", name: "Belum Lunas", value: unpaidStudents, amount: unpaidAmount, color: "#dc2626" },
+    {
+      key: "paid",
+      name: "Sudah Lunas",
+      value: paidStudents,
+      amount: paidAmount,
+      color: "#65a30d",
+    },
+    {
+      key: "unpaid",
+      name: "Belum Lunas",
+      value: unpaidStudents,
+      amount: unpaidAmount,
+      color: "#dc2626",
+    },
   ];
   const donutTotal = paidStudents + unpaidStudents;
 
@@ -264,7 +276,9 @@ export default function AdminDashboard() {
               <BarChart3 size={18} />
             </div>
             <div>
-              <h3 className="section-title">Cashflow {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}</h3>
+              <h3 className="section-title">
+                Cashflow {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}
+              </h3>
               <p className="text-[0.82rem] text-slate-500">
                 Pergerakan pemasukan dan pengeluaran harian bulan berjalan.
               </p>
@@ -377,7 +391,10 @@ export default function AdminDashboard() {
 
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
             {donutData.map((item) => (
-              <div key={item.key} className="rounded-lg border border-slate-200 p-2">
+              <div
+                key={item.key}
+                className="rounded-lg border border-slate-200 p-2"
+              >
                 <div className="mb-1 flex items-center gap-1.5 font-semibold text-slate-700">
                   <span
                     className="inline-block h-2.5 w-2.5 rounded-full"
@@ -386,7 +403,9 @@ export default function AdminDashboard() {
                   {item.name}
                 </div>
                 <div className="text-slate-600">Siswa: {item.value}</div>
-                <div className="text-slate-700">{formatCurrency(item.amount)}</div>
+                <div className="text-slate-700">
+                  {formatCurrency(item.amount)}
+                </div>
               </div>
             ))}
           </div>

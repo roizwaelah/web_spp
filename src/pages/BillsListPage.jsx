@@ -45,6 +45,7 @@ export default function BillsListPage() {
   const [message, setMessage] = useState("");
   const [sendingStudentId, setSendingStudentId] = useState(null);
   const [sendingSelectedBills, setSendingSelectedBills] = useState(false);
+  const [removingSelectedBills, setRemovingSelectedBills] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState("");
   const [detailSelectedBillIds, setDetailSelectedBillIds] = useState([]);
   const [exportOpen, setExportOpen] = useState(false);
@@ -62,7 +63,6 @@ export default function BillsListPage() {
   });
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
   const canManageBills = user?.role === "admin" || user?.role === "bendahara";
   const { confirm } = useUI();
 
@@ -209,6 +209,14 @@ export default function BillsListPage() {
     () => groupedRows.find((row) => String(row.id) === String(detailStudentId)) || null,
     [groupedRows, detailStudentId],
   );
+  const detailUnpaidBillIds = useMemo(
+    () => (detailRow ? detailRow.bills.filter((bill) => bill.status !== "paid").map((bill) => Number(bill.id)) : []),
+    [detailRow],
+  );
+  const detailAllUnpaidSelected =
+    detailUnpaidBillIds.length > 0 && detailSelectedBillIds.length === detailUnpaidBillIds.length;
+  const detailSomeUnpaidSelected =
+    detailSelectedBillIds.length > 0 && detailSelectedBillIds.length < detailUnpaidBillIds.length;
 
   useEffect(() => {
     const available = new Set(groupedRows.map((row) => String(row.id)));
@@ -229,6 +237,10 @@ export default function BillsListPage() {
   }, [detailRow?.id]);
 
   const removeBill = async (billId) => {
+    if (!canManageBills) {
+      setMessage("Anda tidak memiliki izin untuk menghapus tagihan");
+      return;
+    }
     const confirmed = await confirm({
       title: "Hapus tagihan",
       description: "Perhatikan tagihan yang sudah punya transaksi atau bukti bayar.",
@@ -288,7 +300,46 @@ export default function BillsListPage() {
     }
   };
 
+  const removeSelectedBills = async () => {
+    if (!canManageBills) {
+      setMessage("Anda tidak memiliki izin untuk menghapus tagihan");
+      return;
+    }
+    if (!detailRow) return;
+    if (detailSelectedBillIds.length === 0) {
+      setMessage("Pilih minimal satu tagihan/pos yang ingin dihapus");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "Hapus tagihan terpilih",
+      description: `${detailSelectedBillIds.length} tagihan akan dihapus. Perhatikan tagihan yang sudah punya transaksi atau bukti bayar.`,
+      confirmLabel: "Ya, hapus",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
+    try {
+      setRemovingSelectedBills(true);
+      const { data } = await fetchRoute("admin/bills", {
+        method: "DELETE",
+        data: { ids: detailSelectedBillIds.map((id) => Number(id)) },
+      });
+      setMessage(data?.message || "Tagihan terpilih berhasil dihapus");
+      setDetailSelectedBillIds([]);
+      await load();
+    } catch (error) {
+      setMessage(error?.response?.data?.message || "Gagal menghapus tagihan terpilih");
+    } finally {
+      setRemovingSelectedBills(false);
+    }
+  };
+
   const removeBulkByStudent = async () => {
+    if (!canManageBills) {
+      setMessage("Anda tidak memiliki izin untuk menghapus tagihan");
+      return;
+    }
     if (selectedStudentIds.length === 0) return;
 
     const selectedSet = new Set(selectedStudentIds.map((id) => String(id)));
@@ -417,9 +468,9 @@ export default function BillsListPage() {
         <div className={`grid gap-3 ${canManageBills ? "xl:grid-cols-[484px_minmax(0,1fr)]" : "grid-cols-1"}`}>
           {canManageBills && (
             <div className="card p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Tindakan Massal</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Aksi Massal</p>
               <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:overflow-x-auto">
-                {isAdmin ? (
+                {canManageBills ? (
                   <>
                     <button
                       type="button"
@@ -521,7 +572,7 @@ export default function BillsListPage() {
 
         <Table
           columns={[
-            ...(isAdmin
+            ...(canManageBills
               ? [
                   {
                     key: "select",
@@ -603,7 +654,7 @@ export default function BillsListPage() {
 
       <ModalFrame
         open={Boolean(detailStudentId && detailRow)}
-        title={detailRow ? `Detail Tagihan - ${detailRow.student_name}` : "Detail Tagihan"}
+        title="Detail Tagihan"
         description="Rincian tagihan per siswa"
         maxWidthClass="max-w-5xl"
         showIcon={false}
@@ -611,7 +662,7 @@ export default function BillsListPage() {
       >
         {detailRow ? (
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
                 <p className="text-xs text-slate-500">Siswa</p>
                 <p className="font-semibold text-slate-900">{detailRow.student_name}</p>
@@ -625,12 +676,6 @@ export default function BillsListPage() {
                 <p className="font-semibold text-slate-900">{detailRow.academic_year_label}</p>
               </div>
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
-                <p className="text-xs text-slate-500">Status</p>
-                <p>
-                  <span className={detailRow.status_class}>{detailRow.status_label}</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 p-3 text-sm">
                 <p className="text-xs text-slate-500">Total Tagihan</p>
                 <p className="font-semibold text-slate-900">{formatCurrency(detailRow.total_amount)}</p>
               </div>
@@ -640,37 +685,27 @@ export default function BillsListPage() {
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {canManageBills ? <th className="px-3 py-2 text-center font-semibold text-slate-700">Pilih</th> : null}
+                    {canManageBills ? (
+                      <th className="px-3 py-2 text-center font-semibold text-slate-700">
+                        <input
+                          type="checkbox"
+                          aria-label="Pilih semua tagihan belum lunas"
+                          ref={(input) => {
+                            if (input) input.indeterminate = detailSomeUnpaidSelected;
+                          }}
+                          checked={detailAllUnpaidSelected}
+                          onChange={(e) => setDetailSelectedBillIds(e.target.checked ? detailUnpaidBillIds : [])}
+                        />
+                      </th>
+                    ) : null}
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Tagihan</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Periode</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">TA</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Jatuh Tempo</th>
                     <th className="px-3 py-2 text-right font-semibold text-slate-700">Nominal</th>
                     <th className="px-3 py-2 text-left font-semibold text-slate-700">Status</th>
-                    {isAdmin ? <th className="px-3 py-2 text-left font-semibold text-slate-700">Aksi</th> : null}
+                    {canManageBills ? <th className="px-3 py-2 text-left font-semibold text-slate-700">Aksi</th> : null}
                   </tr>
-                  {canManageBills ? (
-                    <tr>
-                      <th className="px-3 py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={
-                            detailRow.bills.filter((bill) => bill.status !== "paid").length > 0 &&
-                            detailSelectedBillIds.length === detailRow.bills.filter((bill) => bill.status !== "paid").length
-                          }
-                          onChange={(e) => {
-                            const unpaidIds = detailRow.bills
-                              .filter((bill) => bill.status !== "paid")
-                              .map((bill) => Number(bill.id));
-                            setDetailSelectedBillIds(e.target.checked ? unpaidIds : []);
-                          }}
-                        />
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-slate-500" colSpan={isAdmin ? 7 : 6}>
-                        Pilih semua tagihan belum lunas
-                      </th>
-                    </tr>
-                  ) : null}
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {detailRow.bills.map((bill) => (
@@ -701,7 +736,7 @@ export default function BillsListPage() {
                           {bill.status === "paid" ? "Lunas" : "Belum Lunas"}
                         </span>
                       </td>
-                      {isAdmin ? (
+                      {canManageBills ? (
                         <td className="px-3 py-2">
                           <button className="btn-danger px-3 py-2" onClick={() => removeBill(bill.id)}>
                             <Trash2 size={16} />
@@ -716,14 +751,28 @@ export default function BillsListPage() {
 
             <div className="modal-actions">
               {canManageBills ? (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={sendSelectedBillsReminder}
-                  disabled={sendingSelectedBills || detailSelectedBillIds.length === 0}
-                >
-                  {sendingSelectedBills ? "Mengirim..." : `Kirim Pos Terpilih (${detailSelectedBillIds.length})`}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn-danger px-3 py-2"
+                    title="Hapus tagihan terpilih"
+                    aria-label="Hapus tagihan terpilih"
+                    onClick={removeSelectedBills}
+                    disabled={removingSelectedBills || sendingSelectedBills || detailSelectedBillIds.length === 0}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary px-3 py-2"
+                    title="Kirim pos terpilih"
+                    aria-label="Kirim pos terpilih"
+                    onClick={sendSelectedBillsReminder}
+                    disabled={sendingSelectedBills || removingSelectedBills || detailSelectedBillIds.length === 0}
+                  >
+                    <Send size={16} />
+                  </button>
+                </>
               ) : null}
               <button type="button" className="btn-secondary" onClick={() => setDetailStudentId("")}>
                 Tutup

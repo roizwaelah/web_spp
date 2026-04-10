@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ConfirmModal from "../components/ConfirmModal";
 import ToastViewport from "../components/ToastViewport";
+import { getCrudLoadingSnapshot, subscribeCrudLoading } from "../loadingStore";
 
 const UIContext = createContext(null);
 
@@ -15,6 +16,7 @@ export function UIProvider({ children }) {
     variant: "default",
   });
   const confirmResolverRef = useRef(null);
+  const isCrudLoading = useSyncExternalStore(subscribeCrudLoading, getCrudLoadingSnapshot, () => false);
 
   const dismissToast = useCallback((id) => {
     setToasts((current) => current.filter((item) => item.id !== id));
@@ -78,6 +80,15 @@ export function UIProvider({ children }) {
   return (
     <UIContext.Provider value={value}>
       {children}
+      {isCrudLoading ? (
+        <div className="loading-modal-shell" role="status" aria-live="polite" aria-label="Memproses data">
+          <div className="loading-modal-backdrop" />
+          <div className="loading-modal-card">
+            <div className="loading-spinner" aria-hidden="true" />
+            <p className="loading-modal-text">Tunggu Sebentar Ya...</p>
+          </div>
+        </div>
+      ) : null}
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       <ConfirmModal
         open={confirmState.open}

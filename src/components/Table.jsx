@@ -25,7 +25,7 @@ export default function Table({ columns, rows, emptyText = 'Belum ada data', str
               </tr>
             ) : safeRows.map((row, idx) => (
               <tr
-                key={row.id || idx}
+                key={row._key ?? row.key ?? `${row.id ?? "row"}-${idx}`}
                 className={
                   striped
                     ? `${idx % 2 === 0 ? "bg-white" : "bg-slate-50/85"} hover:bg-sky-50/70`
@@ -48,3 +48,4 @@ export default function Table({ columns, rows, emptyText = 'Belum ada data', str
     </div>
   )
 }
+

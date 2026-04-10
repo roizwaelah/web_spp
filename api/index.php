@@ -99,6 +99,53 @@ if (!is_dir(API_ROOT . '/storage/payment-proofs')) @mkdir(API_ROOT . '/storage/p
 if (!is_dir(API_ROOT . '/storage/receipts')) @mkdir(API_ROOT . '/storage/receipts', 0777, true);
 if (!is_dir(API_ROOT . '/public/receipts')) @mkdir(API_ROOT . '/public/receipts', 0777, true);
 
+$billTableExists = false;
+try {
+    $tableStmt = $pdo->query("SHOW TABLES LIKE 'bills'");
+    $billTableExists = (bool) ($tableStmt && $tableStmt->fetchColumn());
+} catch (Throwable $e) {
+    $billTableExists = false;
+}
+
+if ($billTableExists) {
+    $hasBillAcademicYearColumn = false;
+    try {
+        $colStmt = $pdo->query("SHOW COLUMNS FROM bills LIKE 'academic_year_id'");
+        $hasBillAcademicYearColumn = (bool) ($colStmt && $colStmt->fetch());
+    } catch (Throwable $e) {
+        $hasBillAcademicYearColumn = false;
+    }
+
+    if (!$hasBillAcademicYearColumn) {
+        try {
+            $pdo->exec("ALTER TABLE bills ADD COLUMN academic_year_id INT NULL AFTER student_id");
+            $hasBillAcademicYearColumn = true;
+        } catch (Throwable $e) {
+            // Abaikan jika kolom sudah dibuat di request lain.
+        }
+    }
+
+    if ($hasBillAcademicYearColumn) {
+        try {
+            $needsBackfill = (int) scalar("SELECT COUNT(*) FROM bills WHERE academic_year_id IS NULL");
+            if ($needsBackfill > 0) {
+                $pdo->exec("UPDATE bills b JOIN students s ON s.id = b.student_id SET b.academic_year_id = s.academic_year_id WHERE b.academic_year_id IS NULL");
+            }
+        } catch (Throwable $e) {
+            // Abaikan error backfill sementara.
+        }
+
+        try {
+            $idxStmt = $pdo->query("SHOW INDEX FROM bills WHERE Key_name = 'idx_bills_academic_year_id'");
+            $hasIdx = (bool) ($idxStmt && $idxStmt->fetch());
+            if (!$hasIdx) {
+                $pdo->exec("ALTER TABLE bills ADD INDEX idx_bills_academic_year_id (academic_year_id)");
+            }
+        } catch (Throwable $e) {
+            // Abaikan jika index belum bisa dibuat saat ini.
+        }
+    }
+}
 $pdo->exec("CREATE TABLE IF NOT EXISTS user_menu_access (
     user_id INT NOT NULL,
     menu_key VARCHAR(50) NOT NULL,
@@ -114,3 +161,4 @@ require API_ROOT . '/routes/admin_system.php';
 require API_ROOT . '/routes/parent.php';
 
 response(['message' => 'Route tidak ditemukan'], 404);
+

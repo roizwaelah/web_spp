@@ -295,7 +295,7 @@ function receipt_row_by_reference(int $studentId, string $referenceNo): ?array
         LEFT JOIN bills b ON b.id=t.bill_id
         JOIN students s ON s.id=t.student_id
         LEFT JOIN classes c ON c.id=s.class_id
-        LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+        LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
         WHERE t.reference_no = ? AND t.student_id = ?
         ORDER BY t.id ASC");
     $stmtRows->execute([$referenceNo, $studentId]);

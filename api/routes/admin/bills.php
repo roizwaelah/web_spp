@@ -789,7 +789,7 @@ if ($route === 'admin/bills/remind-selected' && $method === 'POST') {
 
 if ($route === 'admin/bills' && $method === 'DELETE') {
     $user = require_auth();
-    validate_menu_access($user, ['bills'], ['admin']);
+    validate_menu_access($user, ['bills'], ['admin', 'bendahara']);
     $input = json_input();
     $ids = [];
     if (isset($input['ids']) && is_array($input['ids'])) {
@@ -893,16 +893,46 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
     $user = require_auth();
     validate_menu_access($user, ['bills']);
     $input = json_input();
-    $period = $input['period'] ?? date('Y-m');
-    if (!preg_match('/^\d{4}-\d{2}$/', (string) $period)) {
+    $periodStart = (string) ($input['period_start'] ?? $input['period'] ?? date('Y-m'));
+    $periodEnd = (string) ($input['period_end'] ?? $periodStart);
+    if (!preg_match('/^\d{4}-\d{2}$/', $periodStart) || !preg_match('/^\d{4}-\d{2}$/', $periodEnd)) {
         response(['message' => 'Format periode harus YYYY-MM'], 422);
+    }
+    if ($periodEnd < $periodStart) {
+        response(['message' => 'Bulan akhir tidak boleh lebih kecil dari bulan mulai'], 422);
+    }
+    $startDate = DateTime::createFromFormat('Y-m-d', $periodStart . '-01');
+    $endDate = DateTime::createFromFormat('Y-m-d', $periodEnd . '-01');
+    if (!$startDate || !$endDate) {
+        response(['message' => 'Periode tidak valid'], 422);
+    }
+    $periods = [];
+    $cursor = clone $startDate;
+    while ($cursor <= $endDate) {
+        $periods[] = $cursor->format('Y-m');
+        $cursor->modify('+1 month');
+        if (count($periods) > 240) {
+            response(['message' => 'Rentang periode terlalu panjang'], 422);
+        }
     }
     if (!empty($input['due_date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $input['due_date'])) {
         response(['message' => 'Format jatuh tempo harus YYYY-MM-DD'], 422);
     }
-    $financePostId = isset($input['finance_post_id']) ? (int) $input['finance_post_id'] : 0;
-    if ($financePostId > 0 && !scalar('SELECT id FROM finance_posts WHERE id = ? LIMIT 1', [$financePostId])) {
-        response(['message' => 'Pos keuangan tidak ditemukan'], 404);
+    $financePostIds = [];
+    if (isset($input['finance_post_ids']) && is_array($input['finance_post_ids'])) {
+        foreach ($input['finance_post_ids'] as $rawId) {
+            $id = (int) $rawId;
+            if ($id > 0) $financePostIds[$id] = $id;
+        }
+    } elseif (isset($input['finance_post_id'])) {
+        $id = (int) $input['finance_post_id'];
+        if ($id > 0) $financePostIds[$id] = $id;
+    }
+    $financePostIds = array_values($financePostIds);
+    foreach ($financePostIds as $financePostId) {
+        if (!scalar('SELECT id FROM finance_posts WHERE id = ? LIMIT 1', [$financePostId])) {
+            response(['message' => 'Pos keuangan tidak ditemukan'], 404);
+        }
     }
     $studentFilter = $input['student_id'] ?? null;
     if ($studentFilter && !scalar('SELECT id FROM students WHERE id = ? LIMIT 1', [$studentFilter])) {
@@ -919,8 +949,8 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
 
     foreach ($students as $student) {
         $posts = finance_posts_for_student((int) $student['id']);
-        if ($financePostId > 0) {
-            $posts = array_values(array_filter($posts, static fn($post) => (int) ($post['id'] ?? 0) === $financePostId));
+        if ($financePostIds) {
+            $posts = array_values(array_filter($posts, static fn($post) => in_array((int) ($post['id'] ?? 0), $financePostIds, true)));
         }
 
         foreach ($posts as $post) {
@@ -928,16 +958,19 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
                 $existsPaid = scalar('SELECT COUNT(*) FROM bills WHERE student_id = ? AND finance_post_id = ?', [$student['id'], $post['id']]);
                 if ($existsPaid) continue;
             }
-            $exists = scalar('SELECT COUNT(*) FROM bills WHERE student_id = ? AND finance_post_id = ? AND period = ?', [$student['id'], $post['id'], $period]);
-            if ($exists) continue;
-            $stmt = $pdo->prepare("INSERT INTO bills (student_id, academic_year_id, finance_post_id, bill_name, period, due_date, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'unpaid', NOW())");
-            $dueDate = !empty($input['due_date']) ? $input['due_date'] : ($period . '-10');
-            $stmt->execute([$student['id'], $student['academic_year_id'] ?? null, $post['id'], $post['name'], $period, $dueDate, $post['amount']]);
-            $created++;
+            foreach ($periods as $period) {
+                $exists = scalar('SELECT COUNT(*) FROM bills WHERE student_id = ? AND finance_post_id = ? AND period = ?', [$student['id'], $post['id'], $period]);
+                if ($exists) continue;
+                $stmt = $pdo->prepare("INSERT INTO bills (student_id, academic_year_id, finance_post_id, bill_name, period, due_date, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'unpaid', NOW())");
+                $dueDate = !empty($input['due_date']) ? $input['due_date'] : ($period . '-10');
+                $stmt->execute([$student['id'], $student['academic_year_id'] ?? null, $post['id'], $post['name'], $period, $dueDate, $post['amount']]);
+                $created++;
+            }
         }
     }
 
-    log_activity((int) $user['id'], 'generate', 'bill', null, 'Generate tagihan periode ' . $period . ' sebanyak ' . $created);
+    $periodLabel = $periodStart === $periodEnd ? $periodStart : ($periodStart . ' s/d ' . $periodEnd);
+    log_activity((int) $user['id'], 'generate', 'bill', null, 'Generate tagihan periode ' . $periodLabel . ' sebanyak ' . $created);
     response(['message' => "Generate selesai. {$created} tagihan dibuat. Notifikasi otomatis akan dikirim pada tanggal 5 dan 15 jika masih belum dibayar."]);
 }
 

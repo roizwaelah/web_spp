@@ -79,6 +79,10 @@ function normalize_menu_access(array $menuKeys): array {
 
 function user_menu_access(int $userId, string $role): array {
     if (!in_array($role, ['admin', 'bendahara'], true)) return [];
+
+    // Admin selalu memiliki akses penuh agar tidak terkunci oleh data menu_access lama.
+    if ($role === 'admin') return default_menu_access_for_role('admin');
+
     try {
         $stmt = db()->prepare('SELECT menu_key FROM user_menu_access WHERE user_id = ? ORDER BY menu_key ASC');
         $stmt->execute([$userId]);
@@ -120,3 +124,4 @@ function require_auth($role = null): array {
     if (is_array($role) && !in_array($user['role'], $role, true)) response(['message' => 'Forbidden'], 403);
     return $user;
 }
+

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { beginCrudLoading, endCrudLoading } from "./loadingStore";
 
 export const apiBase =
   import.meta.env.VITE_API_URL || "/api/index.php?route=";
@@ -10,8 +11,26 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  const method = String(config.method || "get").toUpperCase();
+  const skipLoading = Boolean(config.skipLoading);
+  const trackRequestLoading = !skipLoading && ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method);
+  config._trackRequestLoading = trackRequestLoading;
+  if (trackRequestLoading) beginCrudLoading();
+
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => {
+    if (response.config?._trackRequestLoading) endCrudLoading();
+    return response;
+  },
+  (error) => {
+    if (error.config?._trackRequestLoading) endCrudLoading();
+    return Promise.reject(error);
+  },
+);
 
 export const fetchRoute = (route, options = {}) =>
   api({ url: route, ...options });
