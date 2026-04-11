@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ConfirmModal from "../components/ConfirmModal";
 import ToastViewport from "../components/ToastViewport";
 import { getCrudLoadingSnapshot, subscribeCrudLoading } from "../loadingStore";
@@ -17,6 +17,30 @@ export function UIProvider({ children }) {
   });
   const confirmResolverRef = useRef(null);
   const isCrudLoading = useSyncExternalStore(subscribeCrudLoading, getCrudLoadingSnapshot, () => false);
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  const loadingTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (isCrudLoading) {
+      if (loadingTimerRef.current) window.clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = window.setTimeout(() => {
+        setShowLoadingModal(true);
+      }, 180);
+      return () => {
+        if (loadingTimerRef.current) {
+          window.clearTimeout(loadingTimerRef.current);
+          loadingTimerRef.current = null;
+        }
+      };
+    }
+
+    if (loadingTimerRef.current) {
+      window.clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+    setShowLoadingModal(false);
+    return undefined;
+  }, [isCrudLoading]);
 
   const dismissToast = useCallback((id) => {
     setToasts((current) => current.filter((item) => item.id !== id));
@@ -80,7 +104,7 @@ export function UIProvider({ children }) {
   return (
     <UIContext.Provider value={value}>
       {children}
-      {isCrudLoading ? (
+      {showLoadingModal ? (
         <div className="loading-modal-shell" role="status" aria-live="polite" aria-label="Memproses data">
           <div className="loading-modal-backdrop" />
           <div className="loading-modal-card">

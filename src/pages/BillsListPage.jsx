@@ -1,5 +1,5 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import { Download, Eye, Plus, Send, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCheck, Download, Eye, Plus, Send, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
@@ -442,30 +442,139 @@ export default function BillsListPage() {
   return (
     <Layout
       title="Daftar Tagihan"
-      subtitle="Daftar ditampilkan per siswa. Gunakan tombol detail untuk melihat rincian tagihan per siswa."
+      subtitle="Gunakan tombol detail untuk melihat rincian tagihan per siswa."
       actions={
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full justify-end">
           <button
-            className="btn-secondary"
-            onClick={() => navigate("/admin/pembayaran/list")}
-            onMouseEnter={() => prefetchRoute("/admin/pembayaran/list")}
-            onFocus={() => prefetchRoute("/admin/pembayaran/list")}
-          >
-            Pembayaran
-          </button>
-          <button
-            className="btn-primary"
+            type="button"
+            className="btn-primary shrink-0 px-3"
             onClick={() => navigate("/admin/tagihan/edit")}
             onMouseEnter={() => prefetchRoute("/admin/tagihan/edit")}
             onFocus={() => prefetchRoute("/admin/tagihan/edit")}
+            title="Buat tagihan"
+            aria-label="Buat tagihan"
           >
-            <Plus size={18} /> Buat tagihan
+            <Plus size={18} />
+            <span>Buat tagihan</span>
           </button>
         </div>
       }
     >
       <div className="space-y-4">
-        <div className={`grid gap-3 ${canManageBills ? "xl:grid-cols-[484px_minmax(0,1fr)]" : "grid-cols-1"}`}>
+        <div className="space-y-3 md:hidden">
+          <div className="card p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Filter Tagihan</p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <select
+                className="input"
+                value={filter.status}
+                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+              >
+                <option value="">Semua status</option>
+                <option value="unpaid">Belum lunas</option>
+                <option value="paid">Lunas</option>
+              </select>
+              <select
+                className="input"
+                value={filter.class_id}
+                onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
+              >
+                <option value="">Semua kelas</option>
+                {sortedClassOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input"
+                value={filter.academic_year_id}
+                onChange={(e) => setFilter({ ...filter, academic_year_id: e.target.value, student_id: "" })}
+              >
+                <option value="">Semua tahun ajaran</option>
+                {(meta.years || []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input"
+                value={filter.student_id}
+                disabled={studentOptions.length === 0}
+                onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
+              >
+                <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
+                {studentOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} - {item.nis}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {canManageBills && (
+            <div className="card p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Aksi Massal</p>
+              <div className="grid grid-cols-4 gap-2">
+                {canManageBills ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-secondary w-full justify-center px-0"
+                      onClick={() => setSelectedStudentIds(groupedRows.map((row) => String(row.id)))}
+                      disabled={groupedRows.length === 0 || allSelected}
+                      title="Pilih semua"
+                      aria-label="Pilih semua"
+                    >
+                      <CheckCheck size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary w-full justify-center px-0"
+                      onClick={() => setSelectedStudentIds([])}
+                      disabled={selectedStudentIds.length === 0}
+                      title="Batal pilih"
+                      aria-label="Batal pilih"
+                    >
+                      <X size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger w-full justify-center px-0"
+                      onClick={removeBulkByStudent}
+                      disabled={selectedStudentIds.length === 0}
+                      title={`Hapus terpilih (${selectedStudentIds.length})`}
+                      aria-label={`Hapus terpilih (${selectedStudentIds.length})`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn-primary w-full justify-center px-0"
+                  onClick={() => {
+                    const postIds = (meta.finance_posts || []).map((item) => Number(item.id)).filter((id) => id > 0);
+                    setExportFilter((current) => ({
+                      ...current,
+                      month: current.month || defaultMonth,
+                      finance_post_ids: current.finance_post_ids.length > 0 ? current.finance_post_ids : postIds,
+                    }));
+                    setExportOpen(true);
+                  }}
+                  title="Export"
+                  aria-label="Export"
+                >
+                  <Download size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={`hidden gap-3 md:grid ${canManageBills ? "xl:grid-cols-[484px_minmax(0,1fr)]" : "grid-cols-1"}`}>
           {canManageBills && (
             <div className="card p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Aksi Massal</p>
@@ -570,86 +679,160 @@ export default function BillsListPage() {
           </div>
         </div>
 
-        <Table
-          columns={[
-            ...(canManageBills
-              ? [
-                  {
-                    key: "select",
-                    title: (
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={(e) =>
-                          setSelectedStudentIds(e.target.checked ? groupedRows.map((row) => String(row.id)) : [])
-                        }
-                      />
-                    ),
-                    headerClassName: "w-0 whitespace-nowrap",
-                    cellClassName: "w-0 whitespace-nowrap",
-                    render: (row) => (
-                      <input
-                        type="checkbox"
-                        checked={selectedStudentIds.includes(String(row.id))}
-                        onChange={(e) =>
-                          setSelectedStudentIds((current) =>
-                            e.target.checked
-                              ? [...new Set([...current, String(row.id)])]
-                              : current.filter((id) => String(id) !== String(row.id)),
-                          )
-                        }
-                      />
-                    ),
-                  },
-                ]
-              : []),
-            { key: "student_name", title: "Siswa" },
-            { key: "class_name", title: "Kelas" },
-            { key: "period_label", title: "Periode" },
-            {
-              key: "due_date",
-              title: "Jatuh Tempo",
-              render: (row) => (row.due_date ? formatDate(row.due_date) : "-"),
-            },
-            {
-              key: "total_amount",
-              title: "Total Tagihan",
-              render: (row) => formatCurrency(row.total_amount),
-            },
-            {
-              key: "status_label",
-              title: "Status",
-              render: (row) => <span className={row.status_class}>{row.status_label}</span>,
-            },
-            {
-              key: "actions",
-              title: "Aksi",
-              render: (row) => (
-                <div className="flex items-center gap-2">
-                  {canManageBills ? (
+        <div className="space-y-3 md:hidden">
+          {groupedRows.length === 0 ? (
+            <div className="card p-4 text-sm text-slate-500">Belum ada data tagihan</div>
+          ) : (
+            <ol className="space-y-3">
+              {groupedRows.map((row, index) => {
+                const rowSelected = selectedStudentIds.includes(String(row.id));
+                return (
+                  <li key={row.id} className="card p-3">
+                    <div className="flex items-start gap-3">
+                      <span className="pt-0.5 text-sm font-semibold text-slate-500">{index + 1}.</span>
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">{row.student_name}</p>
+                            <p className="text-xs text-slate-500">{row.class_name}</p>
+                          </div>
+                          <span className={row.status_class}>{row.status_label}</span>
+                        </div>
+                        <div className="space-y-1 text-xs text-slate-600">
+                          <p>Periode: {row.period_label}</p>
+                          <p>Jatuh tempo: {row.due_date ? formatDate(row.due_date) : "-"}</p>
+                          <p className="text-sm font-semibold text-slate-900">{formatCurrency(row.total_amount)}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
+                          {canManageBills ? (
+                            <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                              <input
+                                type="checkbox"
+                                checked={rowSelected}
+                                onChange={(e) =>
+                                  setSelectedStudentIds((current) =>
+                                    e.target.checked
+                                      ? [...new Set([...current, String(row.id)])]
+                                      : current.filter((id) => String(id) !== String(row.id)),
+                                  )
+                                }
+                              />
+                              Pilih
+                            </label>
+                          ) : (
+                            <span />
+                          )}
+                          <div className="flex items-center gap-2">
+                            {canManageBills ? (
+                              <button
+                                className="btn-secondary px-3 py-2"
+                                title="Kirim semua tagihan"
+                                onClick={() => sendStudentReminder(row.id)}
+                                disabled={sendingStudentId === row.id || row.status_label === "Lunas"}
+                              >
+                                <Send size={16} />
+                              </button>
+                            ) : null}
+                            <button
+                              className="btn-secondary px-3 py-2"
+                              title="Lihat detail"
+                              onClick={() => setDetailStudentId(String(row.id))}
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <Table
+            columns={[
+              ...(canManageBills
+                ? [
+                    {
+                      key: "select",
+                      title: (
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={(e) =>
+                            setSelectedStudentIds(e.target.checked ? groupedRows.map((row) => String(row.id)) : [])
+                          }
+                        />
+                      ),
+                      headerClassName: "w-0 whitespace-nowrap",
+                      cellClassName: "w-0 whitespace-nowrap",
+                      render: (row) => (
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.includes(String(row.id))}
+                          onChange={(e) =>
+                            setSelectedStudentIds((current) =>
+                              e.target.checked
+                                ? [...new Set([...current, String(row.id)])]
+                                : current.filter((id) => String(id) !== String(row.id)),
+                            )
+                          }
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+              { key: "student_name", title: "Siswa" },
+              { key: "class_name", title: "Kelas" },
+              { key: "period_label", title: "Periode" },
+              {
+                key: "due_date",
+                title: "Jatuh Tempo",
+                render: (row) => (row.due_date ? formatDate(row.due_date) : "-"),
+              },
+              {
+                key: "total_amount",
+                title: "Total Tagihan",
+                render: (row) => formatCurrency(row.total_amount),
+              },
+              {
+                key: "status_label",
+                title: "Status",
+                render: (row) => <span className={row.status_class}>{row.status_label}</span>,
+              },
+              {
+                key: "actions",
+                title: "Aksi",
+                render: (row) => (
+                  <div className="flex items-center gap-2">
+                    {canManageBills ? (
+                      <button
+                        className="btn-secondary px-3 py-2"
+                        title="Kirim semua tagihan"
+                        onClick={() => sendStudentReminder(row.id)}
+                        disabled={sendingStudentId === row.id || row.status_label === "Lunas"}
+                      >
+                        <Send size={16} />
+                      </button>
+                    ) : null}
                     <button
                       className="btn-secondary px-3 py-2"
-                      title="Kirim semua tagihan"
-                      onClick={() => sendStudentReminder(row.id)}
-                      disabled={sendingStudentId === row.id || row.status_label === "Lunas"}
+                      title="Lihat detail"
+                      onClick={() => setDetailStudentId(String(row.id))}
                     >
-                      <Send size={16} />
+                      <Eye size={16} />
                     </button>
-                  ) : null}
-                  <button
-                    className="btn-secondary px-3 py-2"
-                    title="Lihat detail"
-                    onClick={() => setDetailStudentId(String(row.id))}
-                  >
-                    <Eye size={16} />
-                  </button>
-                </div>
-              ),
-            },
-          ]}
-          rows={groupedRows}
-          emptyText="Belum ada data tagihan"
-        />
+                  </div>
+                ),
+              },
+            ]}
+            rows={groupedRows}
+            emptyText="Belum ada data tagihan"
+          />
+        </div>
       </div>
 
       <ModalFrame
@@ -662,8 +845,8 @@ export default function BillsListPage() {
       >
         {detailRow ? (
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 p-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <div className="col-span-2 rounded-xl border border-slate-200 p-3 text-sm xl:col-span-1">
                 <p className="text-xs text-slate-500">Siswa</p>
                 <p className="font-semibold text-slate-900">{detailRow.student_name}</p>
               </div>
@@ -671,7 +854,7 @@ export default function BillsListPage() {
                 <p className="text-xs text-slate-500">Kelas</p>
                 <p className="font-semibold text-slate-900">{detailRow.class_name}</p>
               </div>
-              <div className="rounded-xl border border-slate-200 p-3 text-sm">
+              <div className="hidden rounded-xl border border-slate-200 p-3 text-sm xl:block">
                 <p className="text-xs text-slate-500">Tahun Ajaran Tagihan</p>
                 <p className="font-semibold text-slate-900">{detailRow.academic_year_label}</p>
               </div>
@@ -681,7 +864,73 @@ export default function BillsListPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="space-y-3 md:hidden">
+              {canManageBills ? (
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                    <input
+                      type="checkbox"
+                      aria-label="Pilih semua tagihan belum lunas"
+                      ref={(input) => {
+                        if (input) input.indeterminate = detailSomeUnpaidSelected;
+                      }}
+                      checked={detailAllUnpaidSelected}
+                      onChange={(e) => setDetailSelectedBillIds(e.target.checked ? detailUnpaidBillIds : [])}
+                    />
+                    Pilih semua belum lunas
+                  </label>
+                </div>
+              ) : null}
+              <ol className="space-y-3">
+                {detailRow.bills.map((bill, index) => (
+                  <li key={bill.id} className="rounded-xl border border-slate-200 p-3">
+                    <div className="flex items-start gap-3">
+                      <span className="pt-0.5 text-sm font-semibold text-slate-500">{index + 1}.</span>
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="truncate text-sm font-semibold text-slate-900">{bill.bill_name}</p>
+                          <p className="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(bill.amount)}</p>
+                        </div>
+                        <p className="text-xs text-slate-600">
+                          {bill.period || "-"}
+                          <span className="mx-1 text-yellow-500">|</span>
+                          {bill.academic_year_name || "-"}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Jatuh Tempo: {bill.due_date ? formatDate(bill.due_date) : "-"}
+                        </p>
+                        <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
+                          <span className={bill.status === "paid" ? "badge-green" : "badge-amber"}>
+                            {bill.status === "paid" ? "Lunas" : "Belum Lunas"}
+                          </span>
+                          {canManageBills ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                disabled={bill.status === "paid"}
+                                checked={detailSelectedBillIds.includes(Number(bill.id))}
+                                onChange={(e) =>
+                                  setDetailSelectedBillIds((current) =>
+                                    e.target.checked
+                                      ? [...new Set([...current, Number(bill.id)])]
+                                      : current.filter((id) => id !== Number(bill.id)),
+                                  )
+                                }
+                              />
+                              <button className="btn-danger px-3 py-2" onClick={() => removeBill(bill.id)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
@@ -857,6 +1106,7 @@ export default function BillsListPage() {
     </Layout>
   );
 }
+
 
 
 

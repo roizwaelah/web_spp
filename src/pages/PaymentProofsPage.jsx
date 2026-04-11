@@ -199,88 +199,162 @@ export default function PaymentProofsPage() {
             </select>
           </div>
         </div>
-        <Table
-          columns={[
-            { key: "student_name", title: "Siswa" },
-            { key: "class_name", title: "Kelas" },
-            { key: "bill_name", title: "Tagihan" },
-            { key: "period", title: "Periode" },
-            {
-              key: "amount",
-              title: "Nominal",
-              render: (row) => formatCurrency(row.amount),
-            },
-            {
-              key: "proof_file_name",
-              title: "File Bukti",
-              render: (row) => (
-                <button className="btn-secondary px-3 py-2" onClick={() => previewProof(row.id)}>
-                  <Eye size={16} /> Lihat
-                </button>
-              ),
-            },
-            {
-              key: "status",
-              title: "Status",
-              render: (row) => (
-                <span
-                  className={
-                    row.status === "approved"
-                      ? "badge-green"
-                      : row.status === "rejected"
-                        ? "badge-red"
-                        : "badge-amber"
-                  }
-                >
-                  {statusLabel(row.status)}
-                </span>
-              ),
-            },
-            {
-              key: "bill_status",
-              title: "Status Tagihan",
-              render: (row) => (
-                <span className={row.bill_status === "paid" ? "badge-green" : "badge-amber"}>
-                  {row.bill_status === "paid" ? "Lunas" : "Belum Lunas"}
-                </span>
-              ),
-            },
-            {
-              key: "actions",
-              title: "Aksi",
-              render: (row) => {
-                if (row.status === "pending") {
-                  return (
-                    <div className="flex gap-2">
-                      <button className="btn-primary px-3 py-2" onClick={() => openReviewModal(row.id, "approved")}>
-                        <CheckCircle2 size={16} /> Setujui
-                      </button>
-                      <button className="btn-danger px-3 py-2" onClick={() => openReviewModal(row.id, "rejected")}>
-                        <XCircle size={16} /> Tolak
-                      </button>
-                      {isAdmin && (
-                        <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
-                          <Trash2 size={16} /> Hapus
+        <div className="space-y-3 md:hidden">
+          {rows.length > 0 ? (
+            <ol className="space-y-3">
+              {rows.map((row, index) => (
+                <li key={row.id} className="card p-3">
+                  <div className="flex items-start gap-3">
+                    <span className="pt-0.5 text-sm font-semibold text-slate-500">{index + 1}.</span>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-900">{row.student_name || "-"}</p>
+                        <p className="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(row.amount)}</p>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        {row.class_name || "-"}
+                        <span className="mx-1 text-yellow-500">|</span>
+                        {row.bill_name || "-"}
+                      </p>
+                      <p className="text-xs text-slate-600">Periode: {row.period || "-"}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={
+                            row.status === "approved"
+                              ? "badge-green"
+                              : row.status === "rejected"
+                                ? "badge-red"
+                                : "badge-amber"
+                          }
+                        >
+                          {statusLabel(row.status)}
+                        </span>
+                        <span className={row.bill_status === "paid" ? "badge-green" : "badge-amber"}>
+                          {row.bill_status === "paid" ? "Lunas" : "Belum Lunas"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button className="btn-secondary px-3 py-2" onClick={() => previewProof(row.id)}>
+                          <Eye size={16} /> Lihat
                         </button>
-                      )}
+                        {row.status === "pending" ? (
+                          <>
+                            <button className="btn-primary px-3 py-2" onClick={() => openReviewModal(row.id, "approved")}>
+                              <CheckCircle2 size={16} /> Setujui
+                            </button>
+                            <button className="btn-danger px-3 py-2" onClick={() => openReviewModal(row.id, "rejected")}>
+                              <XCircle size={16} /> Tolak
+                            </button>
+                            {isAdmin ? (
+                              <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
+                                <Trash2 size={16} /> Hapus
+                              </button>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {isAdmin && row.status === "rejected" ? (
+                          <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
+                            <Trash2 size={16} /> Hapus
+                          </button>
+                        ) : null}
+                        {row.status !== "pending" && !(isAdmin && row.status === "rejected") ? (
+                          <span className="inline-flex items-center px-2 py-1 text-xs text-slate-500">Sudah direview</span>
+                        ) : null}
+                      </div>
                     </div>
-                  );
-                }
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="card p-4 text-sm text-slate-500">Belum ada bukti pembayaran</div>
+          )}
+        </div>
 
-                if (isAdmin && row.status === "rejected") {
-                  return (
-                    <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
-                      <Trash2 size={16} /> Hapus
-                    </button>
-                  );
-                }
-
-                return <span className="text-sm text-slate-500">Sudah direview</span>;
+        <div className="hidden md:block">
+          <Table
+            columns={[
+              { key: "student_name", title: "Siswa" },
+              { key: "class_name", title: "Kelas" },
+              { key: "bill_name", title: "Tagihan" },
+              { key: "period", title: "Periode" },
+              {
+                key: "amount",
+                title: "Nominal",
+                render: (row) => formatCurrency(row.amount),
               },
-            },
-          ]}
-          rows={rows}
-        />
+              {
+                key: "proof_file_name",
+                title: "File Bukti",
+                render: (row) => (
+                  <button className="btn-secondary px-3 py-2" onClick={() => previewProof(row.id)}>
+                    <Eye size={16} /> Lihat
+                  </button>
+                ),
+              },
+              {
+                key: "status",
+                title: "Status",
+                render: (row) => (
+                  <span
+                    className={
+                      row.status === "approved"
+                        ? "badge-green"
+                        : row.status === "rejected"
+                          ? "badge-red"
+                          : "badge-amber"
+                    }
+                  >
+                    {statusLabel(row.status)}
+                  </span>
+                ),
+              },
+              {
+                key: "bill_status",
+                title: "Status Tagihan",
+                render: (row) => (
+                  <span className={row.bill_status === "paid" ? "badge-green" : "badge-amber"}>
+                    {row.bill_status === "paid" ? "Lunas" : "Belum Lunas"}
+                  </span>
+                ),
+              },
+              {
+                key: "actions",
+                title: "Aksi",
+                render: (row) => {
+                  if (row.status === "pending") {
+                    return (
+                      <div className="flex gap-2">
+                        <button className="btn-primary px-3 py-2" onClick={() => openReviewModal(row.id, "approved")}>
+                          <CheckCircle2 size={16} /> Setujui
+                        </button>
+                        <button className="btn-danger px-3 py-2" onClick={() => openReviewModal(row.id, "rejected")}>
+                          <XCircle size={16} /> Tolak
+                        </button>
+                        {isAdmin && (
+                          <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
+                            <Trash2 size={16} /> Hapus
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (isAdmin && row.status === "rejected") {
+                    return (
+                      <button className="btn-secondary px-3 py-2" onClick={() => remove(row.id)}>
+                        <Trash2 size={16} /> Hapus
+                      </button>
+                    );
+                  }
+
+                  return <span className="text-sm text-slate-500">Sudah direview</span>;
+                },
+              },
+            ]}
+            rows={rows}
+          />
+        </div>
       </div>
 
       <FormModal

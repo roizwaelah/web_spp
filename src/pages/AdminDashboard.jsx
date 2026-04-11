@@ -120,20 +120,8 @@ export default function AdminDashboard() {
   const paidAmount = Number(billingOverview.paid_amount || 0);
   const unpaidAmount = Number(billingOverview.unpaid_amount || 0);
   const donutData = [
-    {
-      key: "paid",
-      name: "Sudah Lunas",
-      value: paidStudents,
-      amount: paidAmount,
-      color: "#65a30d",
-    },
-    {
-      key: "unpaid",
-      name: "Belum Lunas",
-      value: unpaidStudents,
-      amount: unpaidAmount,
-      color: "#dc2626",
-    },
+    { key: "paid", name: "Sudah Lunas", value: paidStudents, amount: paidAmount, color: "#65a30d" },
+    { key: "unpaid", name: "Belum Lunas", value: unpaidStudents, amount: unpaidAmount, color: "#dc2626" },
   ];
   const donutTotal = paidStudents + unpaidStudents;
 
@@ -183,9 +171,9 @@ export default function AdminDashboard() {
   return (
     <Layout
       title={
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
           <span>Dashboard</span>
-          <span className="bg-gradient-to-r from-sky-600 via-blue-600 to-amber-500 bg-clip-text text-2xl font-bold tracking-wide text-transparent">
+          <span className="bg-gradient-to-r from-sky-600 via-blue-600 to-amber-500 bg-clip-text text-xl font-bold tracking-wide text-transparent md:text-2xl">
             MADSC Payment
           </span>
         </div>
@@ -216,7 +204,7 @@ export default function AdminDashboard() {
         </div>
       }
     >
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="Total Siswa"
           value={data.summary?.students || 0}
@@ -270,16 +258,14 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <div className="card w-full p-5 xl:col-span-2 xl:p-5">
+        <div className="card w-full p-4 md:p-5 xl:col-span-2 xl:p-5">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
+            <div className="rounded-xl bg-sky-100 p-2 text-sky-700 md:p-2.5">
               <BarChart3 size={18} />
             </div>
             <div>
-              <h3 className="section-title">
-                Cashflow {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}
-              </h3>
-              <p className="text-[0.82rem] text-slate-500">
+              <h3 className="section-title">Cashflow {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}</h3>
+              <p className="text-xs text-slate-500 md:text-[0.82rem]">
                 Pergerakan pemasukan dan pengeluaran harian bulan berjalan.
               </p>
             </div>
@@ -295,25 +281,26 @@ export default function AdminDashboard() {
                 Belum ada data.
               </div>
             ) : (
-              <div className="mt-1 h-[290px] w-full">
+              <div className="mt-1 h-[235px] w-full md:h-[290px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={dailySeries}
-                    margin={{ top: 8, right: 8, left: 4, bottom: 2 }}
+                    margin={{ top: 8, right: 6, left: 0, bottom: 2 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis
                       dataKey="day"
-                      tick={{ fontSize: 10, fill: "#334155" }}
+                      tick={{ fontSize: 9, fill: "#334155" }}
                       axisLine={{ stroke: "#cbd5e1" }}
                       tickLine={{ stroke: "#cbd5e1" }}
+                      interval={dailySeries.length > 16 ? 2 : 0}
                     />
                     <YAxis
                       tickFormatter={formatYAxis}
                       tick={{ fontSize: 11, fill: "#334155" }}
                       axisLine={{ stroke: "#cbd5e1" }}
                       tickLine={{ stroke: "#cbd5e1" }}
-                      width={58}
+                      width={54}
                     />
                     <Tooltip
                       formatter={(value, name) => [
@@ -346,11 +333,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="card p-5 xl:p-5">
+        <div className="card p-4 md:p-5 xl:p-5">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h3 className="section-title">Komparasi Pembayaran</h3>
-              <p className="text-[0.82rem] text-slate-500">
+              <p className="text-xs text-slate-500 md:text-[0.82rem]">
                 {`Periode ${monthLabel.toUpperCase()} ${yearLabel}`}
               </p>
             </div>
@@ -389,12 +376,9 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+          <div className="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
             {donutData.map((item) => (
-              <div
-                key={item.key}
-                className="rounded-lg border border-slate-200 p-2"
-              >
+              <div key={item.key} className="rounded-lg border border-slate-200 p-2">
                 <div className="mb-1 flex items-center gap-1.5 font-semibold text-slate-700">
                   <span
                     className="inline-block h-2.5 w-2.5 rounded-full"
@@ -403,9 +387,7 @@ export default function AdminDashboard() {
                   {item.name}
                 </div>
                 <div className="text-slate-600">Siswa: {item.value}</div>
-                <div className="text-slate-700">
-                  {formatCurrency(item.amount)}
-                </div>
+                <div className="text-slate-700">{formatCurrency(item.amount)}</div>
               </div>
             ))}
           </div>
@@ -413,91 +395,150 @@ export default function AdminDashboard() {
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <div className="space-y-4">
-          <div className="card p-5 xl:p-5">
+          <div className="card p-4 md:p-5 xl:p-5">
             <div className="mb-3 flex items-center gap-3">
-              <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
+              <div className="rounded-xl bg-sky-100 p-2 text-sky-700 md:p-2.5">
                 <ShieldCheck size={18} />
               </div>
               <div>
                 <h3 className="section-title">Transaksi terbaru</h3>
-                <p className="text-[0.82rem] text-slate-500">
+                <p className="text-xs text-slate-500 md:text-[0.82rem]">
                   Pencatatan otomatis transaksi yang masuk.
                 </p>
               </div>
             </div>
-            <Table
-              emptyText={
-                loading ? "Memuat transaksi..." : "Belum ada transaksi"
-              }
-              columns={[
-                { key: "student_name", title: "Siswa" },
-                { key: "bill_name", title: "Tagihan" },
-                { key: "payment_channel", title: "Kanal" },
-                {
-                  key: "amount",
-                  title: "Nominal",
-                  render: (row) => formatCurrency(row.amount),
-                },
-                {
-                  key: "status",
-                  title: "Status",
-                  render: (row) => (
-                    <span
-                      className={
-                        row.status === "paid"
-                          ? "badge-green"
+            <div className="space-y-2 md:hidden">
+              {loading ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">
+                  Memuat transaksi...
+                </div>
+              ) : data.latestTransactions.length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">
+                  Belum ada transaksi
+                </div>
+              ) : (
+                data.latestTransactions.map((row, idx) => (
+                  <div key={`${row.student_name}-${row.bill_name}-${idx}`} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">{row.student_name || "-"}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">{row.bill_name || "-"} | {row.payment_channel || "-"}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-slate-800">{formatCurrency(row.amount)}</span>
+                      <span
+                        className={
+                          row.status === "paid"
+                            ? "badge-green"
+                            : row.status === "pending"
+                              ? "badge-amber"
+                              : "badge-red"
+                        }
+                      >
+                        {row.status === "paid"
+                          ? "Lunas"
                           : row.status === "pending"
-                            ? "badge-amber"
-                            : "badge-red"
-                      }
-                    >
-                      {row.status === "paid"
-                        ? "Lunas"
-                        : row.status === "pending"
-                          ? "Menunggu"
-                          : "Gagal"}
-                    </span>
-                  ),
-                },
-              ]}
-              rows={data.latestTransactions}
-            />
+                            ? "Menunggu"
+                            : "Gagal"}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="hidden md:block">
+              <Table
+                emptyText={
+                  loading ? "Memuat transaksi..." : "Belum ada transaksi"
+                }
+                columns={[
+                  { key: "student_name", title: "Siswa" },
+                  { key: "bill_name", title: "Tagihan" },
+                  { key: "payment_channel", title: "Kanal" },
+                  {
+                    key: "amount",
+                    title: "Nominal",
+                    render: (row) => formatCurrency(row.amount),
+                  },
+                  {
+                    key: "status",
+                    title: "Status",
+                    render: (row) => (
+                      <span
+                        className={
+                          row.status === "paid"
+                            ? "badge-green"
+                            : row.status === "pending"
+                              ? "badge-amber"
+                              : "badge-red"
+                        }
+                      >
+                        {row.status === "paid"
+                          ? "Lunas"
+                          : row.status === "pending"
+                            ? "Menunggu"
+                            : "Gagal"}
+                      </span>
+                    ),
+                  },
+                ]}
+                rows={data.latestTransactions}
+              />
+            </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="card p-5 xl:p-5">
+          <div className="card p-4 md:p-5 xl:p-5">
             <div className="mb-3 flex items-center gap-3">
-              <div className="rounded-xl bg-rose-100 p-2.5 text-rose-700">
+              <div className="rounded-xl bg-rose-100 p-2 text-rose-700 md:p-2.5">
                 <Wallet size={18} />
               </div>
               <div>
                 <h3 className="section-title">Pengeluaran terbaru</h3>
-                <p className="text-[0.82rem] text-slate-500">
+                <p className="text-xs text-slate-500 md:text-[0.82rem]">
                   Pencatatan biaya operasional terakhir.
                 </p>
               </div>
             </div>
-            <Table
-              emptyText={
-                loading ? "Memuat pengeluaran..." : "Belum ada pengeluaran"
-              }
-              columns={[
-                { key: "expense_date", title: "Tanggal" },
-                { key: "title", title: "Pengeluaran" },
-                {
-                  key: "category",
-                  title: "Kategori",
-                  render: (row) => row.category || "-",
-                },
-                {
-                  key: "amount",
-                  title: "Nominal",
-                  render: (row) => formatCurrency(row.amount),
-                },
-              ]}
-              rows={data.latestExpenses}
-            />
+            <div className="space-y-2 md:hidden">
+              {loading ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">
+                  Memuat pengeluaran...
+                </div>
+              ) : data.latestExpenses.length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500">
+                  Belum ada pengeluaran
+                </div>
+              ) : (
+                data.latestExpenses.map((row, idx) => (
+                  <div key={`${row.expense_date}-${row.title}-${idx}`} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">{row.title || "-"}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">{row.expense_date || "-"} | {row.category || "-"}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{formatCurrency(row.amount)}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="hidden md:block">
+              <Table
+                emptyText={
+                  loading ? "Memuat pengeluaran..." : "Belum ada pengeluaran"
+                }
+                columns={[
+                  { key: "expense_date", title: "Tanggal" },
+                  { key: "title", title: "Pengeluaran" },
+                  {
+                    key: "category",
+                    title: "Kategori",
+                    render: (row) => row.category || "-",
+                  },
+                  {
+                    key: "amount",
+                    title: "Nominal",
+                    render: (row) => formatCurrency(row.amount),
+                  },
+                ]}
+                rows={data.latestExpenses}
+              />
+            </div>
           </div>
         </div>
       </div>

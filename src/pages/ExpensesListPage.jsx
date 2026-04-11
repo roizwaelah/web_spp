@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -76,24 +76,41 @@ export default function ExpensesListPage() {
     }
   };
 
+  const sortedRows = useMemo(
+    () =>
+      [...rows].sort((a, b) => {
+        const aTime = new Date(a?.expense_date || "").getTime();
+        const bTime = new Date(b?.expense_date || "").getTime();
+        if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) return bTime - aTime;
+        return String(b?.expense_date || "").localeCompare(String(a?.expense_date || ""), "id");
+      }),
+    [rows],
+  );
+
   return (
     <Layout
       title="Pengeluaran"
-      subtitle="Kelola daftar pengeluaran operasional dan pantau biaya keluar dalam periode tertentu."
+      subtitle="Kelola daftar pengeluaran dan pantau biaya keluar."
       actions={
-        <button
-          className="btn-primary"
-          onClick={() => navigate("/admin/pengeluaran/edit")}
-          onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
-          onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
-        >
-          <Plus size={18} /> Tambah pengeluaran
-        </button>
+        <div className="flex w-full justify-end">
+          <button
+            type="button"
+            className="btn-primary shrink-0 px-3"
+            onClick={() => navigate("/admin/pengeluaran/edit")}
+            onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
+            onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
+            title="Tambah pengeluaran"
+            aria-label="Tambah pengeluaran"
+          >
+            <Plus size={18} />
+            <span>Tambah pengeluaran</span>
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
         <div className="card p-4">
-          <div className="grid gap-4 md:grid-cols-5 md:items-end">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
             <div>
               <label className="label">Tanggal mulai</label>
               <input type="date" className="input" value={filter.start_date} onChange={(e) => setFilter((c) => ({ ...c, start_date: e.target.value }))} />
@@ -123,38 +140,85 @@ export default function ExpensesListPage() {
           </div>
         </div>
 
-        <Table
-          striped
-          emptyText={loading ? "Memuat data pengeluaran..." : "Belum ada pengeluaran"}
-          columns={[
-            { key: "expense_date", title: "Tanggal" },
-            { key: "title", title: "Nama pengeluaran" },
-            { key: "category", title: "Kategori", render: (row) => row.category || "-" },
-            { key: "amount", title: "Nominal", render: (row) => formatCurrency(row.amount) },
-            { key: "notes", title: "Keterangan", render: (row) => row.notes || "-" },
-            { key: "created_by_name", title: "Dicatat oleh", render: (row) => row.created_by_name || "-" },
-            {
-              key: "actions",
-              title: "Aksi",
-              render: (row) => (
-                <div className="flex gap-2">
-                  <button
-                    className="btn-secondary px-3 py-2"
-                    onClick={() => navigate(`/admin/pengeluaran/edit/${row.id}`)}
-                    onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
-                    onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ),
-            },
-          ]}
-          rows={rows}
-        />
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            <div className="card p-4 text-sm text-slate-500">Memuat data pengeluaran...</div>
+          ) : sortedRows.length === 0 ? (
+            <div className="card p-4 text-sm text-slate-500">Belum ada pengeluaran</div>
+          ) : (
+            <ol className="space-y-3">
+              {sortedRows.map((row, index) => (
+                <li key={row.id} className="card p-3">
+                  <div className="flex items-start gap-3">
+                    <span className="pt-0.5 text-sm font-semibold text-slate-500">{index + 1}.</span>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="pt-0.5 text-sm font-semibold text-slate-900">{row.title || "-"}</p>
+                        <p className="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(row.amount)}</p>
+                      </div>
+                      <p className="text-xs text-slate-500">{row.expense_date || "-"}</p>
+                      <div className="flex items-center gap-2 pt-1 justify-end">
+                        <button
+                          className="btn-secondary px-3 py-2"
+                          title="Ubah"
+                          aria-label="Ubah"
+                          onClick={() => navigate(`/admin/pengeluaran/edit/${row.id}`)}
+                          onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
+                          onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className="btn-danger px-3 py-2"
+                          title="Hapus"
+                          aria-label="Hapus"
+                          onClick={() => remove(row.id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <Table
+            striped
+            emptyText={loading ? "Memuat data pengeluaran..." : "Belum ada pengeluaran"}
+            columns={[
+              { key: "expense_date", title: "Tanggal" },
+              { key: "title", title: "Nama pengeluaran" },
+              { key: "category", title: "Kategori", render: (row) => row.category || "-" },
+              { key: "amount", title: "Nominal", render: (row) => formatCurrency(row.amount) },
+              { key: "notes", title: "Keterangan", render: (row) => row.notes || "-" },
+              { key: "created_by_name", title: "Dicatat oleh", render: (row) => row.created_by_name || "-" },
+              {
+                key: "actions",
+                title: "Aksi",
+                render: (row) => (
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      onClick={() => navigate(`/admin/pengeluaran/edit/${row.id}`)}
+                      onMouseEnter={() => prefetchRoute("/admin/pengeluaran/edit")}
+                      onFocus={() => prefetchRoute("/admin/pengeluaran/edit")}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={sortedRows}
+          />
+        </div>
       </div>
     </Layout>
   );

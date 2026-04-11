@@ -29,6 +29,8 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // <-- Tambahkan ini agar bisa diakses via IP LAN
+    port: 5173, // Opsional: tentukan port secara eksplisit
     proxy: {
       "/api/index.php": {
         target: "http://localhost:8000",

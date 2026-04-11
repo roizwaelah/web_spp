@@ -144,7 +144,7 @@ export default function PaymentListPage() {
           id: studentId,
           student_name: row.student_name || "-",
           class_name: row.class_name || "-",
-          nis: row.nis || "-",
+          nisn: row.nisn || row.nis || "-",
           periods: new Set(),
           channels: new Set(),
           total_amount_paid: 0,
@@ -159,9 +159,7 @@ export default function PaymentListPage() {
       if (row.payment_channel) entry.channels.add(String(row.payment_channel));
       if (
         row.payment_date &&
-        String(row.payment_date).localeCompare(
-          String(entry.latest_payment_date),
-        ) > 0
+        String(row.payment_date).localeCompare(String(entry.latest_payment_date)) > 0
       ) {
         entry.latest_payment_date = row.payment_date;
       }
@@ -196,7 +194,7 @@ export default function PaymentListPage() {
               id: groupKey,
               student_id: tx.student_id,
               student_name: tx.student_name,
-              nis: tx.nis,
+              nisn: tx.nisn || tx.nis || "-",
               class_name: tx.class_name,
               payment_date: tx.payment_date || "",
               payment_channel: tx.payment_channel || "-",
@@ -209,9 +207,7 @@ export default function PaymentListPage() {
           const group = receiptMap.get(groupKey);
           if (
             tx.payment_date &&
-            String(tx.payment_date).localeCompare(
-              String(group.payment_date || ""),
-            ) > 0
+            String(tx.payment_date).localeCompare(String(group.payment_date || "")) > 0
           ) {
             group.payment_date = tx.payment_date;
           }
@@ -230,9 +226,7 @@ export default function PaymentListPage() {
             pos_count: group.items.length,
           }))
           .sort((a, b) =>
-            String(b.payment_date || "").localeCompare(
-              String(a.payment_date || ""),
-            ),
+            String(b.payment_date || "").localeCompare(String(a.payment_date || "")),
           );
 
         return {
@@ -242,9 +236,7 @@ export default function PaymentListPage() {
           transaction_count: entry.transactions.length,
           receipt_groups: receiptGroups,
           transactions: [...entry.transactions].sort((a, b) =>
-            String(b.payment_date || "").localeCompare(
-              String(a.payment_date || ""),
-            ),
+            String(b.payment_date || "").localeCompare(String(a.payment_date || "")),
           ),
         };
       })
@@ -253,8 +245,7 @@ export default function PaymentListPage() {
 
   const detailStudentRow = useMemo(
     () =>
-      groupedRows.find((row) => String(row.id) === String(detailStudentId)) ||
-      null,
+      groupedRows.find((row) => String(row.id) === String(detailStudentId)) || null,
     [groupedRows, detailStudentId],
   );
 
@@ -263,11 +254,7 @@ export default function PaymentListPage() {
     if (!detailStudentRow) setDetailStudentId("");
   }, [detailStudentId, detailStudentRow]);
 
-  const printTransaction = async ({
-    transactionId,
-    referenceNo,
-    studentId,
-  }) => {
+  const printTransaction = async ({ transactionId, referenceNo, studentId }) => {
     try {
       setPrinting(true);
       if (referenceNo && studentId) {
@@ -355,25 +342,27 @@ export default function PaymentListPage() {
       title="Pembayaran"
       subtitle="Filter transaksi pembayaran dan pantau tagihan siswa yang masih belum lunas."
       actions={
-        <button
-          className="btn-primary"
-          onClick={() =>
-            navigate("/admin/pembayaran/edit", {
-              state: {
-                class_id: filters.class_id,
-                student_id: filters.student_id,
-              },
-            })
-          }
-          onMouseEnter={() => prefetchRoute("/admin/pembayaran/edit")}
-          onFocus={() => prefetchRoute("/admin/pembayaran/edit")}
-        >
-          <Plus size={18} /> Input pembayaran
-        </button>
+        <div className="flex w-full justify-end">
+          <button
+            className="btn-primary"
+            onClick={() =>
+              navigate("/admin/pembayaran/edit", {
+                state: {
+                  class_id: filters.class_id,
+                  student_id: filters.student_id,
+                },
+              })
+            }
+            onMouseEnter={() => prefetchRoute("/admin/pembayaran/edit")}
+            onFocus={() => prefetchRoute("/admin/pembayaran/edit")}
+          >
+            <Plus size={18} /> Input pembayaran
+          </button>
+        </div>
       }
     >
-      <div className="card p-5">
-        <div className="grid gap-4 md:grid-cols-2">
+      <div className="card p-4 md:p-5">
+        <div className="grid gap-3 md:grid-cols-2 md:gap-4">
           <div>
             <label className="label">Filter kelas</label>
             <select
@@ -423,14 +412,10 @@ export default function PaymentListPage() {
         </div>
       </div>
 
-      <div className="card p-5">
+      <div className="card p-4 md:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="section-title">Transaksi pembayaran</h3>
-            <p className="text-sm text-slate-500">
-              Riwayat transaksi berdasarkan filter kelas dan siswa yang sedang
-              dipilih.
-            </p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
             Tagihan belum lunas:{" "}
@@ -440,79 +425,122 @@ export default function PaymentListPage() {
           </div>
         </div>
 
-        <Table
-          striped
-          emptyText={
-            transactionsLoading
-              ? "Memuat transaksi..."
-              : "Belum ada transaksi pembayaran"
-          }
-          columns={[
-            {
-              key: "student_name",
-              title: "Siswa",
-            },
-            {
-              key: "class_name",
-              title: "Kelas",
-            },
-            { key: "channel_label", title: "Kanal" },
-            {
-              key: "period_label",
-              title: "Periode",
-            },
-            {
-              key: "latest_payment_date",
-              title: "Tgl Bayar Terakhir",
-              render: (row) =>
-                row.latest_payment_date
-                  ? formatDate(row.latest_payment_date)
-                  : "-",
-            },
-            {
-              key: "transaction_count",
-              title: "Transaksi",
-              render: (row) => `${row.transaction_count} transaksi`,
-            },
-            {
-              key: "actions",
-              title: "Aksi",
-              headerClassName: "w-0 whitespace-nowrap",
-              cellClassName: "w-0 whitespace-nowrap",
-              render: (row) => (
-                <div className="flex gap-2">
-                  <button
-                    className="btn-secondary px-3 py-2"
-                    title="Lihat detail transaksi siswa"
-                    onClick={() => setDetailStudentId(String(row.id))}
-                  >
-                    <Eye size={16} />
-                  </button>
-                </div>
-              ),
-            },
-          ]}
-          rows={groupedRows}
-        />
+        <div className="space-y-3 md:hidden">
+          {transactionsLoading ? (
+            <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+              Memuat transaksi...
+            </div>
+          ) : groupedRows.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+              Belum ada transaksi pembayaran
+            </div>
+          ) : (
+            <ol className="space-y-3">
+              {groupedRows.map((row, index) => (
+                <li key={row.id} className="rounded-xl border border-slate-200 p-3">
+                  <div className="flex items-start gap-3">
+                    <span className="pt-0.5 text-sm font-semibold text-slate-500">{index + 1}.</span>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="mt-0.5 text-sm font-semibold text-slate-900">{row.student_name}</p>
+                          <p className="text-xs text-slate-700">
+                            {row.class_name} 
+                            <span className="text-yellow-500 mx-1">|</span> 
+                            {row.latest_payment_date ? formatDate(row.latest_payment_date) : "-"}
+                          </p>
+                        </div>
+                        <button
+                          className="btn-secondary px-3 py-2"
+                          title="Lihat detail transaksi siswa"
+                          onClick={() => setDetailStudentId(String(row.id))}
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="font-semibold text-slate-700">{row.transaction_count} transaksi</p>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <Table
+            striped
+            emptyText={
+              transactionsLoading
+                ? "Memuat transaksi..."
+                : "Belum ada transaksi pembayaran"
+            }
+            columns={[
+              {
+                key: "student_name",
+                title: "Nama Siswa",
+              },
+              {
+                key: "class_name",
+                title: "Kelas",
+              },
+              { key: "channel_label", title: "Kanal" },
+              {
+                key: "period_label",
+                title: "Periode",
+              },
+              {
+                key: "latest_payment_date",
+                title: "Tgl Bayar",
+                render: (row) =>
+                  row.latest_payment_date ? formatDate(row.latest_payment_date) : "-",
+              },
+              {
+                key: "transaction_count",
+                title: "Transaksi",
+                render: (row) => `${row.transaction_count} transaksi`,
+              },
+              {
+                key: "actions",
+                title: "Aksi",
+                headerClassName: "w-0 whitespace-nowrap",
+                cellClassName: "w-0 whitespace-nowrap",
+                render: (row) => (
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      title="Lihat detail transaksi siswa"
+                      onClick={() => setDetailStudentId(String(row.id))}
+                    >
+                      <Eye size={16} />
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={groupedRows}
+          />
+        </div>
       </div>
 
       <ModalFrame
         open={Boolean(detailStudentId && detailStudentRow)}
         title={
           detailStudentRow
-            ? `Detail Transaksi - ${detailStudentRow.student_name}`
+            ? `Detail Transaksi`
             : "Detail Transaksi"
         }
-        description="Rincian transaksi pembayaran per siswa"
         maxWidthClass="max-w-3xl"
         showIcon={false}
         onClose={() => setDetailStudentId("")}
       >
         {detailStudentRow ? (
           <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
-                <p className="text-xs text-slate-500">Siswa</p>
+                <p className="text-xs text-slate-500">Nama Siswa</p>
                 <p className="font-semibold text-slate-900">
                   {detailStudentRow.student_name}
                 </p>
@@ -537,7 +565,65 @@ export default function PaymentListPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="space-y-3 md:hidden">
+              {detailStudentRow.receipt_groups.map((row, index) => (
+                <div key={row.id} className="rounded-xl border border-slate-200 p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="pt-0.5 text-sm font-semibold text-slate-900">{index + 1}.</span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="pt-0.5 text-sm font-semibold text-slate-900">
+                          {row.reference_no || "-"}
+                        </p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatCurrency(row.total_amount_paid)}
+                        </p>
+                      </div>
+                      <p className="text-xs text-slate-700">
+                        {row.payment_channel || "-"} 
+                        <span className="text-yellow-500 mx-1">|</span> 
+                        {row.payment_date ? formatDate(row.payment_date) : "-"}
+                      </p>
+                      <div className="flex items-center gap-2 pt-1 justify-end">
+                        <button
+                          type="button"
+                          className="btn-secondary px-3 py-2"
+                          title="Lihat kuitansi"
+                          onClick={() => setDetailTransaction(row)}
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-accent px-3 py-2"
+                          title="Cetak PDF"
+                          onClick={() =>
+                            printTransaction({
+                              referenceNo: row.reference_no,
+                              studentId: row.student_id,
+                              transactionId: row.transaction_ids?.[0],
+                            })
+                          }
+                          disabled={printing}
+                        >
+                          <Printer size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger px-3 py-2"
+                          title="Hapus transaksi"
+                          onClick={() => removeTransactionGroup(row)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
@@ -666,9 +752,9 @@ export default function PaymentListPage() {
                   </p>
                   <p>
                     <span className="inline-block w-28 font-semibold">
-                      Nomor Induk
+                      NISN
                     </span>
-                    : {detailTransaction.nis || "-"}
+                    : {detailTransaction.nisn || detailTransaction.nis || "-"}
                   </p>
                   <p>
                     <span className="inline-block w-28 font-semibold">
@@ -678,7 +764,7 @@ export default function PaymentListPage() {
                   </p>
                   <p>
                     <span className="inline-block w-28 font-semibold">
-                      Status Siswa
+                      Status Pembayaran
                     </span>
                     : Lunas
                   </p>
@@ -719,24 +805,24 @@ export default function PaymentListPage() {
                     Dengan rincian pembayaran sebagai berikut:
                   </p>
                   <div className="border-y border-slate-300 py-1.5">
-                    {(Array.isArray(detailTransaction.items) &&
-                    detailTransaction.items.length > 0
-                      ? detailTransaction.items
-                      : [
-                          {
-                            bill_name: detailTransaction.bill_name || "-",
-                            period: detailTransaction.period || "-",
-                            amount: Number(detailTransaction.amount_paid || 0),
-                          },
-                        ]
+                    {(
+                      Array.isArray(detailTransaction.items) &&
+                      detailTransaction.items.length > 0
+                        ? detailTransaction.items
+                        : [
+                            {
+                              bill_name: detailTransaction.bill_name || "-",
+                              period: detailTransaction.period || "-",
+                              amount: Number(detailTransaction.amount_paid || 0),
+                            },
+                          ]
                     ).map((item, index) => (
                       <div
                         key={`${item.bill_name}-${item.period}-${index}`}
                         className="grid grid-cols-[1fr_auto] gap-2"
                       >
                         <p>
-                          {index + 1}. {item.bill_name} (
-                          {formatPeriod(item.period)})
+                          {index + 1}. {item.bill_name} ({formatPeriod(item.period)})
                         </p>
                         <p className="font-semibold">
                           {formatCurrency(Number(item.amount || 0))}
@@ -794,9 +880,7 @@ export default function PaymentListPage() {
                   printTransaction({
                     referenceNo: detailTransaction.reference_no,
                     studentId: detailTransaction.student_id,
-                    transactionId:
-                      detailTransaction.transaction_ids?.[0] ||
-                      detailTransaction.id,
+                    transactionId: detailTransaction.transaction_ids?.[0] || detailTransaction.id,
                   })
                 }
               >

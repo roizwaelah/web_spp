@@ -22,7 +22,7 @@ if ($route === 'admin/transactions' && $method === 'GET') {
     $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
     $stmt = $pdo->prepare("SELECT t.id, t.bill_id, t.student_id, t.payment_channel, t.amount_paid, t.payment_date, t.reference_no, t.status, t.notes,
             b.bill_name, b.period,
-            s.name student_name, s.nis,
+            s.name student_name, s.nis, s.nisn,
             c.name class_name
         FROM transactions t
         JOIN bills b ON b.id = t.bill_id
@@ -45,7 +45,7 @@ if ($route === 'admin/transactions/receipt' && $method === 'GET') {
     }
 
     $fetchByReference = static function (PDO $pdo, string $refNo, int $sid): array {
-        $stmtRows = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name student_name, s.nis, c.name class_name, ay.name academic_year
+        $stmtRows = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name student_name, s.nis, s.nisn, c.name class_name, ay.name academic_year
             FROM transactions t
             JOIN bills b ON b.id=t.bill_id
             JOIN students s ON s.id=t.student_id
@@ -76,7 +76,7 @@ if ($route === 'admin/transactions/receipt' && $method === 'GET') {
 
     $row = null;
     if ($transactionId) {
-        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name student_name, s.nis, c.name class_name, ay.name academic_year
+        $stmt = $pdo->prepare("SELECT t.*, b.bill_name, b.period, s.name student_name, s.nis, s.nisn, c.name class_name, ay.name academic_year
             FROM transactions t
             JOIN bills b ON b.id=t.bill_id
             JOIN students s ON s.id=t.student_id

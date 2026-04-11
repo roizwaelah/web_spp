@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Download, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowUpDown,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  GraduationCap,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import Layout from "../components/Layout";
 import ModalFrame from "../components/ModalFrame";
 import Table from "../components/Table";
@@ -653,36 +663,99 @@ export default function StudentListPage() {
   return (
     <Layout
       title="Data Siswa"
-      subtitle="Daftar lengkap siswa, pencarian cepat, impor data, dan aksi edit/hapus."
+      subtitle="Kelola daftar siswa, pencarian cepat, impor data, dan aksi edit/hapus."
       actions={
-        <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={openPromoteModal}>
-            Kenaikan
-          </button>
-          <button className="btn-secondary" onClick={openGraduateModal}>
-            Kelulusan
-          </button>
-          <button className="btn-secondary" onClick={openTransitionModal}>
-            Transisi TA
-          </button>
-          <button
-            className="btn-primary"
-            onClick={() => navigate("/admin/siswa/edit")}
-            onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
-            onFocus={() => prefetchRoute("/admin/siswa/edit")}
-          >
-            <Plus size={18} /> Tambah Siswa
-          </button>
+        <div className="w-full lg:w-auto">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 md:hidden">
+            Aksi Massal
+          </div>
+          <div className="grid w-full grid-cols-4 gap-2 md:hidden">
+            <button
+              type="button"
+              className="btn-secondary w-full justify-center px-2"
+              onClick={openPromoteModal}
+              title="Kenaikan"
+              aria-label="Kenaikan"
+            >
+              <ArrowUpDown size={16} />
+              <span className="hidden md:inline">Kenaikan</span>
+            </button>
+            <button
+              type="button"
+              className="btn-secondary w-full justify-center px-2"
+              onClick={openGraduateModal}
+              title="Kelulusan"
+              aria-label="Kelulusan"
+            >
+              <GraduationCap size={16} />
+              <span className="hidden md:inline">Kelulusan</span>
+            </button>
+            <button
+              type="button"
+              className="btn-secondary w-full justify-center px-2"
+              onClick={openTransitionModal}
+              title="Transisi TA"
+              aria-label="Transisi TA"
+            >
+              <CalendarRange size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn-primary w-full justify-center px-2"
+              title="Tambah Siswa"
+              aria-label="Tambah Siswa"
+              onClick={() => navigate("/admin/siswa/edit")}
+              onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
+              onFocus={() => prefetchRoute("/admin/siswa/edit")}
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          <div className="hidden items-center gap-2 md:flex">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={openPromoteModal}
+            >
+              Kenaikan
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={openGraduateModal}
+            >
+              Kelulusan
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={openTransitionModal}
+            >
+              Transisi TA
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              title="Tambah Siswa"
+              aria-label="Tambah Siswa"
+              onClick={() => navigate("/admin/siswa/edit")}
+              onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
+              onFocus={() => prefetchRoute("/admin/siswa/edit")}
+            >
+              <Plus size={18} /> Tambah Siswa
+            </button>
+          </div>
         </div>
       }
     >
       <div className="space-y-4">
-        <div className="card p-3 flex flex-col md:flex-row md:items-end gap-4">
-          <div className="flex-1 flex flex-col md:flex-row md:items-end gap-4">
+        <div className="card flex flex-col gap-3 p-3 md:flex-row md:items-end md:gap-4">
+          <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-end md:gap-4">
             <div className="flex-1">
               <label className="label">Pencarian</label>
               <input
-                className="input h-11 w-full"
+                className="input h-10 w-full md:h-11"
                 placeholder="Cari nama / NIM / NISN / orang tua / kelas"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -693,48 +766,49 @@ export default function StudentListPage() {
               <label className="label">Import Excel</label>
               <input
                 type="file"
-                className="input h-11 w-full"
+                className="input h-10 w-full md:h-11"
                 accept=".xlsx,.xls"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
             </div>
 
-            <button type="button" className="btn-primary whitespace-nowrap" onClick={importStudents}>
-              Import
-            </button>
-            <button type="button" className="btn-secondary whitespace-nowrap" onClick={downloadTemplate}>
-              Template
-            </button>
+            <div className="grid grid-cols-2 gap-2 md:flex md:items-end">
+              <button type="button" className="btn-primary w-full whitespace-nowrap md:w-auto" onClick={importStudents}>
+                Import
+              </button>
+              <button type="button" className="btn-secondary w-full whitespace-nowrap md:w-auto" onClick={downloadTemplate}>
+                Template
+              </button>
+            </div>
           </div>
         </div>
 
-        <Table
-          columns={[
-            {
-              key: "nis",
-              title: "NIM",
-              render: (row) => row.nis || "-",
-            },
-            { key: "nisn", title: "NISN" },
-            { key: "name", title: "Nama" },
-            { key: "class_name", title: "Kelas" },
-            { key: "academic_year", title: "Tahun Ajaran" },
-            { key: "parent_name", title: "Wali" },
-            { key: "parent_phone", title: "WA" },
-            {
-              key: "status",
-              title: "Status",
-              render: (row) => (
-                <span className={row.status === "active" ? "badge-green" : "badge-amber"}>
-                  {row.status}
-                </span>
-              ),
-            },
-            {
-              key: "actions",
-              title: "Aksi",
-              render: (row) => (
-                <div className="flex gap-2">
+        <div className="space-y-2 md:hidden">
+          {filteredSorted.length === 0 ? (
+            <div className="card p-4 text-sm text-slate-500">Belum ada data siswa</div>
+          ) : (
+            filteredSorted.map((row, idx) => (
+              <div key={row.id} className="card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-0.5 w-5 shrink-0 text-right text-sm font-semibold text-slate-900">
+                      {idx + 1}.
+                    </span>
+                    <div className="min-w-0">
+                      <p className="pt-0.5 text-sm font-semibold text-slate-900">{row.name || "-"}</p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {row.nis || "-"} | {row.nisn || "-"} | {row.class_name || "-"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {row.parent_name || "-"} | {row.parent_phone || "-"}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={row.status === "active" ? "badge-green" : "badge-amber"}>
+                    {row.status}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-end gap-2">
                   <button
                     className="btn-secondary px-3 py-2"
                     onClick={() => navigate(`/admin/siswa/edit/${row.id}`)}
@@ -747,11 +821,57 @@ export default function StudentListPage() {
                     <Trash2 size={16} />
                   </button>
                 </div>
-              ),
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <Table
+            columns={[
+              {
+              key: "nis",
+              title: "NIM",
+              render: (row) => row.nis || "-",
             },
-          ]}
-          rows={filteredSorted}
-        />
+              { key: "nisn", title: "NISN" },
+              { key: "name", title: "Nama" },
+              { key: "class_name", title: "Kelas" },
+              { key: "academic_year", title: "Tahun Ajaran" },
+              { key: "parent_name", title: "Wali" },
+              { key: "parent_phone", title: "WA" },
+              {
+                key: "status",
+                title: "Status",
+                render: (row) => (
+                  <span className={row.status === "active" ? "badge-green" : "badge-amber"}>
+                    {row.status}
+                  </span>
+                ),
+              },
+              {
+                key: "actions",
+                title: "Aksi",
+                render: (row) => (
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      onClick={() => navigate(`/admin/siswa/edit/${row.id}`)}
+                      onMouseEnter={() => prefetchRoute("/admin/siswa/edit")}
+                      onFocus={() => prefetchRoute("/admin/siswa/edit")}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button className="btn-danger px-3 py-2" onClick={() => remove(row.id)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={filteredSorted}
+          />
+        </div>
       </div>
       <ModalFrame
         open={promoteModalOpen}

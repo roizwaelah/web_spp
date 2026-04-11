@@ -5,7 +5,7 @@ import Layout from "../components/Layout";
 import ModalFrame from "../components/ModalFrame";
 import { fetchRoute } from "../api";
 import { useUI } from "../context/UIContext";
-import { formatCurrency, formatDate } from "../utils";
+import { formatCurrency, formatPeriod } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 
 export default function ParentPaymentPage() {
@@ -293,8 +293,8 @@ export default function ParentPaymentPage() {
                           {formatCurrency(bill.amount)}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {bill.period || "-"} | Jatuh tempo {formatDate(bill.due_date)}
+                      <p className="mt-1 text-xs font-medium text-sky-600">
+                        {formatPeriod(bill.period)}
                       </p>
                       {checked && (
                         <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">

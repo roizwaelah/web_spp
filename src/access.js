@@ -16,9 +16,9 @@ import {
 
 export const staffMenuItems = [
   { accessKey: "dashboard", to: "/admin", label: "Dashboard", icon: Home, matchPrefixes: ["/admin"], exact: true },
-  { accessKey: "finance_posts", to: "/admin/pos-keuangan/list", label: "Pos Keuangan", icon: CreditCard, matchPrefixes: ["/admin/pos-keuangan"] },
-  { accessKey: "expenses", to: "/admin/pengeluaran", label: "Pengeluaran", icon: HandCoins, matchPrefixes: ["/admin/pengeluaran"] },
-  { accessKey: "bills", to: "/admin/pembayaran", label: "Pembayaran", icon: CreditCard, matchPrefixes: ["/admin/pembayaran", "/admin/pembayaran-manual"] },
+  { accessKey: "finance_posts", to: "/admin/pos-keuangan/list", label: "Pos Pembayaran", icon: CreditCard, matchPrefixes: ["/admin/pos-keuangan"] },
+  { accessKey: "expenses", to: "/admin/pengeluaran/list", label: "Pengeluaran", icon: HandCoins, matchPrefixes: ["/admin/pengeluaran"] },
+  { accessKey: "bills", to: "/admin/pembayaran/list", label: "Pembayaran", icon: CreditCard, matchPrefixes: ["/admin/pembayaran", "/admin/pembayaran-manual"] },
   { accessKey: "bills", to: "/admin/tagihan/list", label: "Tagihan", icon: ReceiptText, matchPrefixes: ["/admin/tagihan"] },
   { accessKey: "payment_proofs", to: "/admin/bukti-pembayaran", label: "Bukti Pembayaran", icon: FileCheck2, matchPrefixes: ["/admin/bukti-pembayaran"] },
   { accessKey: "reports", to: "/admin/laporan", label: "Laporan", icon: FileSpreadsheet, matchPrefixes: ["/admin/laporan"] },

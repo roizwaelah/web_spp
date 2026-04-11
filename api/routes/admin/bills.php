@@ -9,14 +9,16 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-function bill_payment_portal_url(): string {
+function bill_payment_portal_url(): string
+{
     $fromEnv = trim((string) env_value('PAYMENT_PORTAL_URL', ''));
     if ($fromEnv !== '') return rtrim($fromEnv, '/');
     return 'https://spp.madarussalamcilongok.sch.id';
 }
 
 
-function bill_period_label(string $period): string {
+function bill_period_label(string $period): string
+{
     $period = trim($period);
     if (!preg_match('/^(\\d{4})-(\\d{2})$/', $period, $m)) {
         return $period !== '' ? $period : '-';
@@ -45,7 +47,8 @@ function bill_period_label(string $period): string {
 
     return $months[$month] . ' ' . $year;
 }
-function build_bill_reminder_message(array $bill, array $student): string {
+function build_bill_reminder_message(array $bill, array $student): string
+{
     $schoolName = trim(setting_value('school_name', 'Madrasah'));
     if ($schoolName === '') $schoolName = 'Madrasah';
 
@@ -75,7 +78,8 @@ function build_bill_reminder_message(array $bill, array $student): string {
     ]);
 }
 
-function build_bill_reminder_summary_message(array $student, array $bills): string {
+function build_bill_reminder_summary_message(array $student, array $bills): string
+{
     $schoolName = trim(setting_value('school_name', 'Madrasah'));
     if ($schoolName === '') $schoolName = 'Madrasah';
 
@@ -112,7 +116,8 @@ function build_bill_reminder_summary_message(array $student, array $bills): stri
     return implode("\n", $lines);
 }
 
-function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period = null): array {
+function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period = null): array
+{
     if (!in_array($day, [5, 15], true)) {
         return [
             'processed_students' => 0,
@@ -236,12 +241,25 @@ if ($route === 'admin/bills' && $method === 'GET') {
     $academicYearId = query('academic_year_id', '');
     $conditions = [];
     $params = [];
-    if ($status) { $conditions[] = 'b.status = ?'; $params[] = $status; }
-    if ($studentId) { $conditions[] = 'b.student_id = ?'; $params[] = $studentId; }
-    if ($classId) { $conditions[] = 's.class_id = ?'; $params[] = $classId; }
-    if ($academicYearId) { $conditions[] = '(b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?))'; $params[] = $academicYearId; $params[] = $academicYearId; }
+    if ($status) {
+        $conditions[] = 'b.status = ?';
+        $params[] = $status;
+    }
+    if ($studentId) {
+        $conditions[] = 'b.student_id = ?';
+        $params[] = $studentId;
+    }
+    if ($classId) {
+        $conditions[] = 's.class_id = ?';
+        $params[] = $classId;
+    }
+    if ($academicYearId) {
+        $conditions[] = '(b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?))';
+        $params[] = $academicYearId;
+        $params[] = $academicYearId;
+    }
     $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
-    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nis, c.name class_name,
+    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nis, s.nisn, c.name class_name,
             COALESCE(b.academic_year_id, s.academic_year_id) bill_academic_year_id,
             ay.name academic_year_name,
             (SELECT status FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1) proof_status
@@ -446,9 +464,18 @@ if ($route === 'admin/bills/export-tunggakan' && $method === 'GET') {
     $sheet->mergeCells("A5:{$lastColLetter}5")->setCellValue('A5', 'Email : ' . ($schoolEmail !== '' ? $schoolEmail : '-'));
     $sheet->mergeCells("A7:{$lastColLetter}7")->setCellValue('A7', 'LAPORAN TUNGGAKAN ADMINISTRASI');
     $monthNames = [
-        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-        5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-        9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        1 => 'Januari',
+        2 => 'Februari',
+        3 => 'Maret',
+        4 => 'April',
+        5 => 'Mei',
+        6 => 'Juni',
+        7 => 'Juli',
+        8 => 'Agustus',
+        9 => 'September',
+        10 => 'Oktober',
+        11 => 'November',
+        12 => 'Desember',
     ];
     $monthNumber = (int) date('n', strtotime($monthStart));
     $monthLabel = strtoupper(($monthNames[$monthNumber] ?? date('F', strtotime($monthStart))) . ' ' . date('Y', strtotime($monthStart)));
@@ -973,10 +1000,3 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
     log_activity((int) $user['id'], 'generate', 'bill', null, 'Generate tagihan periode ' . $periodLabel . ' sebanyak ' . $created);
     response(['message' => "Generate selesai. {$created} tagihan dibuat. Notifikasi otomatis akan dikirim pada tanggal 5 dan 15 jika masih belum dibayar."]);
 }
-
-
-
-
-
-
-

@@ -66,74 +66,130 @@ export default function AcademicListPage() {
       title="Tahun Ajaran"
       subtitle="Daftar periode akademik aktif dan riwayat tahun ajaran."
       actions={
-        <button
-          className="btn-primary"
-          onClick={() => navigate("/admin/tahun-ajaran/edit")}
-          onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
-          onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
-        >
-          <Plus size={18} /> Tambah tahun ajaran
-        </button>
+        <div className="flex w-full justify-end">
+          <button
+            type="button"
+            className="btn-primary shrink-0 px-3"
+            onClick={() => navigate("/admin/tahun-ajaran/edit")}
+            onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+            onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+            title="Tambah tahun ajaran"
+            aria-label="Tambah tahun ajaran"
+          >
+            <Plus size={18} />
+            <span>Tambah tahun ajaran</span>
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
-        <div className="card p-3 space-y-4">
+        <div className="card space-y-3 p-3">
           <input
-            className="input"
+            className="input h-10 md:h-11"
             placeholder="Cari nama / tanggal tahun ajaran"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
         </div>
 
-        <Table
-          columns={[
-            { key: "name", title: "Tahun Ajaran" },
-            {
-              key: "start_date",
-              title: "Mulai",
-              render: (row) => formatDate(row.start_date),
-            },
-            {
-              key: "end_date",
-              title: "Selesai",
-              render: (row) => formatDate(row.end_date),
-            },
-            { key: "total_students", title: "Jumlah siswa" },
-            {
-              key: "is_active",
-              title: "Status",
-              render: (row) => (
-                <span className={row.is_active ? "badge-green" : "badge-slate"}>
-                  {row.is_active ? "aktif" : "arsip"}
-                </span>
-              ),
-            },
-            {
-              key: "actions",
-              title: "Aksi",
-              render: (row) => (
-                <div className="flex gap-2">
-                  <button
-                    className="btn-secondary px-3 py-2"
-                    onClick={() => navigate(`/admin/tahun-ajaran/edit/${row.id}`)}
-                    onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
-                    onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    className="btn-danger px-3 py-2"
-                    onClick={() => remove(row.id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+        <div className="space-y-2 md:hidden">
+          {filteredRows.length === 0 ? (
+            <div className="card p-4 text-sm text-slate-500">Belum ada tahun ajaran</div>
+          ) : (
+            filteredRows.map((row, idx) => (
+              <div key={row.id} className="card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-0.5 w-5 shrink-0 text-right text-sm font-semibold text-slate-900">
+                      {idx + 1}.
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-900">{row.name || "-"}</p>
+                        <span className={row.is_active ? "badge-green" : "badge-slate"}>
+                          {row.is_active ? "aktif" : "arsip"}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {formatDate(row.start_date)} - {formatDate(row.end_date)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {Number(row.total_students || 0)} siswa
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      onClick={() => navigate(`/admin/tahun-ajaran/edit/${row.id}`)}
+                      onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+                      onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      className="btn-danger px-3 py-2"
+                      onClick={() => remove(row.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-              ),
-            },
-          ]}
-          rows={filteredRows}
-        />
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <Table
+            columns={[
+              { key: "name", title: "Tahun Ajaran" },
+              {
+                key: "start_date",
+                title: "Mulai",
+                render: (row) => formatDate(row.start_date),
+              },
+              {
+                key: "end_date",
+                title: "Selesai",
+                render: (row) => formatDate(row.end_date),
+              },
+              { key: "total_students", title: "Jumlah siswa" },
+              {
+                key: "is_active",
+                title: "Status",
+                render: (row) => (
+                  <span className={row.is_active ? "badge-green" : "badge-slate"}>
+                    {row.is_active ? "aktif" : "arsip"}
+                  </span>
+                ),
+              },
+              {
+                key: "actions",
+                title: "Aksi",
+                render: (row) => (
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      onClick={() => navigate(`/admin/tahun-ajaran/edit/${row.id}`)}
+                      onMouseEnter={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+                      onFocus={() => prefetchRoute("/admin/tahun-ajaran/edit")}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      className="btn-danger px-3 py-2"
+                      onClick={() => remove(row.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={filteredRows}
+          />
+        </div>
       </div>
     </Layout>
   );

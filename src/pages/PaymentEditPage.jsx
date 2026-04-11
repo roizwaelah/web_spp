@@ -93,16 +93,10 @@ export default function PaymentEditPage() {
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      if (
-        billDropdownRef.current &&
-        !billDropdownRef.current.contains(event.target)
-      ) {
+      if (billDropdownRef.current && !billDropdownRef.current.contains(event.target)) {
         setBillDropdownOpen(false);
       }
-      if (
-        studentDropdownRef.current &&
-        !studentDropdownRef.current.contains(event.target)
-      ) {
+      if (studentDropdownRef.current && !studentDropdownRef.current.contains(event.target)) {
         setStudentDropdownOpen(false);
       }
     };
@@ -139,8 +133,7 @@ export default function PaymentEditPage() {
     const keyword = studentSearch.trim().toLowerCase();
     if (!keyword) return studentOptions;
     return studentOptions.filter((item) => {
-      const text =
-        `${item.name || ""} ${item.nis || ""} ${item.nisn || ""}`.toLowerCase();
+      const text = `${item.name || ""} ${item.nis || ""} ${item.nisn || ""}`.toLowerCase();
       return text.includes(keyword);
     });
   }, [studentOptions, studentSearch]);
@@ -200,15 +193,11 @@ export default function PaymentEditPage() {
 
   const toggleBillSelection = (billId) => {
     setForm((current) => {
-      const exists = current.bill_ids.some(
-        (id) => String(id) === String(billId),
-      );
+      const exists = current.bill_ids.some((id) => String(id) === String(billId));
       if (exists) {
         return {
           ...current,
-          bill_ids: current.bill_ids.filter(
-            (id) => String(id) !== String(billId),
-          ),
+          bill_ids: current.bill_ids.filter((id) => String(id) !== String(billId)),
         };
       }
       return { ...current, bill_ids: [...current.bill_ids, String(billId)] };
@@ -227,11 +216,7 @@ export default function PaymentEditPage() {
     return data;
   };
 
-  const printTransaction = async ({
-    transactionId,
-    referenceNo,
-    studentId,
-  }) => {
+  const printTransaction = async ({ transactionId, referenceNo, studentId }) => {
     if (referenceNo && studentId) {
       await openRouteFile("admin/transactions/receipt", {
         reference_no: referenceNo,
@@ -282,9 +267,10 @@ export default function PaymentEditPage() {
       }
       setMessage({
         type: "success",
-        text: isSingleStudentSelection
-          ? `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`
-          : `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}. Cetak kuitansi per transaksi dari daftar pembayaran.`,
+        text:
+          isSingleStudentSelection
+            ? `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`
+            : `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}. Cetak kuitansi per transaksi dari daftar pembayaran.`,
       });
       setPaymentDialogOpen(false);
       navigate("/admin/pembayaran/list", { replace: true });
@@ -457,9 +443,7 @@ export default function PaymentEditPage() {
                         onClick={() =>
                           setForm((current) => ({
                             ...current,
-                            bill_ids: billOptions.map((item) =>
-                              String(item.id),
-                            ),
+                            bill_ids: billOptions.map((item) => String(item.id)),
                           }))
                         }
                       >
@@ -492,9 +476,8 @@ export default function PaymentEditPage() {
                               className="mt-0.5"
                             />
                             <span className="text-sm text-slate-700">
-                              {form.student_id ? "" : `${item.student_name} - `}
-                              {item.bill_name} -{formatPeriod(item.period)} -{" "}
-                              {formatCurrency(item.amount)}
+                              {form.student_id ? "" : `${item.student_name} - `}{item.bill_name} -
+                              {formatPeriod(item.period)} - {formatCurrency(item.amount)}
                             </span>
                           </label>
                         );
@@ -607,11 +590,11 @@ export default function PaymentEditPage() {
                   </p>
                   <p>
                     <span className="inline-block w-28 font-semibold">
-                      Nomor Induk
+                      NISN
                     </span>
                     :{" "}
                     {selectedBills.length === 1
-                      ? selectedBills[0].nis || "-"
+                      ? selectedBills[0].nisn || selectedBills[0].nis || "-"
                       : "-"}
                   </p>
                   <p>
@@ -672,8 +655,7 @@ export default function PaymentEditPage() {
                         className="grid grid-cols-[1fr_auto] gap-2"
                       >
                         <p>
-                          {index + 1}. {bill.bill_name} (
-                          {formatPeriod(bill.period)})
+                          {index + 1}. {bill.bill_name} ({formatPeriod(bill.period)})
                         </p>
                         <p className="font-semibold">
                           {formatCurrency(bill.amount)}
@@ -732,3 +714,8 @@ export default function PaymentEditPage() {
     </Layout>
   );
 }
+
+
+
+
+

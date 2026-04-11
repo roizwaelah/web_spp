@@ -16,7 +16,7 @@ function render_payment_receipt_html(array $row, array $settings, string $office
     $paidDate = (int) date('j', $paidTs) . ' ' . ($months[(int) date('n', $paidTs)] ?? date('M', $paidTs)) . ' ' . date('Y', $paidTs);
     $referenceNo = (string) ($row['reference_no'] ?: ('TRX' . str_pad((string) $row['id'], 10, '0', STR_PAD_LEFT)));
     $studentName = (string) ($row['student_name'] ?: '-');
-    $studentNis = (string) ($row['nis'] ?: '-');
+    $studentNis = (string) (($row['nisn'] ?? '') ?: ($row['nis'] ?: '-'));
     $className = (string) ($row['class_name'] ?: '-');
     $formatPeriod = static function (string $periodRaw) use ($months): string {
         $period = trim($periodRaw);
@@ -181,7 +181,7 @@ function render_payment_receipt_html(array $row, array $settings, string $office
         <td>
           <table class='meta meta-left'>
             <tr><td class='label'>Diterima dari</td><td class='colon'>:</td><td class='value'>" . htmlspecialchars($studentName) . "</td></tr>
-            <tr><td class='label'>Nomor Induk</td><td class='colon'>:</td><td class='value'>" . htmlspecialchars($studentNis) . "</td></tr>
+            <tr><td class='label'>NISN</td><td class='colon'>:</td><td class='value'>" . htmlspecialchars($studentNis) . "</td></tr>
             <tr><td class='label'>Kelas</td><td class='colon'>:</td><td class='value'>" . htmlspecialchars($className) . "</td></tr>
             <tr><td class='label'>Tahun Ajaran</td><td class='colon'>:</td><td class='value'>" . htmlspecialchars($academicYear) . "</td></tr>
           </table>
@@ -290,7 +290,7 @@ function receipt_row_by_reference(int $studentId, string $referenceNo): ?array
     $stmtRows = db()->prepare("SELECT t.*,
             COALESCE(b.bill_name, CONCAT('Tagihan #', t.bill_id)) AS bill_name,
             COALESCE(b.period, '-') AS period,
-            s.name AS student_name, s.nis, c.name AS class_name, ay.name AS academic_year
+            s.name AS student_name, s.nis, s.nisn, c.name AS class_name, ay.name AS academic_year
         FROM transactions t
         LEFT JOIN bills b ON b.id=t.bill_id
         JOIN students s ON s.id=t.student_id

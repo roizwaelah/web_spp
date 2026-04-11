@@ -365,3 +365,45 @@ body {
     padding: 1.2rem;
   }
 }
+
+@media (min-width: 1024px) and (max-width: 1279px) and (max-height: 700px) {
+  :root {
+    font-size: 15.5px;
+  }
+
+  .dp-navbar__inner {
+    @apply h-[44px] px-3;
+  }
+
+  .dp-sidebar {
+    @apply top-[44px] h-[calc(100vh-44px)];
+  }
+
+  .dp-content {
+    @apply p-2 pt-2;
+  }
+
+  .dp-content main {
+    @apply space-y-3;
+  }
+
+  .dp-content header {
+    @apply p-2;
+  }
+
+  .input {
+    @apply px-2.5 py-1.5 text-[13px];
+  }
+
+  .btn {
+    @apply px-2.5 py-0.5 text-[0.82rem];
+  }
+
+  .label {
+    @apply mb-1 text-[0.8rem];
+  }
+
+  .card {
+    @apply shadow-none;
+  }
+}

@@ -105,65 +105,118 @@ export default function ClassesListPage() {
       title="Data Kelas"
       subtitle="Daftar kelas aktif/nonaktif dan aksi kelola data kelas."
       actions={
-        <button
-          className="btn-primary"
-          onClick={() => navigate("/admin/kelas/edit")}
-          onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
-          onFocus={() => prefetchRoute("/admin/kelas/edit")}
-        >
-          <Plus size={18} /> Tambah kelas
-        </button>
+        <div className="flex w-full justify-end">
+          <button
+            type="button"
+            className="btn-primary shrink-0 px-3"
+            onClick={() => navigate("/admin/kelas/edit")}
+            onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
+            onFocus={() => prefetchRoute("/admin/kelas/edit")}
+            title="Tambah kelas"
+            aria-label="Tambah kelas"
+          >
+            <Plus size={18} />
+            <span>Tambah kelas</span>
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
-        <div className="card p-3 space-y-4">
+        <div className="card space-y-3 p-3">
           <input
-            className="input"
+            className="input h-10 md:h-11"
             placeholder="Cari nama kelas / jenjang"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
         </div>
 
-        <Table
-          columns={[
-            { key: "name", title: "Nama kelas" },
-            { key: "grade_level", title: "Jenjang" },
-            { key: "total_students", title: "Jumlah siswa" },
-            {
-              key: "is_active",
-              title: "Status",
-              render: (row) => (
-                <span className={row.is_active ? "badge-green" : "badge-red"}>
-                  {row.is_active ? "aktif" : "nonaktif"}
-                </span>
-              ),
-            },
-            {
-              key: "actions",
-              title: "Aksi",
-              render: (row) => (
-                <div className="flex gap-2">
-                  <button
-                    className="btn-secondary px-3 py-2"
-                    onClick={() => navigate(`/admin/kelas/edit/${row.id}`)}
-                    onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
-                    onFocus={() => prefetchRoute("/admin/kelas/edit")}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    className="btn-danger px-3 py-2"
-                    onClick={() => remove(row.id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+        <div className="space-y-2 md:hidden">
+          {filteredRows.length === 0 ? (
+            <div className="card p-4 text-sm text-slate-500">Belum ada data kelas</div>
+          ) : (
+            filteredRows.map((row, idx) => (
+              <div key={row.id} className="card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="mt-0.5 w-5 shrink-0 text-right text-sm font-semibold text-slate-900">
+                      {idx + 1}.
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-900">{row.name || "-"}</p>
+                        <span className={row.is_active ? "badge-green" : "badge-red"}>
+                          {row.is_active ? "aktif" : "nonaktif"}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        {row.grade_level || "-"} | {Number(row.total_students || 0)} siswa
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      onClick={() => navigate(`/admin/kelas/edit/${row.id}`)}
+                      onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
+                      onFocus={() => prefetchRoute("/admin/kelas/edit")}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      className="btn-danger px-3 py-2"
+                      onClick={() => remove(row.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-              ),
-            },
-          ]}
-          rows={filteredRows}
-        />
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <Table
+            columns={[
+              { key: "name", title: "Nama kelas" },
+              { key: "grade_level", title: "Jenjang" },
+              { key: "total_students", title: "Jumlah siswa" },
+              {
+                key: "is_active",
+                title: "Status",
+                render: (row) => (
+                  <span className={row.is_active ? "badge-green" : "badge-red"}>
+                    {row.is_active ? "aktif" : "nonaktif"}
+                  </span>
+                ),
+              },
+              {
+                key: "actions",
+                title: "Aksi",
+                render: (row) => (
+                  <div className="flex gap-2">
+                    <button
+                      className="btn-secondary px-3 py-2"
+                      onClick={() => navigate(`/admin/kelas/edit/${row.id}`)}
+                      onMouseEnter={() => prefetchRoute("/admin/kelas/edit")}
+                      onFocus={() => prefetchRoute("/admin/kelas/edit")}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      className="btn-danger px-3 py-2"
+                      onClick={() => remove(row.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            rows={filteredRows}
+          />
+        </div>
       </div>
     </Layout>
   );

@@ -54,7 +54,7 @@ export default function FinanceEditPage() {
       });
       setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Gagal memuat pos keuangan");
+      setMessage(error?.response?.data?.message || "Gagal memuat pos pembayaran");
     }
   };
 
@@ -103,10 +103,10 @@ export default function FinanceEditPage() {
     try {
       if (form.id) {
         await fetchRoute("admin/finance-posts", { method: "PUT", data: form });
-        setMessage("Pos keuangan berhasil diperbarui");
+        setMessage("Pos pembayaran berhasil diperbarui");
       } else {
         await fetchRoute("admin/finance-posts", { method: "POST", data: form });
-        setMessage(copyId ? "Salinan pos keuangan berhasil ditambahkan" : "Pos keuangan berhasil ditambahkan");
+        setMessage(copyId ? "Salinan pos pembayaran berhasil ditambahkan" : "Pos pembayaran berhasil ditambahkan");
         setForm(initialForm);
         if (copyId) {
           navigate("/admin/pos-keuangan/edit", { replace: true });
@@ -114,7 +114,7 @@ export default function FinanceEditPage() {
       }
       load();
     } catch (error) {
-      setMessage(error?.response?.data?.message || "Gagal menyimpan pos keuangan");
+      setMessage(error?.response?.data?.message || "Gagal menyimpan pos pembayaran");
     }
   };
 
@@ -122,8 +122,8 @@ export default function FinanceEditPage() {
 
   return (
     <Layout
-      title="Tambah/Edit Pos Keuangan"
-      subtitle="Form tambah atau edit pos keuangan per kelas maupun per siswa."
+      title="Tambah/Edit Pos Pembayaran"
+      subtitle="Form tambah atau edit pos pembayaran per kelas maupun per siswa."
       actions={
         <button
           className="btn-accent"
@@ -136,7 +136,7 @@ export default function FinanceEditPage() {
     >
       <div className="card p-5">
         <h3 className="section-title">
-          {form.id ? "Edit pos keuangan" : copyId ? "Salin pos keuangan" : "Tambah pos keuangan"}
+          {form.id ? "Edit pos pembayaran" : copyId ? "Salin pos pembayaran" : "Tambah pos pembayaran"}
         </h3>
         <form className="mt-4 space-y-4" onSubmit={submit}>
           <div>
@@ -240,7 +240,7 @@ export default function FinanceEditPage() {
               checked={!!form.is_active}
               onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
             />
-            Pos keuangan aktif
+            Pos pembayaran aktif
           </label>
 
           <div className="flex gap-3">

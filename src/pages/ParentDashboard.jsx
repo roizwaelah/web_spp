@@ -52,7 +52,7 @@ export default function ParentDashboard() {
           {loading ? "Memuat data siswa..." : data.student?.name || "-"}
         </h3>
         <p className="mt-1 text-sm text-slate-500">
-          {data.student?.class_name || "-"} | Wali: {data.student?.parent_name || "-"}
+          {data.student?.nisn || "-"} | {data.student?.class_name || "-"} | {data.student?.parent_name || "-"}
         </p>
         <p className="mt-2 text-sm text-slate-600">
           Lembaga: <span className="font-semibold">{data.settings?.school_name || "-"}</span>
