@@ -7,6 +7,7 @@ import {
   UserCog,
   X,
 } from "lucide-react";
+import { fetchRoute } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { getHomePath, getMenuSections, isMenuItemActive } from "../access";
 import { useUI } from "../context/UIContext";
@@ -19,11 +20,35 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
   const navigate = useNavigate();
   const sections = getMenuSections(user);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [pendingProofCount, setPendingProofCount] = useState(0);
   const homePath = getHomePath(user);
+  const canAccessPaymentProofs = user?.role !== "parent" && Array.isArray(user?.menu_access) && user.menu_access.includes("payment_proofs");
 
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!canAccessPaymentProofs) {
+      setPendingProofCount(0);
+      return undefined;
+    }
+
+    let isMounted = true;
+    fetchRoute("admin/payment-proofs/pending-count", { skipLoading: true })
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setPendingProofCount(Number(data?.pending_count || 0));
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setPendingProofCount(0);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [canAccessPaymentProofs, location.pathname]);
 
   const canLeavePage = async () => {
     if (!onNavigateAttempt) return true;
@@ -112,6 +137,14 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
                 .filter((item) => item.label !== "Dashboard" && item.label !== "Ringkasan")
                 .map((item) => {
                   const Icon = item.icon;
+                  const showPendingProofBadge =
+                    item.accessKey === "payment_proofs" && pendingProofCount > 0;
+                  const pendingProofBadgeClass =
+                    pendingProofCount > 99
+                      ? "bg-rose-700 text-white"
+                      : pendingProofCount > 9
+                        ? "bg-rose-600 text-white"
+                        : "bg-rose-100 text-rose-700";
                   return (
                     <Link
                       key={item.to}
@@ -122,14 +155,21 @@ export default function Layout({ title, subtitle, actions, children, showHeader 
                       className={`dp-nav-link ${isMenuItemActive(item, location.pathname) ? "is-active" : ""}`}
                     >
                       <Icon size={17} />
-                      {item.label}
+                      <span className="min-w-0 flex-1">{item.label}</span>
+                      {showPendingProofBadge && (
+                        <span
+                          className={`ml-auto inline-flex min-w-[1.45rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none ${pendingProofBadgeClass}`}
+                        >
+                          {pendingProofCount > 99 ? "99+" : pendingProofCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
             </div>
           ))}
 
-          {user?.role === "bendahara" && (
+          {(user?.role === "bendahara" || user?.role === "verifikator") && (
             <div className="space-y-1">
               <Link
                 to="/admin/akun"

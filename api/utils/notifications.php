@@ -88,8 +88,46 @@ function extract_references_from_message(string $message): array {
     return array_values($refs);
 }
 
-function dispatch_whatsapp_message(string $url, string $token, string $target, string $message, ?string $mediaUrlOverride = null): bool {
+function evaluate_whatsapp_gateway_response(array $decoded, bool $isKirimi = false): bool
+{
+    if (array_key_exists('status', $decoded)) {
+        $status = $decoded['status'];
+        if (is_bool($status)) return $status;
+        $statusText = strtolower(trim((string) $status));
+        if ($statusText !== '') {
+            if (in_array($statusText, ['true', 'success', 'sent', 'queued', 'ok', '1'], true)) return true;
+            if (in_array($statusText, ['false', 'failed', 'error', '0'], true)) return false;
+        }
+    }
+    if (array_key_exists('success', $decoded)) {
+        return (bool) $decoded['success'];
+    }
+    if (array_key_exists('ok', $decoded)) {
+        return (bool) $decoded['ok'];
+    }
+    if (array_key_exists('error', $decoded)) {
+        $errorVal = $decoded['error'];
+        if (is_string($errorVal)) return trim($errorVal) === '';
+        return !$errorVal;
+    }
+    if ($isKirimi) {
+        $message = strtolower(trim((string) ($decoded['message'] ?? $decoded['msg'] ?? '')));
+        if ($message !== '') {
+            if (str_contains($message, 'success') || str_contains($message, 'berhasil') || str_contains($message, 'queued')) {
+                return true;
+            }
+            if (str_contains($message, 'gagal') || str_contains($message, 'error') || str_contains($message, 'invalid')) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+function dispatch_whatsapp_message_result(string $url, string $token, string $target, string $message, ?string $mediaUrlOverride = null): array {
     $cleanMessage = preg_replace("/\n{3,}/", "\n\n", trim($message)) ?: trim($message);
+    $isKirimi = false;
+    $hasMediaUrl = false;
 
     if (is_fonnte_url($url)) {
         $body = http_build_query([
@@ -101,9 +139,19 @@ function dispatch_whatsapp_message(string $url, string $token, string $target, s
             'Content-Type: application/x-www-form-urlencoded',
         ];
     } elseif (is_kirimi_url($url)) {
+        $isKirimi = true;
         $credentials = parse_kirimi_credentials($token);
-        if (!$credentials) return false;
+        if (!$credentials) {
+            return [
+                'success' => false,
+                'http_code' => 0,
+                'curl_error' => 'Kredensial Kirimi tidak valid',
+                'response_raw' => '',
+                'response_json' => null,
+            ];
+        }
         $mediaUrl = trim((string) ($mediaUrlOverride ?? ''));
+        $hasMediaUrl = $mediaUrl !== '';
         $body = json_encode([
             'user_code' => $credentials['user_code'],
             'device_id' => $credentials['device_id'],
@@ -127,44 +175,64 @@ function dispatch_whatsapp_message(string $url, string $token, string $target, s
         ];
     }
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_POSTFIELDS => $body,
-        CURLOPT_TIMEOUT => 8,
-    ]);
-    $result = curl_exec($ch);
-    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $hasCurlError = curl_errno($ch) !== 0;
-    curl_close($ch);
+    $timeoutSeconds = $isKirimi ? ($hasMediaUrl ? 30 : 15) : 8;
+    $connectTimeoutSeconds = $isKirimi ? 10 : 5;
+    $maxAttempts = $isKirimi ? 2 : 1;
+    $attempt = 0;
+    $result = false;
+    $httpCode = 0;
+    $curlError = '';
+    $curlErrno = 0;
 
-    if ($hasCurlError || $result === false || $httpCode < 200 || $httpCode >= 300) {
-        return false;
+    do {
+        $attempt++;
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_CONNECTTIMEOUT => $connectTimeoutSeconds,
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+        ]);
+        $result = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrno = curl_errno($ch);
+        $curlError = $curlErrno !== 0 ? curl_error($ch) : '';
+        curl_close($ch);
+
+        if (!in_array($curlErrno, [CURLE_OPERATION_TIMEDOUT, CURLE_COULDNT_CONNECT], true)) {
+            break;
+        }
+    } while ($attempt < $maxAttempts);
+
+    if ($curlError !== '' || $result === false || $httpCode < 200 || $httpCode >= 300) {
+        return [
+            'success' => false,
+            'http_code' => $httpCode,
+            'curl_error' => $curlError,
+            'response_raw' => is_string($result) ? $result : '',
+            'response_json' => null,
+        ];
     }
 
     $decoded = json_decode((string) $result, true);
-    if (!is_array($decoded)) {
-        return true;
-    }
+    $success = !is_array($decoded)
+        ? true
+        : evaluate_whatsapp_gateway_response($decoded, $isKirimi);
 
-    if (array_key_exists('status', $decoded)) {
-        return (bool) $decoded['status'];
-    }
-    if (array_key_exists('success', $decoded)) {
-        return (bool) $decoded['success'];
-    }
-    if (array_key_exists('ok', $decoded)) {
-        return (bool) $decoded['ok'];
-    }
-    if (array_key_exists('error', $decoded)) {
-        $errorVal = $decoded['error'];
-        if (is_string($errorVal)) return trim($errorVal) === '';
-        return !$errorVal;
-    }
+    return [
+        'success' => $success,
+        'http_code' => $httpCode,
+        'curl_error' => '',
+        'response_raw' => (string) $result,
+        'response_json' => is_array($decoded) ? $decoded : null,
+    ];
+}
 
-    return true;
+function dispatch_whatsapp_message(string $url, string $token, string $target, string $message, ?string $mediaUrlOverride = null): bool {
+    $result = dispatch_whatsapp_message_result($url, $token, $target, $message, $mediaUrlOverride);
+    return (bool) ($result['success'] ?? false);
 }
 
 function queue_whatsapp_notification(int $studentId, string $title, string $message): void {
@@ -191,15 +259,31 @@ function send_admin_whatsapp_notification(string $title, string $message): bool 
     return dispatch_whatsapp_message($url, $token, $target, trim($finalMessage));
 }
 
-function try_dispatch_whatsapp_queue(): void {
+function dispatch_whatsapp_queue_batch(int $limit = 5, int $delayMinMs = 0, int $delayMaxMs = 0): array {
     $enabled = scalar("SELECT setting_value FROM settings WHERE setting_key='whatsapp_gateway_enabled' LIMIT 1");
-    if ($enabled !== '1') return;
+    if ($enabled !== '1') {
+        return ['attempted' => 0, 'sent' => 0, 'failed' => 0, 'remaining_queued' => 0, 'enabled' => false];
+    }
+
     $url = scalar("SELECT setting_value FROM settings WHERE setting_key='whatsapp_gateway_url' LIMIT 1");
     $token = scalar("SELECT setting_value FROM settings WHERE setting_key='whatsapp_gateway_token' LIMIT 1");
-    if (!$url || !$token) return;
+    if (!$url || !$token) {
+        return ['attempted' => 0, 'sent' => 0, 'failed' => 0, 'remaining_queued' => 0, 'enabled' => true, 'configured' => false];
+    }
 
-    $rows = db()->query("SELECT n.id, n.student_id, n.title, n.message, s.parent_phone FROM notifications n JOIN students s ON s.id = n.student_id WHERE n.status='queued' ORDER BY n.id ASC LIMIT 5")->fetchAll();
-    foreach ($rows as $row) {
+    $limit = max(1, min(100, $limit));
+    $delayMinMs = max(0, $delayMinMs);
+    $delayMaxMs = max(0, $delayMaxMs);
+    if ($delayMaxMs < $delayMinMs) {
+        [$delayMinMs, $delayMaxMs] = [$delayMaxMs, $delayMinMs];
+    }
+
+    $rows = db()->query("SELECT n.id, n.student_id, n.title, n.message, s.parent_phone FROM notifications n JOIN students s ON s.id = n.student_id WHERE n.status='queued' ORDER BY n.id ASC LIMIT " . (int) $limit)->fetchAll();
+    $attempted = count($rows);
+    $sent = 0;
+    $failed = 0;
+
+    foreach ($rows as $index => $row) {
         $target = normalize_wa_target((string) ($row['parent_phone'] ?? ''));
         $mediaUrl = '';
         $isReceiptNotif = trim((string) ($row['title'] ?? '')) === 'Kuitansi Pembayaran';
@@ -220,8 +304,34 @@ function try_dispatch_whatsapp_queue(): void {
                 }
             }
         }
+
         $success = $target !== '' && dispatch_whatsapp_message($url, $token, $target, (string) $row['message'], $mediaUrl);
         $stmt = db()->prepare("UPDATE notifications SET status=?, sent_at=NOW() WHERE id=?");
         $stmt->execute([$success ? 'sent' : 'failed', $row['id']]);
+
+        if ($success) {
+            $sent++;
+        } else {
+            $failed++;
+        }
+
+        if ($delayMaxMs > 0 && $index < ($attempted - 1)) {
+            usleep(random_int($delayMinMs * 1000, $delayMaxMs * 1000));
+        }
     }
+
+    $remainingQueued = (int) scalar("SELECT COUNT(*) FROM notifications WHERE status='queued'");
+
+    return [
+        'attempted' => $attempted,
+        'sent' => $sent,
+        'failed' => $failed,
+        'remaining_queued' => $remainingQueued,
+        'enabled' => true,
+        'configured' => true,
+    ];
+}
+
+function try_dispatch_whatsapp_queue(): void {
+    dispatch_whatsapp_queue_batch(5, 0, 0);
 }

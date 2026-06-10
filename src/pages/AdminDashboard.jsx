@@ -17,7 +17,7 @@ import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
-import { formatCurrency } from "../utils";
+import { formatCurrency, formatPeriod } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 
 const INITIAL_DASHBOARD_DATA = {
@@ -111,10 +111,8 @@ export default function AdminDashboard() {
   const billingPeriodDate = /^\d{4}-\d{2}$/.test(billingPeriodRaw)
     ? new Date(`${billingPeriodRaw}-01T00:00:00`)
     : new Date();
-  const monthLabel = billingPeriodDate.toLocaleString("id-ID", {
-    month: "long",
-  });
-  const yearLabel = billingPeriodDate.getFullYear();
+  const billingPeriodLabel = formatPeriod(billingPeriodRaw || `${billingPeriodDate.getFullYear()}-${String(billingPeriodDate.getMonth() + 1).padStart(2, "0")}`);
+  const [monthLabel = "-", yearLabel = billingPeriodDate.getFullYear()] = billingPeriodLabel.split(" ");
   const paidStudents = Number(billingOverview.paid_students || 0);
   const unpaidStudents = Number(billingOverview.unpaid_students || 0);
   const paidAmount = Number(billingOverview.paid_amount || 0);
@@ -174,7 +172,7 @@ export default function AdminDashboard() {
         <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
           <span>Dashboard</span>
           <span className="bg-gradient-to-r from-sky-600 via-blue-600 to-amber-500 bg-clip-text text-xl font-bold tracking-wide text-transparent md:text-2xl">
-            MADSC Payment
+            PPDS Payment
           </span>
         </div>
       }
@@ -206,7 +204,7 @@ export default function AdminDashboard() {
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
-          title="Total Siswa"
+          title="Total Santri"
           value={data.summary?.students || 0}
           helper="Terdaftar pada sistem"
           className="border-sky-300 shadow-sky-100/80"
@@ -358,7 +356,7 @@ export default function AdminDashboard() {
                   stroke="#fff"
                   strokeWidth={2}
                   label={(entry) =>
-                    entry?.value > 0 ? `${entry.value} Siswa` : ""
+                    entry?.value > 0 ? `${entry.value} Santri` : ""
                   }
                   labelLine={false}
                 >
@@ -368,7 +366,7 @@ export default function AdminDashboard() {
                 </Pie>
                 <Tooltip
                   formatter={(value, name, props) => [
-                    `${value} Siswa (${formatCurrency(props?.payload?.amount || 0)})`,
+                    `${value} Santri (${formatCurrency(props?.payload?.amount || 0)})`,
                     name,
                   ]}
                 />
@@ -386,7 +384,7 @@ export default function AdminDashboard() {
                   />
                   {item.name}
                 </div>
-                <div className="text-slate-600">Siswa: {item.value}</div>
+                <div className="text-slate-600">Santri: {item.value}</div>
                 <div className="text-slate-700">{formatCurrency(item.amount)}</div>
               </div>
             ))}
@@ -449,7 +447,7 @@ export default function AdminDashboard() {
                   loading ? "Memuat transaksi..." : "Belum ada transaksi"
                 }
                 columns={[
-                  { key: "student_name", title: "Siswa" },
+                  { key: "student_name", title: "Santri" },
                   { key: "bill_name", title: "Tagihan" },
                   { key: "payment_channel", title: "Kanal" },
                   {
@@ -545,3 +543,4 @@ export default function AdminDashboard() {
     </Layout>
   );
 }
+

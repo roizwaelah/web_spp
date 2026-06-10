@@ -1,4 +1,4 @@
-export default function Table({ columns, rows, emptyText = 'Belum ada data', striped = false }) {
+export default function Table({ columns, rows, emptyText = 'Belum ada data', striped = false, rowClassName }) {
   const safeColumns = Array.isArray(columns) ? columns : []
   const safeRows = Array.isArray(rows) ? rows : []
 
@@ -26,11 +26,9 @@ export default function Table({ columns, rows, emptyText = 'Belum ada data', str
             ) : safeRows.map((row, idx) => (
               <tr
                 key={row._key ?? row.key ?? `${row.id ?? "row"}-${idx}`}
-                className={
-                  striped
-                    ? `${idx % 2 === 0 ? "bg-white" : "bg-slate-50/85"} hover:bg-sky-50/70`
-                    : "hover:bg-slate-50/80"
-                }
+                className={`${striped
+                  ? `${idx % 2 === 0 ? "bg-white" : "bg-slate-50/85"} hover:bg-sky-50/70`
+                  : "hover:bg-slate-50/80"} ${typeof rowClassName === 'function' ? (rowClassName(row, idx) || '') : ''}`.trim()}
               >
                 {safeColumns.map((column) => (
                   <td

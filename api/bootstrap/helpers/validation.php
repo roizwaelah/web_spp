@@ -18,7 +18,7 @@ function validate_user_payload(array $input, bool $isUpdate = false): array {
     if (!filter_var($clean['email'], FILTER_VALIDATE_EMAIL)) response(['message' => 'Format email tidak valid'], 422);
     if (mb_strlen($clean['email']) > 120) response(['message' => 'Email maksimal 120 karakter'], 422);
 
-    if (!in_array($clean['role'], ['admin', 'bendahara', 'parent'], true)) {
+    if (!in_array($clean['role'], ['admin', 'bendahara', 'verifikator', 'parent'], true)) {
         response(['message' => 'Role user tidak valid'], 422);
     }
 

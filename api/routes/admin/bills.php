@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // Route daftar, generate, dan hapus tagihan.
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -13,7 +13,7 @@ function bill_payment_portal_url(): string
 {
     $fromEnv = trim((string) env_value('PAYMENT_PORTAL_URL', ''));
     if ($fromEnv !== '') return rtrim($fromEnv, '/');
-    return 'https://spp.madarussalamcilongok.sch.id';
+    return 'https://spp.darussalampanusupan.net';
 }
 
 
@@ -49,8 +49,8 @@ function bill_period_label(string $period): string
 }
 function build_bill_reminder_message(array $bill, array $student): string
 {
-    $schoolName = trim(setting_value('school_name', 'Madrasah'));
-    if ($schoolName === '') $schoolName = 'Madrasah';
+    $schoolName = trim(setting_value('school_name', 'Darussalam'));
+    if ($schoolName === '') $schoolName = 'Darussalam';
 
     $period = trim((string) ($bill['period'] ?? '-'));
     $periodLabel = bill_period_label($period);
@@ -59,7 +59,7 @@ function build_bill_reminder_message(array $bill, array $student): string
     if ($studentNisn === '') $studentNisn = '-';
     $className = trim((string) ($student['class_name'] ?? $bill['class_name'] ?? '-'));
     $billName = trim((string) ($bill['bill_name'] ?? '-'));
-    $amountText = idr((float) ($bill['amount'] ?? 0));
+    $amountText = idr((float) ($bill['remaining_amount'] ?? $bill['amount'] ?? 0));
     $portalUrl = bill_payment_portal_url();
 
     return implode("\n", [
@@ -80,8 +80,8 @@ function build_bill_reminder_message(array $bill, array $student): string
 
 function build_bill_reminder_summary_message(array $student, array $bills): string
 {
-    $schoolName = trim(setting_value('school_name', 'Madrasah'));
-    if ($schoolName === '') $schoolName = 'Madrasah';
+    $schoolName = trim(setting_value('school_name', 'Darussalam'));
+    if ($schoolName === '') $schoolName = 'Darussalam';
 
     $studentName = trim((string) ($student['name'] ?? '-'));
     $studentNisn = trim((string) ($student['nisn'] ?? '-'));
@@ -101,7 +101,7 @@ function build_bill_reminder_summary_message(array $student, array $bills): stri
     foreach ($bills as $idx => $bill) {
         $billName = trim((string) ($bill['bill_name'] ?? '-'));
         $period = trim((string) ($bill['period'] ?? '-'));
-        $amount = (float) ($bill['amount'] ?? 0);
+        $amount = (float) ($bill['remaining_amount'] ?? $bill['amount'] ?? 0);
         $total += $amount;
         $lines[] = sprintf("%d. %s (%s) - %s", $idx + 1, $billName, bill_period_label($period), idr($amount));
     }
@@ -118,7 +118,7 @@ function build_bill_reminder_summary_message(array $student, array $bills): stri
 
 function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period = null): array
 {
-    if (!in_array($day, [5, 15], true)) {
+    if (!in_array($day, [5, 25], true)) {
         return [
             'processed_students' => 0,
             'queued' => 0,
@@ -129,19 +129,19 @@ function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period =
     }
 
     $period = $period !== null && preg_match('/^\d{4}-\d{2}$/', $period) ? $period : date('Y-m');
-    $title = $day === 5 ? 'Pengingat Tagihan Otomatis (Tgl 5)' : 'Pengingat Tagihan Otomatis (Tgl 15)';
+    $title = $day === 5 ? 'Pengingat Tagihan Otomatis (Tgl 5)' : 'Pengingat Tagihan Otomatis (Tgl 25)';
 
     $stmtStudents = $pdo->prepare("SELECT DISTINCT b.student_id, s.name AS student_name, s.nisn
         FROM bills b
         JOIN students s ON s.id = b.student_id
-        WHERE b.status = 'unpaid' AND b.period = ?
+        WHERE b.status <> 'paid' AND b.period = ?
         ORDER BY s.name ASC");
     $stmtStudents->execute([$period]);
     $studentRows = $stmtStudents->fetchAll();
 
-    $stmtBills = $pdo->prepare("SELECT id, bill_name, period, amount
+    $stmtBills = $pdo->prepare("SELECT id, bill_name, period, amount, paid_amount, remaining_amount
         FROM bills
-        WHERE student_id = ? AND status = 'unpaid' AND period = ?
+        WHERE student_id = ? AND status <> 'paid' AND period = ?
         ORDER BY due_date ASC, id ASC");
     $alreadySentTodayStmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE student_id = ? AND title = ? AND DATE(created_at) = CURDATE()");
 
@@ -179,10 +179,6 @@ function dispatch_scheduled_bill_reminders(PDO $pdo, int $day, ?string $period =
         $queued++;
     }
 
-    if ($queued > 0) {
-        try_dispatch_whatsapp_queue();
-    }
-
     return [
         'processed_students' => $processedStudents,
         'queued' => $queued,
@@ -210,9 +206,9 @@ if ($route === 'cron/bills/dispatch-scheduled-reminders' && in_array($method, ['
         response(['message' => 'Format period harus YYYY-MM'], 422);
     }
 
-    if (!in_array($day, [5, 15], true)) {
+    if (!in_array($day, [5, 25], true)) {
         response([
-            'message' => 'Hari ini bukan jadwal kirim otomatis (hanya tanggal 5 atau 15)',
+            'message' => 'Hari ini bukan jadwal kirim otomatis (hanya tanggal 5 atau 25)',
             'day' => $day,
             'period' => $period,
             'result' => [
@@ -232,11 +228,50 @@ if ($route === 'cron/bills/dispatch-scheduled-reminders' && in_array($method, ['
     ]);
 }
 
+
+if ($route === 'cron/whatsapp/dispatch-queue' && in_array($method, ['GET', 'POST'], true)) {
+    $input = $method === 'POST' ? json_input() : [];
+    $cronKey = trim((string) env_value('WHATSAPP_DISPATCH_CRON_KEY', env_value('BILL_REMINDER_CRON_KEY', '')));
+    $providedKey = trim((string) (($input['key'] ?? '') ?: query('key', '')));
+
+    if ($cronKey === '') {
+        response(['message' => 'WHATSAPP_DISPATCH_CRON_KEY atau BILL_REMINDER_CRON_KEY belum dikonfigurasi'], 500);
+    }
+    if (!hash_equals($cronKey, $providedKey)) {
+        response(['message' => 'Akses cron ditolak (key tidak valid)'], 403);
+    }
+
+    if (function_exists('ignore_user_abort')) {
+        @ignore_user_abort(true);
+    }
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(0);
+    }
+
+    $limit = isset($input['limit']) ? (int) $input['limit'] : (int) query('limit', 5);
+    $delayMinMs = isset($input['delay_min_ms']) ? (int) $input['delay_min_ms'] : (int) query('delay_min_ms', 7000);
+    $delayMaxMs = isset($input['delay_max_ms']) ? (int) $input['delay_max_ms'] : (int) query('delay_max_ms', 9000);
+
+    $limit = max(1, min(20, $limit));
+    $delayMinMs = max(0, min(60000, $delayMinMs));
+    $delayMaxMs = max(0, min(60000, $delayMaxMs));
+    if ($delayMaxMs < $delayMinMs) {
+        [$delayMinMs, $delayMaxMs] = [$delayMaxMs, $delayMinMs];
+    }
+
+    $result = dispatch_whatsapp_queue_batch($limit, $delayMinMs, $delayMaxMs);
+    response([
+        'message' => "Dispatch antrean WhatsApp selesai. {$result['sent']} terkirim, {$result['failed']} gagal, {$result['remaining_queued']} tersisa.",
+        'result' => $result,
+    ]);
+}
+
 if ($route === 'admin/bills' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['bills']);
     $status = query('status', '');
     $studentId = query('student_id', '');
+    $studentStatus = query('student_status', '');
     $classId = query('class_id', '');
     $academicYearId = query('academic_year_id', '');
     $conditions = [];
@@ -249,6 +284,10 @@ if ($route === 'admin/bills' && $method === 'GET') {
         $conditions[] = 'b.student_id = ?';
         $params[] = $studentId;
     }
+    if ($studentStatus) {
+        $conditions[] = 's.status = ?';
+        $params[] = $studentStatus;
+    }
     if ($classId) {
         $conditions[] = 's.class_id = ?';
         $params[] = $classId;
@@ -259,18 +298,96 @@ if ($route === 'admin/bills' && $method === 'GET') {
         $params[] = $academicYearId;
     }
     $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
-    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nis, s.nisn, c.name class_name,
-            COALESCE(b.academic_year_id, s.academic_year_id) bill_academic_year_id,
-            ay.name academic_year_name,
-            (SELECT status FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1) proof_status
+    $mode = query('mode', '');
+    if ($mode !== 'page') {
+        $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nis, s.nisn, s.status student_status, c.name class_name,
+                COALESCE(b.academic_year_id, s.academic_year_id) bill_academic_year_id,
+                ay.name academic_year_name,
+                fp.is_flexible_installment,
+                COALESCE(
+                    (SELECT ppg.status
+                        FROM payment_proof_group_items ppgi
+                        JOIN payment_proof_groups ppg ON ppg.id = ppgi.group_id
+                        WHERE ppgi.bill_id = b.id
+                        ORDER BY ppg.id DESC LIMIT 1),
+                    (SELECT status FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1)
+                ) proof_status
+            FROM bills b
+            JOIN students s ON s.id=b.student_id
+            JOIN finance_posts fp ON fp.id=b.finance_post_id
+            LEFT JOIN classes c ON c.id=s.class_id
+            LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
+            {$where}
+            ORDER BY b.id DESC");
+        $stmt->execute($params);
+        response($stmt->fetchAll());
+    }
+
+    $page = filter_var(query('page', 1), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($page === false) $page = 1;
+    $perPage = filter_var(query('per_page', 25), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($perPage === false) $perPage = 25;
+    $perPage = min($perPage, 100);
+
+    $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT b.student_id)
         FROM bills b
         JOIN students s ON s.id=b.student_id
+        JOIN finance_posts fp ON fp.id=b.finance_post_id
+        LEFT JOIN classes c ON c.id=s.class_id
+        LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
+        {$where}");
+    $countStmt->execute($params);
+    $total = (int) ($countStmt->fetchColumn() ?: 0);
+    $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 1;
+    if ($page > $totalPages) $page = $totalPages;
+    $offset = ($page - 1) * $perPage;
+
+    $studentStmt = $pdo->prepare("SELECT b.student_id, MAX(b.id) latest_bill_id
+        FROM bills b
+        JOIN students s ON s.id=b.student_id
+        JOIN finance_posts fp ON fp.id=b.finance_post_id
         LEFT JOIN classes c ON c.id=s.class_id
         LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
         {$where}
+        GROUP BY b.student_id
+        ORDER BY latest_bill_id DESC
+        LIMIT {$perPage} OFFSET {$offset}");
+    $studentStmt->execute($params);
+    $studentIds = array_map(fn($row) => (int) $row['student_id'], $studentStmt->fetchAll());
+
+    if (count($studentIds) === 0) {
+        response([
+            'rows' => [],
+            'pagination' => ['page' => $page, 'per_page' => $perPage, 'total' => $total, 'total_pages' => $totalPages],
+        ]);
+    }
+
+    $studentPlaceholders = implode(',', array_fill(0, count($studentIds), '?'));
+    $pagedWhere = $conditions ? ($where . " AND b.student_id IN ({$studentPlaceholders})") : "WHERE b.student_id IN ({$studentPlaceholders})";
+    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nis, s.nisn, s.status student_status, c.name class_name,
+            COALESCE(b.academic_year_id, s.academic_year_id) bill_academic_year_id,
+            ay.name academic_year_name,
+            fp.is_flexible_installment,
+            COALESCE(
+                (SELECT ppg.status
+                    FROM payment_proof_group_items ppgi
+                    JOIN payment_proof_groups ppg ON ppg.id = ppgi.group_id
+                    WHERE ppgi.bill_id = b.id
+                    ORDER BY ppg.id DESC LIMIT 1),
+                (SELECT status FROM payment_proofs pp WHERE pp.bill_id=b.id ORDER BY pp.id DESC LIMIT 1)
+            ) proof_status
+        FROM bills b
+        JOIN students s ON s.id=b.student_id
+        JOIN finance_posts fp ON fp.id=b.finance_post_id
+        LEFT JOIN classes c ON c.id=s.class_id
+        LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
+        {$pagedWhere}
         ORDER BY b.id DESC");
-    $stmt->execute($params);
-    response($stmt->fetchAll());
+    $stmt->execute(array_merge($params, $studentIds));
+    response([
+        'rows' => $stmt->fetchAll(),
+        'pagination' => ['page' => $page, 'per_page' => $perPage, 'total' => $total, 'total_pages' => $totalPages],
+    ]);
 }
 
 if ($route === 'admin/bills/dispatch-scheduled-reminders' && $method === 'POST') {
@@ -281,8 +398,8 @@ if ($route === 'admin/bills/dispatch-scheduled-reminders' && $method === 'POST')
     $day = isset($input['day']) ? (int) $input['day'] : (int) date('j');
     $period = isset($input['period']) ? trim((string) $input['period']) : date('Y-m');
 
-    if (!in_array($day, [5, 15], true)) {
-        response(['message' => 'Dispatcher hanya berjalan untuk tanggal 5 atau 15', 'day' => $day], 422);
+    if (!in_array($day, [5, 25], true)) {
+        response(['message' => 'Dispatcher hanya berjalan untuk tanggal 5 atau 25', 'day' => $day], 422);
     }
     if (!preg_match('/^\d{4}-\d{2}$/', $period)) {
         response(['message' => 'Format period harus YYYY-MM'], 422);
@@ -386,6 +503,7 @@ if ($route === 'admin/bills/export-tunggakan' && $method === 'GET') {
             b.period,
             b.due_date,
             b.amount,
+            b.remaining_amount,
             b.status,
             b.finance_post_id,
             s.id AS student_id,
@@ -418,22 +536,24 @@ if ($route === 'admin/bills/export-tunggakan' && $method === 'GET') {
 
         $period = trim((string) ($row['period'] ?? ''));
         if ($period !== '') $rowsByStudent[$studentId]['periods'][$period] = $period;
-        $rowsByStudent[$studentId]['amount_total'] += (float) ($row['amount'] ?? 0);
+        $rowRemaining = (float) ($row['remaining_amount'] ?? 0);
+        if ($rowRemaining <= 0) $rowRemaining = (float) ($row['amount'] ?? 0);
+        $rowsByStudent[$studentId]['amount_total'] += $rowRemaining;
         $rowPostId = (int) ($row['finance_post_id'] ?? 0);
         if (isset($rowsByStudent[$studentId]['amounts_by_post'][$rowPostId])) {
-            $rowsByStudent[$studentId]['amounts_by_post'][$rowPostId] += (float) ($row['amount'] ?? 0);
+            $rowsByStudent[$studentId]['amounts_by_post'][$rowPostId] += $rowRemaining;
         }
     }
     $rows = array_values($rowsByStudent);
 
-    $schoolName = trim(setting_value('school_name', 'DARUSSALAM'));
-    if ($schoolName === '') $schoolName = 'DARUSSALAM';
+    $schoolName = trim(setting_value('school_name', 'PP. DARUSSALAM'));
+    if ($schoolName === '') $schoolName = 'PP. DARUSSALAM';
     $schoolAddress = trim(setting_value('school_address', 'Kandang Aur 04/02 Desa Panusupan, Kecamatan Cilongok'));
     if ($schoolAddress === '') $schoolAddress = 'Kandang Aur 04/02 Desa Panusupan, Kecamatan Cilongok';
     $schoolCity = trim(setting_value('school_city', 'Kabupaten Banyumas - Jawa Tengah 53162'));
     if ($schoolCity === '') $schoolCity = 'Kabupaten Banyumas - Jawa Tengah 53162';
-    $schoolPhone = trim(setting_value('school_phone', '081234567890'));
-    $schoolEmail = trim(setting_value('school_email', 'school@mail.com'));
+    $schoolPhone = trim(setting_value('school_phone', '085743487277'));
+    $schoolEmail = trim(setting_value('school_email', 'ppdarsalcilongok@gmail.com'));
 
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
@@ -599,6 +719,7 @@ if ($route === 'admin/bills/export-tunggakan' && $method === 'GET') {
 }
 
 if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
+    header('X-SPP-Manual-Payment-Fix: multi-bill-custom-v3');
     $user = require_auth();
     validate_menu_access($user, ['bills']);
     $input = json_input();
@@ -628,17 +749,31 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
     if (!$billIds) response(['message' => 'Tagihan yang dibayar wajib dipilih'], 422);
 
     $placeholders = implode(',', array_fill(0, count($billIds), '?'));
-    $billStmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nisn, s.id student_id
+    $billStmt = $pdo->prepare("SELECT b.*, fp.is_flexible_installment, s.name student_name, s.nisn, s.id student_id
         FROM bills b
+        JOIN finance_posts fp ON fp.id = b.finance_post_id
         JOIN students s ON s.id = b.student_id
         WHERE b.id IN ($placeholders)");
     $billStmt->execute($billIds);
     $bills = $billStmt->fetchAll();
     if (count($bills) !== count($billIds)) response(['message' => 'Sebagian tagihan tidak ditemukan'], 404);
+    usort($bills, static function ($left, $right) {
+        $periodCompare = strcmp((string) ($left['period'] ?? ''), (string) ($right['period'] ?? ''));
+        if ($periodCompare !== 0) return $periodCompare;
+        $nameCompare = strcasecmp((string) ($left['bill_name'] ?? ''), (string) ($right['bill_name'] ?? ''));
+        if ($nameCompare !== 0) return $nameCompare;
+        return (int) ($left['id'] ?? 0) <=> (int) ($right['id'] ?? 0);
+    });
 
     foreach ($bills as $bill) {
         if ($bill['status'] === 'paid') response(['message' => "Tagihan {$bill['bill_name']} sudah lunas"], 422);
         $pendingProof = (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE bill_id = ? AND status = 'pending'", [$bill['id']]);
+        if ($pendingProof <= 0) {
+            $pendingProof = (int) scalar("SELECT COUNT(*)
+                FROM payment_proof_group_items ppgi
+                JOIN payment_proof_groups ppg ON ppg.id = ppgi.group_id
+                WHERE ppgi.bill_id = ? AND ppg.status = 'pending'", [$bill['id']]);
+        }
         if ($pendingProof > 0) {
             response(['message' => "Tagihan {$bill['bill_name']} masih memiliki bukti pembayaran yang menunggu review admin"], 422);
         }
@@ -650,23 +785,97 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
     }
 
     $referenceNo = create_manual_payment_reference((string) $input['payment_date']);
+    $officerName = strtoupper(trim((string) ($user['name'] ?? 'ADMIN')));
+    if ($officerName === '') $officerName = 'ADMIN';
     $transactions = [];
     $totalAmount = 0.0;
+    $depositCreditTotal = 0.0;
     $studentBuckets = [];
+    $customAmountProvided = array_key_exists('amount', $input) || array_key_exists('payment_amount', $input) || array_key_exists('custom_amount', $input);
+    $customAmount = null;
+    if ($customAmountProvided) {
+        $customAmount = (float) ($input['amount'] ?? $input['payment_amount'] ?? $input['custom_amount']);
+        if ($customAmount <= 0) response(['message' => 'Nominal pembayaran harus lebih besar dari 0'], 422);
+        $customStudentIds = array_values(array_unique(array_map(static fn($bill) => (int) ($bill['student_id'] ?? 0), $bills)));
+        if (count($customStudentIds) !== 1) response(['message' => 'Nominal custom hanya dapat digunakan untuk tagihan satu siswa/santri'], 422);
+        $hasFlexibleBill = false;
+        foreach ($bills as $bill) {
+            if ((int) ($bill['is_flexible_installment'] ?? 0) === 1) {
+                $hasFlexibleBill = true;
+                break;
+            }
+        }
+        if (!$hasFlexibleBill) response(['message' => 'Nominal custom hanya dapat digunakan untuk tagihan fleksibel'], 422);
+    }
+
+    $paymentPlans = [];
+    $remainingCustomAmount = $customAmountProvided ? (float) $customAmount : null;
+    $plannedFullPayments = [];
+    $olderBillRequirements = [];
+    foreach ($bills as $bill) {
+        $billId = (int) $bill['id'];
+        $studentId = (int) $bill['student_id'];
+        $isFlexible = (int) ($bill['is_flexible_installment'] ?? 0) === 1;
+        $remainingAmount = (float) ($bill['remaining_amount'] ?? 0);
+        if ($remainingAmount <= 0) $remainingAmount = (float) ($bill['amount'] ?? 0);
+        $paymentAmount = $customAmountProvided
+            ? min($remainingAmount, max((float) $remainingCustomAmount, 0.0))
+            : $remainingAmount;
+        if ($customAmountProvided) $remainingCustomAmount -= $paymentAmount;
+        $depositCreditAmount = 0.0;
+
+        if ($paymentAmount <= 0) continue;
+
+        if (!$isFlexible && abs($paymentAmount - $remainingAmount) > 0.009) {
+            response(['message' => "Tagihan {$bill['bill_name']} wajib dibayar penuh"], 422);
+        }
+        if ($isFlexible) {
+            $olderBill = oldest_unpaid_bill_for_same_post($studentId, (int) $bill['finance_post_id'], $billId);
+            if ($olderBill) $olderBillRequirements[] = $olderBill;
+            if ($paymentAmount > $remainingAmount) {
+                $depositCreditAmount = round($paymentAmount - $remainingAmount, 2);
+                $paymentAmount = $remainingAmount;
+            }
+        } elseif ($paymentAmount > $remainingAmount || $paymentAmount < $remainingAmount) {
+            response(['message' => "Nominal pembayaran {$bill['bill_name']} harus sama dengan sisa tagihan"], 422);
+        }
+
+        if ($paymentAmount <= 0) response(['message' => "Tagihan {$bill['bill_name']} sudah tidak memiliki sisa pembayaran"], 422);
+        $paymentPlans[] = [$bill, $billId, $studentId, $paymentAmount, $depositCreditAmount];
+        if (abs($paymentAmount - $remainingAmount) <= 0.009) $plannedFullPayments[$billId] = true;
+    }
+    foreach ($olderBillRequirements as $olderBill) {
+        $olderBillId = (int) ($olderBill['id'] ?? 0);
+        if ($olderBillId > 0 && !isset($plannedFullPayments[$olderBillId])) {
+            response(['message' => "Lunasi tagihan {$olderBill['bill_name']} periode {$olderBill['period']} terlebih dahulu"], 422);
+        }
+    }
+    if ($customAmountProvided && (float) $remainingCustomAmount > 0.009 && $paymentPlans) {
+        $lastIndex = count($paymentPlans) - 1;
+        $paymentPlans[$lastIndex][4] = round((float) $paymentPlans[$lastIndex][4] + (float) $remainingCustomAmount, 2);
+    }
+    if (!$paymentPlans) {
+        response(['message' => 'Nominal pembayaran tidak cukup untuk memproses tagihan yang dipilih'], 422);
+    }
 
     $pdo->beginTransaction();
     try {
-        foreach ($bills as $bill) {
-            $tx = record_bill_payment((int) $bill['id'], (int) $bill['student_id'], (string) $input['payment_channel'], (float) $bill['amount'], [
+        foreach ($paymentPlans as [$bill, $billId, $studentId, $paymentAmount, $depositCreditAmount]) {
+            $tx = record_bill_payment($billId, $studentId, (string) $input['payment_channel'], $paymentAmount, [
                 'payment_date' => (string) $input['payment_date'],
                 'reference_no' => $referenceNo,
                 'notes' => $notes !== '' ? $notes : 'Input pembayaran manual oleh bendahara',
                 'status' => 'paid',
+                'officer_name' => $officerName,
             ]);
             $transactions[] = $tx;
-            $totalAmount += (float) $bill['amount'];
-
-            $studentId = (int) $bill['student_id'];
+            if ($depositCreditAmount > 0) {
+                student_deposit_credit($studentId, $depositCreditAmount, 'manual_overpayment', $billId, (int) ($tx['transaction_id'] ?? 0), 'Kelebihan pembayaran manual', (string) $input['payment_date']);
+                $depositCreditTotal += $depositCreditAmount;
+            }
+            sync_bill_payment_status($billId);
+            $totalPaidForBill = $paymentAmount + $depositCreditAmount;
+            $totalAmount += $totalPaidForBill;
             if (!isset($studentBuckets[$studentId])) {
                 $studentBuckets[$studentId] = [
                     'student_name' => (string) $bill['student_name'],
@@ -676,7 +885,7 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
                 ];
             }
             $studentBuckets[$studentId]['bill_count']++;
-            $studentBuckets[$studentId]['total'] += (float) $bill['amount'];
+            $studentBuckets[$studentId]['total'] += $totalPaidForBill;
         }
         $pdo->commit();
     } catch (Throwable $e) {
@@ -688,8 +897,6 @@ if ($route === 'admin/bills/manual-payment' && $method === 'POST') {
         $billSummary = $bucket['bill_count'] <= 1
             ? ((string) ($bucket['first_bill_name'] ?? 'tagihan'))
             : ($bucket['bill_count'] . ' tagihan');
-        $officerName = strtoupper(trim((string) ($user['name'] ?? 'ADMIN')));
-        if ($officerName === '') $officerName = 'ADMIN';
         $receiptLinks = generate_receipt_links_for_student((int) $studentId, [$referenceNo], $officerName);
         $receiptMessage = build_receipt_notification_message($billSummary, (float) $bucket['total'], [$referenceNo], $receiptLinks);
         queue_whatsapp_notification((int) $studentId, 'Kuitansi Pembayaran', $receiptMessage);
@@ -718,8 +925,9 @@ if ($route === 'admin/bills/remind' && $method === 'POST') {
         response(['message' => 'ID tagihan wajib diisi'], 422);
     }
 
-    $stmt = $pdo->prepare("SELECT b.*, s.name student_name, s.nisn, s.id student_id
+    $stmt = $pdo->prepare("SELECT b.*, fp.is_flexible_installment, s.name student_name, s.nisn, s.id student_id
         FROM bills b
+        JOIN finance_posts fp ON fp.id = b.finance_post_id
         JOIN students s ON s.id = b.student_id
         WHERE b.id = ? LIMIT 1");
     $stmt->execute([$billId]);
@@ -988,9 +1196,9 @@ if ($route === 'admin/bills/generate' && $method === 'POST') {
             foreach ($periods as $period) {
                 $exists = scalar('SELECT COUNT(*) FROM bills WHERE student_id = ? AND finance_post_id = ? AND period = ?', [$student['id'], $post['id'], $period]);
                 if ($exists) continue;
-                $stmt = $pdo->prepare("INSERT INTO bills (student_id, academic_year_id, finance_post_id, bill_name, period, due_date, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'unpaid', NOW())");
+                $stmt = $pdo->prepare("INSERT INTO bills (student_id, academic_year_id, finance_post_id, bill_name, period, due_date, amount, paid_amount, remaining_amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'unpaid', NOW())");
                 $dueDate = !empty($input['due_date']) ? $input['due_date'] : ($period . '-10');
-                $stmt->execute([$student['id'], $student['academic_year_id'] ?? null, $post['id'], $post['name'], $period, $dueDate, $post['amount']]);
+                $stmt->execute([$student['id'], $student['academic_year_id'] ?? null, $post['id'], $post['name'], $period, $dueDate, $post['amount'], $post['amount']]);
                 $created++;
             }
         }

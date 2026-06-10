@@ -75,33 +75,34 @@ if ($route === 'admin/settings/profile' && $method === 'GET') {
     validate_menu_access($user, ['bills']);
     $settings = list_settings();
     response([
-        'school_name' => (string) ($settings['school_name'] ?? 'MADSC PAYMENT'),
-        'school_address' => (string) ($settings['school_address'] ?? 'Dokumen detail transaksi pembayaran siswa'),
+        'school_name' => (string) ($settings['school_name'] ?? 'PPDS PAYMENT'),
+        'school_address' => (string) ($settings['school_address'] ?? 'Dokumen detail transaksi pembayaran santri'),
     ]);
 }
 
 if ($route === 'admin/settings' && $method === 'GET') {
     $user = require_auth();
-    validate_menu_access($user, ['settings'], ['admin']);
+    validate_menu_access($user, ['settings'], ['admin', 'verifikator']);
     response(list_settings());
 }
 
 if ($route === 'admin/settings' && $method === 'PUT') {
     $user = require_auth();
-    validate_menu_access($user, ['settings'], ['admin']);
+    validate_menu_access($user, ['settings'], ['admin', 'verifikator']);
     $input = sanitize_settings_payload(json_input());
     foreach ($input as $key => $value) {
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, NOW())
             ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_at=NOW()");
         $stmt->execute([$key, $value]);
     }
+    refresh_settings_cache();
     log_activity((int) $user['id'], 'update', 'setting', null, 'Memperbarui pengaturan sistem');
     response(['message' => 'Pengaturan berhasil diperbarui']);
 }
 
 if ($route === 'admin/settings/whatsapp-test' && $method === 'POST') {
     $user = require_auth();
-    validate_menu_access($user, ['settings'], ['admin']);
+    validate_menu_access($user, ['settings'], ['admin', 'verifikator']);
     rate_limit_or_fail('wa-test:user:' . (int) ($user['id'] ?? 0), 5, 300, 'Terlalu sering kirim tes WhatsApp. Coba lagi beberapa menit lagi.');
 
     $input = json_input();
@@ -133,7 +134,7 @@ if ($route === 'admin/settings/whatsapp-test' && $method === 'POST') {
 
 if ($route === 'admin/settings/payment-proof-cleanup' && $method === 'POST') {
     $user = require_auth();
-    validate_menu_access($user, ['settings'], ['admin']);
+    validate_menu_access($user, ['settings'], ['admin', 'verifikator']);
     rate_limit_or_fail('proof-cleanup:user:' . (int) ($user['id'] ?? 0), 5, 300, 'Terlalu sering menjalankan cleanup. Coba lagi beberapa menit lagi.');
 
     $retentionDays = (int) setting_value('payment_proof_retention_days', '730');

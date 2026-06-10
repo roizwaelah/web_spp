@@ -1,4 +1,4 @@
-﻿export const formatCurrency = (value) =>
+export const formatCurrency = (value) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -16,21 +16,21 @@ export const roleLabel = (role) =>
   ({
     admin: "Admin",
     bendahara: "Bendahara",
+    verifikator: "Verifikator",
     parent: "Orang Tua",
   })[role] || role;
+
+const shortIndonesianMonths = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 export const formatPeriod = (value) => {
   const raw = String(value || "").trim();
   if (!raw) return "-";
-  const monthMatch = raw.match(/^(\d{4})-(\d{2})$/);
+  const monthMatch = raw.match(/^(\d{4})-(\d{1,2})$/);
   if (monthMatch) {
     const year = Number(monthMatch[1]);
     const month = Number(monthMatch[2]);
     if (year > 0 && month >= 1 && month <= 12) {
-      return new Intl.DateTimeFormat("id-ID", {
-        month: "long",
-        year: "numeric",
-      }).format(new Date(year, month - 1, 1));
+      return `${shortIndonesianMonths[month - 1]} ${year}`;
     }
   }
   return raw;

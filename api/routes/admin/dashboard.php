@@ -9,7 +9,8 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
         'students' => (int) scalar('SELECT COUNT(*) FROM students'),
         'classes' => (int) scalar('SELECT COUNT(*) FROM classes WHERE is_active=1'),
         'activeBills' => (int) scalar("SELECT COUNT(*) FROM bills WHERE status <> 'paid'"),
-        'pendingProofs' => (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE status='pending'"),
+        'pendingProofs' => (int) scalar("SELECT COUNT(*) FROM payment_proofs WHERE status='pending'")
+            + (int) scalar("SELECT COUNT(*) FROM payment_proof_groups WHERE status='pending'"),
         'monthIncome' => (float) scalar("SELECT COALESCE(SUM(amount_paid),0) FROM transactions WHERE status='paid' AND DATE_FORMAT(payment_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"),
         'monthExpense' => (float) scalar("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE DATE_FORMAT(expense_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')"),
         'yearIncome' => (float) scalar("SELECT COALESCE(SUM(amount_paid),0) FROM transactions WHERE status='paid' AND YEAR(payment_date) = YEAR(CURDATE())"),
@@ -25,8 +26,8 @@ if ($route === 'admin/dashboard' && $method === 'GET') {
 
     $currentPeriod = date('Y-m');
     $monthlyBillingRows = $pdo->prepare("SELECT student_id,
-            SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS paid_amount,
-            SUM(CASE WHEN status <> 'paid' THEN amount ELSE 0 END) AS unpaid_amount,
+            SUM(CASE WHEN status = 'paid' THEN amount ELSE paid_amount END) AS paid_amount,
+            SUM(CASE WHEN status <> 'paid' THEN remaining_amount ELSE 0 END) AS unpaid_amount,
             SUM(CASE WHEN status <> 'paid' THEN 1 ELSE 0 END) AS unpaid_count
         FROM bills
         WHERE period = ?

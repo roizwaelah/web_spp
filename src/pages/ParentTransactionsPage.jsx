@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import ModalFrame from "../components/ModalFrame";
@@ -6,7 +7,17 @@ import { downloadRouteFile, fetchRoute } from "../api";
 import { formatCurrency, formatDate } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 
+function gatewayLabel(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return "payment gateway";
+  if (text.includes("ipaymu")) return "iPaymu";
+  if (text.includes("midtrans")) return "Midtrans";
+  if (text.includes("doku")) return "DOKU";
+  return value;
+}
+
 export default function ParentTransactionsPage() {
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(true);
@@ -88,6 +99,45 @@ export default function ParentTransactionsPage() {
       .sort((a, b) => String(b.payment_date || "").localeCompare(String(a.payment_date || "")));
   }, [rows]);
 
+  const gatewayReturnStatus = useMemo(() => {
+    const gateway = String(searchParams.get("gateway") || "").trim();
+    const referenceNo = String(searchParams.get("ref") || "").trim();
+    if (!gateway || !referenceNo) return null;
+
+    const matchedRow = groupedRows.find((row) => String(row.reference_no || "") === referenceNo) || null;
+    const label = gatewayLabel(gateway);
+
+    if (!matchedRow) {
+      return {
+        tone: "info",
+        title: `Transaksi ${label} sedang diproses`,
+        description: `Referensi ${referenceNo} belum muncul di riwayat. Jika baru selesai membayar, tunggu beberapa saat lalu muat ulang halaman ini.`,
+      };
+    }
+
+    if (matchedRow.status === "paid") {
+      return {
+        tone: "success",
+        title: `Pembayaran ${label} berhasil`,
+        description: `Referensi ${referenceNo} sudah tercatat lunas dengan nominal ${formatCurrency(matchedRow.amount_paid)}.`,
+      };
+    }
+
+    if (matchedRow.status === "failed") {
+      return {
+        tone: "danger",
+        title: `Pembayaran ${label} gagal`,
+        description: `Referensi ${referenceNo} tercatat gagal. Silakan ulangi pembayaran atau hubungi admin jika dana sudah terpotong.`,
+      };
+    }
+
+    return {
+      tone: "warning",
+      title: `Pembayaran ${label} masih menunggu`,
+      description: `Referensi ${referenceNo} sudah tercatat, tetapi statusnya masih menunggu konfirmasi gateway.`,
+    };
+  }, [groupedRows, searchParams]);
+
   const downloadReceipt = async ({ transactionId, referenceNo }) => {
     try {
       setDownloadingId(referenceNo || transactionId);
@@ -113,7 +163,24 @@ export default function ParentTransactionsPage() {
   );
 
   return (
-    <Layout title="Riwayat Pembayaran" subtitle="Seluruh transaksi yang pernah dilakukan orang tua / wali siswa.">
+    <Layout title="Riwayat Pembayaran" subtitle="Seluruh transaksi yang pernah dilakukan orang tua / wali santri.">
+      {gatewayReturnStatus && (
+        <div
+          className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+            gatewayReturnStatus.tone === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : gatewayReturnStatus.tone === "danger"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : gatewayReturnStatus.tone === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-sky-200 bg-sky-50 text-sky-800"
+          }`}
+        >
+          <p className="font-semibold">{gatewayReturnStatus.title}</p>
+          <p className="mt-1">{gatewayReturnStatus.description}</p>
+        </div>
+      )}
+
       <div className="space-y-3 md:hidden">
         {loading ? (
           <div className="card p-4 text-sm text-slate-600">Memuat riwayat pembayaran...</div>
@@ -122,7 +189,14 @@ export default function ParentTransactionsPage() {
         ) : (
           <ol className="space-y-2">
             {groupedRows.map((row, index) => (
-              <li key={row.id} className="card p-3">
+              <li
+                key={row.id}
+                className={`card p-3 ${
+                  gatewayReturnStatus?.description?.includes(String(row.reference_no || ""))
+                    ? "ring-2 ring-sky-200"
+                    : ""
+                }`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2">
                     <span className="mt-0.5 w-5 shrink-0 text-right text-sm font-semibold text-slate-900">
@@ -186,6 +260,9 @@ export default function ParentTransactionsPage() {
             },
           ]}
           rows={groupedRows}
+          rowClassName={(row) =>
+            gatewayReturnStatus?.description?.includes(String(row.reference_no || "")) ? "ring-2 ring-sky-200" : ""
+          }
         />
       </div>
 

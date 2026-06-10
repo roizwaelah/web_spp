@@ -39,11 +39,12 @@ if ($route === 'admin/finance-posts' && $method === 'POST') {
         $input['student_id'] = !empty($input['student_id']) ? $input['student_id'] : null;
         $input['class_id'] = null;
     }
-    $stmt = $pdo->prepare("INSERT INTO finance_posts (name, description, amount, applies_to, class_id, student_id, billing_type, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt = $pdo->prepare("INSERT INTO finance_posts (name, description, amount, applies_to, class_id, student_id, billing_type, is_flexible_installment, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
         $input['name'], $input['description'] ?? null, $input['amount'], $input['applies_to'],
         $input['class_id'] ?? null, $input['student_id'] ?? null,
-        $input['billing_type'], isset($input['is_active']) ? (int) !!$input['is_active'] : 1
+        $input['billing_type'], isset($input['is_flexible_installment']) ? (int) !!$input['is_flexible_installment'] : 0,
+        isset($input['is_active']) ? (int) !!$input['is_active'] : 1
     ]);
     log_activity((int) $user['id'], 'create', 'finance_post', (int) $pdo->lastInsertId(), 'Menambah pos keuangan');
     response(['message' => 'Pos keuangan berhasil disimpan']);
@@ -79,11 +80,12 @@ if ($route === 'admin/finance-posts' && $method === 'PUT') {
         $input['student_id'] = !empty($input['student_id']) ? $input['student_id'] : null;
         $input['class_id'] = null;
     }
-    $stmt = $pdo->prepare("UPDATE finance_posts SET name=?, description=?, amount=?, applies_to=?, class_id=?, student_id=?, billing_type=?, is_active=? WHERE id=?");
+    $stmt = $pdo->prepare("UPDATE finance_posts SET name=?, description=?, amount=?, applies_to=?, class_id=?, student_id=?, billing_type=?, is_flexible_installment=?, is_active=? WHERE id=?");
     $stmt->execute([
         $input['name'], $input['description'] ?? null, $input['amount'], $input['applies_to'],
         $input['class_id'] ?? null, $input['student_id'] ?? null,
-        $input['billing_type'], isset($input['is_active']) ? (int) !!$input['is_active'] : 1, $input['id']
+        $input['billing_type'], isset($input['is_flexible_installment']) ? (int) !!$input['is_flexible_installment'] : 0,
+        isset($input['is_active']) ? (int) !!$input['is_active'] : 1, $input['id']
     ]);
     log_activity((int) $user['id'], 'update', 'finance_post', (int) $input['id'], 'Memperbarui pos keuangan');
     response(['message' => 'Pos keuangan berhasil diperbarui']);

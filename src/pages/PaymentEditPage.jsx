@@ -3,20 +3,76 @@ import { ArrowLeft, ChevronDown, HandCoins, Printer } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute, openRouteFile } from "../api";
-import { formatCurrency, formatDate, formatPeriod } from "../utils";
+import { formatCurrency, formatDate, formatPeriod, roleLabel } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 import ModalFrame from "../components/ModalFrame";
+import { useAuth } from "../context/AuthContext";
+
+const sortReceiptItems = (items = []) =>
+  [...items].sort((left, right) => {
+    const leftPeriod = String(left?.period || "");
+    const rightPeriod = String(right?.period || "");
+    if (leftPeriod !== rightPeriod) {
+      return leftPeriod.localeCompare(rightPeriod, "id");
+    }
+
+    const leftName = String(left?.bill_name || "").trim();
+    const rightName = String(right?.bill_name || "").trim();
+    const nameCompare = leftName.localeCompare(rightName, "id", {
+      sensitivity: "base",
+    });
+    if (nameCompare !== 0) return nameCompare;
+
+    return Number(left?.id || 0) - Number(right?.id || 0);
+  });
+
+const getOfficerPreviewName = (user) => {
+  const name = String(user?.name || "").trim();
+  if (name) return name;
+  if (user?.role) return roleLabel(user.role).toUpperCase();
+  return "ADMIN";
+};
 
 const initialForm = {
-  class_id: "",
   student_id: "",
   bill_ids: [],
-  payment_channel: "Tunai",
+  payment_amount: "",
+  payment_channel: "",
   payment_date: new Date().toISOString().slice(0, 10),
+};
+
+const normalizeAmountInput = (value) => String(value || "").replace(/\D/g, "");
+
+const getBillRemainingAmount = (bill) => {
+  if (bill?.remaining_amount != null) return Number(bill.remaining_amount || 0);
+  return Math.max(Number(bill?.amount || 0) - Number(bill?.paid_amount || 0), 0);
+};
+
+const getBillStatusLabel = (status) => {
+  if (status === "paid") return "Lunas";
+  if (status === "partial") return "Sebagian";
+  return "Belum Lunas";
+};
+
+const studentStatusOptions = [
+  { value: "active", label: "Aktif" },
+  { value: "graduated", label: "Lulus" },
+  { value: "inactive", label: "Nonaktif" },
+];
+
+const getDepositCreditAmount = (data) => Number(data?.deposit_credit_amount || 0);
+
+const formatPaymentSuccessMessage = (data, fallbackMessage) => {
+  const depositCreditAmount = getDepositCreditAmount(data);
+  return `${data?.message || fallbackMessage}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}${depositCreditAmount > 0 ? ` Deposit: ${formatCurrency(depositCreditAmount)}` : ""}`;
 };
 
 export default function PaymentEditPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
+  const [schoolProfile, setSchoolProfile] = useState({
+    school_name: "MADSC PAYMENT",
+    school_address: "Konfirmasi transaksi pembayaran siswa",
+  });
   const [billRows, setBillRows] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -29,15 +85,16 @@ export default function PaymentEditPage() {
   const billDropdownRef = useRef(null);
   const studentDropdownRef = useRef(null);
   const location = useLocation();
+  const [studentStatusFilter, setStudentStatusFilter] = useState(location.state?.student_status || "");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useToastMessage(message, setMessage);
 
   useEffect(() => {
-    if (location.state?.class_id || location.state?.student_id) {
+    if (location.state?.student_id) {
       setForm((current) => ({
         ...current,
-        class_id: location.state?.class_id || "",
         student_id: location.state?.student_id || "",
       }));
     }
@@ -46,10 +103,23 @@ export default function PaymentEditPage() {
   useEffect(() => {
     const loadMeta = async () => {
       try {
-        const { data } = await fetchRoute("admin/meta");
+        const [{ data }, { data: settingsData }] = await Promise.all([
+          fetchRoute("admin/meta"),
+          fetchRoute("admin/settings/profile"),
+        ]);
         setMeta({
           classes: Array.isArray(data?.classes) ? data.classes : [],
           students: Array.isArray(data?.students) ? data.students : [],
+        });
+        setSchoolProfile({
+          school_name:
+            (settingsData?.school_name || "MADSC PAYMENT").trim() ||
+            "MADSC PAYMENT",
+          school_address:
+            (
+              settingsData?.school_address ||
+              "Konfirmasi transaksi pembayaran siswa"
+            ).trim() || "Konfirmasi transaksi pembayaran siswa",
         });
       } catch (error) {
         setMessage({
@@ -70,18 +140,21 @@ export default function PaymentEditPage() {
       try {
         const { data } = await fetchRoute("admin/bills", {
           params: {
-            status: "unpaid",
-            ...(form.class_id ? { class_id: form.class_id } : {}),
+            ...(studentStatusFilter ? { student_status: studentStatusFilter } : {}),
             ...(form.student_id ? { student_id: form.student_id } : {}),
           },
         });
-        setBillRows(Array.isArray(data) ? data : []);
+        setBillRows(
+          Array.isArray(data)
+            ? data.filter((item) => item?.status !== "paid")
+            : [],
+        );
       } catch (error) {
         setMessage({
           type: "error",
           text:
             error?.response?.data?.message ||
-            "Gagal memuat daftar tagihan belum lunas",
+            "Gagal memuat daftar tagihan terbuka",
         });
       } finally {
         setLoading(false);
@@ -89,7 +162,7 @@ export default function PaymentEditPage() {
     };
 
     loadBills();
-  }, [form.class_id, form.student_id]);
+  }, [studentStatusFilter, form.student_id]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -107,14 +180,13 @@ export default function PaymentEditPage() {
     };
   }, []);
 
-  const studentOptions = useMemo(() => {
-    const rows = meta.students.filter((item) => {
-      if (!form.class_id) return true;
-      return billRows.some((row) => String(row.student_id) === String(item.id));
-    });
-
-    return rows.sort((a, b) => a.name.localeCompare(b.name, "id"));
-  }, [billRows, form.class_id, meta.students]);
+  const studentOptions = useMemo(
+    () =>
+      meta.students
+        .filter((item) => !studentStatusFilter || item.status === studentStatusFilter)
+        .sort((a, b) => a.name.localeCompare(b.name, "id")),
+    [meta.students, studentStatusFilter],
+  );
 
   useEffect(() => {
     if (!form.student_id) {
@@ -176,20 +248,71 @@ export default function PaymentEditPage() {
 
   const selectedBillsTotal = useMemo(
     () =>
-      selectedBills.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+      selectedBills.reduce((sum, item) => sum + getBillRemainingAmount(item), 0),
     [selectedBills],
   );
 
+  const selectedBillStudentIds = useMemo(
+    () =>
+      Array.from(
+        new Set(selectedBills.map((item) => String(item.student_id || ""))),
+      ).filter((id) => id !== ""),
+    [selectedBills],
+  );
+
+  const canUseCustomAmount =
+    selectedBillStudentIds.length === 1 &&
+    selectedBills.some((item) => !!item?.is_flexible_installment);
+  const customPaymentAmount = Number(form.payment_amount || 0);
+  const paymentAmount = canUseCustomAmount ? customPaymentAmount : selectedBillsTotal;
+  const customDepositBase =
+    selectedBills.length === 1
+      ? getBillRemainingAmount(selectedBills[0])
+      : selectedBillsTotal;
+  const customDepositEstimate = canUseCustomAmount
+    ? Math.max(paymentAmount - customDepositBase, 0)
+    : 0;
+
   const selectedBillLabel = useMemo(() => {
     if (loading) return "Memuat tagihan...";
-    if (billOptions.length === 0) return "Tidak ada tagihan belum lunas";
+    if (billOptions.length === 0) return "Tidak ada tagihan terbuka";
     if (selectedBills.length === 0) return "Pilih satu atau beberapa tagihan";
     if (selectedBills.length === 1) {
       const item = selectedBills[0];
-      return `${item.bill_name} (${formatPeriod(item.period)}) - ${formatCurrency(item.amount)}`;
+      return `${item.bill_name} (${formatPeriod(item.period)}) - sisa ${formatCurrency(getBillRemainingAmount(item))}`;
     }
-    return `${selectedBills.length} tagihan dipilih - ${formatCurrency(selectedBillsTotal)}`;
+    return `${selectedBills.length} tagihan dipilih - sisa ${formatCurrency(selectedBillsTotal)}`;
   }, [billOptions.length, loading, selectedBills, selectedBillsTotal]);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      payment_amount: canUseCustomAmount ? String(selectedBillsTotal) : "",
+    }));
+  }, [canUseCustomAmount, selectedBillsTotal]);
+
+  const receiptBills = useMemo(
+    () => sortReceiptItems(selectedBills),
+    [selectedBills],
+  );
+
+  const receiptPaymentByBillId = useMemo(() => {
+    const allocations = new Map();
+    if (!canUseCustomAmount) return allocations;
+    if (selectedBills.length === 1) {
+      allocations.set(String(selectedBills[0].id), paymentAmount);
+      return allocations;
+    }
+
+    let remainingToAllocate = paymentAmount;
+    receiptBills.forEach((bill) => {
+      const remainingAmount = getBillRemainingAmount(bill);
+      const allocatedAmount = Math.min(remainingAmount, Math.max(remainingToAllocate, 0));
+      allocations.set(String(bill.id), allocatedAmount);
+      remainingToAllocate -= allocatedAmount;
+    });
+    return allocations;
+  }, [canUseCustomAmount, paymentAmount, receiptBills, selectedBills]);
 
   const toggleBillSelection = (billId) => {
     setForm((current) => {
@@ -211,6 +334,7 @@ export default function PaymentEditPage() {
         bill_ids: form.bill_ids.map((id) => Number(id)),
         payment_channel: form.payment_channel,
         payment_date: form.payment_date,
+        ...(canUseCustomAmount ? { payment_amount: paymentAmount } : {}),
       },
     });
     return data;
@@ -235,7 +359,7 @@ export default function PaymentEditPage() {
       const data = await savePayment();
       setMessage({
         type: "success",
-        text: `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`,
+        text: formatPaymentSuccessMessage(data, "Pembayaran berhasil disimpan"),
       });
       setPaymentDialogOpen(false);
       navigate("/admin/pembayaran/list", { replace: true });
@@ -269,8 +393,8 @@ export default function PaymentEditPage() {
         type: "success",
         text:
           isSingleStudentSelection
-            ? `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}`
-            : `${data?.message || "Pembayaran berhasil disimpan"}${data?.reference_no ? ` Ref: ${data.reference_no}` : ""}. Cetak kuitansi per transaksi dari daftar pembayaran.`,
+            ? formatPaymentSuccessMessage(data, "Pembayaran berhasil disimpan")
+            : `${formatPaymentSuccessMessage(data, "Pembayaran berhasil disimpan")}. Cetak kuitansi per transaksi dari daftar pembayaran.`,
       });
       setPaymentDialogOpen(false);
       navigate("/admin/pembayaran/list", { replace: true });
@@ -290,13 +414,20 @@ export default function PaymentEditPage() {
   const openPaymentDialog = (event) => {
     event.preventDefault();
     if (!form.bill_ids.length) return;
+    if (canUseCustomAmount && paymentAmount <= 0) {
+      setMessage({
+        type: "warning",
+        text: "Masukkan nominal pembayaran lebih dari Rp0.",
+      });
+      return;
+    }
     setPaymentDialogOpen(true);
   };
 
   return (
     <Layout
       title="Pembayaran"
-      subtitle="Input pembayaran langsung oleh bendahara untuk tagihan siswa yang belum lunas."
+      subtitle="Input pembayaran langsung oleh bendahara untuk tagihan siswa yang masih terbuka."
       actions={
         <button
           className="btn-accent"
@@ -315,7 +446,7 @@ export default function PaymentEditPage() {
           <div>
             <h3 className="section-title">Input pembayaran</h3>
             <p className="text-sm text-slate-500">
-              Pilih tagihan belum lunas lalu simpan transaksi pembayaran manual.
+              Pilih tagihan terbuka lalu simpan transaksi pembayaran manual.
             </p>
           </div>
         </div>
@@ -324,24 +455,25 @@ export default function PaymentEditPage() {
           className="grid gap-4 md:grid-cols-2"
           onSubmit={openPaymentDialog}
         >
-          <div className="h-full">
-            <label className="label">Filter Kelas</label>
+          <div>
+            <label className="label">Status Siswa</label>
             <select
               className="input"
-              value={form.class_id}
-              onChange={(e) =>
+              value={studentStatusFilter}
+              onChange={(e) => {
+                setStudentStatusFilter(e.target.value);
+                setStudentSearch("");
                 setForm((current) => ({
                   ...current,
-                  class_id: e.target.value,
                   student_id: "",
                   bill_ids: [],
-                }))
-              }
+                }));
+              }}
             >
-              <option value="">Semua Kelas</option>
-              {meta.classes.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
+              <option value="">Semua status siswa</option>
+              {studentStatusOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
                 </option>
               ))}
             </select>
@@ -354,7 +486,7 @@ export default function PaymentEditPage() {
                 placeholder={
                   studentOptions.length === 0
                     ? "Tidak ada siswa"
-                    : "Cari nama/NIM siswa..."
+                    : "Cari nama/NIS siswa..."
                 }
                 value={studentSearch}
                 disabled={studentOptions.length === 0}
@@ -475,9 +607,17 @@ export default function PaymentEditPage() {
                               onChange={() => toggleBillSelection(item.id)}
                               className="mt-0.5"
                             />
-                            <span className="text-sm text-slate-700">
-                              {form.student_id ? "" : `${item.student_name} - `}{item.bill_name} -
-                              {formatPeriod(item.period)} - {formatCurrency(item.amount)}
+                            <span className="min-w-0 text-sm text-slate-700">
+                              <span className="block font-semibold text-slate-900">
+                                {form.student_id ? "" : `${item.student_name} - `}{item.bill_name} - {formatPeriod(item.period)}
+                              </span>
+                              <span className="mt-1 flex flex-wrap gap-1.5">
+                                {Number(item.deposit_balance || 0) > 0 ? (
+                                  <span className="badge-slate">
+                                    Deposit {formatCurrency(item.deposit_balance)}
+                                  </span>
+                                ) : null}
+                              </span>
                             </span>
                           </label>
                         );
@@ -487,7 +627,33 @@ export default function PaymentEditPage() {
                 )}
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="label">Nominal diterima</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="input"
+                value={canUseCustomAmount ? formatCurrency(form.payment_amount) : formatCurrency(selectedBillsTotal)}
+                disabled={!canUseCustomAmount}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    payment_amount: normalizeAmountInput(event.target.value),
+                  }))
+                }
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                {canUseCustomAmount
+                  ? "Cicilan fleksibel: nominal dapat disesuaikan untuk satu tagihan ini."
+                  : "Nominal otomatis mengikuti sisa tagihan untuk pembayaran penuh."}
+              </p>
+              {customDepositEstimate > 0 ? (
+                <p className="mt-1 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-100">
+                  Perkiraan lebih bayar {formatCurrency(customDepositEstimate)} akan masuk deposit siswa jika diterima backend.
+                </p>
+              ) : null}
+            </div>
+            <div className="md:col-span-2 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="label">Kanal pembayaran</label>
                 <select
@@ -500,6 +666,9 @@ export default function PaymentEditPage() {
                     }))
                   }
                 >
+                  <option value="" disabled>
+                    Pilih kanal
+                  </option>
                   <option value="Tunai">Tunai</option>
                   <option value="Transfer Bank">Transfer Bank</option>
                   <option value="QRIS">QRIS</option>
@@ -527,7 +696,12 @@ export default function PaymentEditPage() {
           <div className="flex justify-end gap-3 md:col-span-2">
             <button
               className="btn-primary"
-              disabled={!form.bill_ids.length || saving}
+              disabled={
+                !form.bill_ids.length ||
+                !form.payment_channel ||
+                saving ||
+                (canUseCustomAmount && paymentAmount <= 0)
+              }
             >
               Bayar
             </button>
@@ -537,7 +711,6 @@ export default function PaymentEditPage() {
               onClick={() =>
                 setForm((current) => ({
                   ...initialForm,
-                  class_id: current.class_id,
                   student_id: current.student_id,
                 }))
               }
@@ -564,10 +737,10 @@ export default function PaymentEditPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold tracking-wide text-slate-900">
-                    MADSC PAYMENT
+                    {schoolProfile.school_name || "MADSC PAYMENT"}
                   </p>
                   <p className="text-[11px] text-slate-600">
-                    Konfirmasi transaksi pembayaran siswa
+                    {schoolProfile.school_address || "Konfirmasi transaksi pembayaran siswa"}
                   </p>
                 </div>
                 <div className="border border-slate-500 px-2.5 py-1 text-[11px] font-semibold text-slate-900">
@@ -610,7 +783,7 @@ export default function PaymentEditPage() {
                     <span className="inline-block w-28 font-semibold">
                       Status Siswa
                     </span>
-                    : Akan Lunas
+                    : {canUseCustomAmount && paymentAmount < selectedBillsTotal ? "Akan Sebagian" : "Akan Lunas"}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -636,7 +809,7 @@ export default function PaymentEditPage() {
                     <span className="inline-block w-28 font-semibold">
                       Petugas
                     </span>
-                    : ADMIN
+                    : {getOfficerPreviewName(user)}
                   </p>
                 </div>
               </div>
@@ -649,30 +822,46 @@ export default function PaymentEditPage() {
                     Dengan rincian pembayaran sebagai berikut:
                   </p>
                   <div className="space-y-1 border-y border-slate-300 py-1.5">
-                    {selectedBills.map((bill, index) => (
+                    {receiptBills.map((bill, index) => {
+                      const remainingAmount = getBillRemainingAmount(bill);
+                      const itemPaymentAmount = canUseCustomAmount
+                        ? (receiptPaymentByBillId.get(String(bill.id)) ?? 0)
+                        : remainingAmount;
+                      return (
                       <div
                         key={bill.id}
                         className="grid grid-cols-[1fr_auto] gap-2"
                       >
-                        <p>
-                          {index + 1}. {bill.bill_name} ({formatPeriod(bill.period)})
-                        </p>
+                        <div>
+                          <p>{index + 1}. {bill.bill_name} ({formatPeriod(bill.period)})</p>
+                          <p className="text-[11px] text-slate-500">
+                            Tagihan {formatCurrency(bill.amount)} · Terbayar {formatCurrency(bill.paid_amount)} · Sisa {formatCurrency(remainingAmount)}
+                            {bill.is_flexible_installment ? " · Fleksibel" : ""}
+                          </p>
+                        </div>
                         <p className="font-semibold">
-                          {formatCurrency(bill.amount)}
+                          {formatCurrency(itemPaymentAmount)}
                         </p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="space-y-1 border-t border-slate-300 pt-1">
                   <div className="flex justify-between">
-                    <span className="font-semibold">Jumlah</span>
+                    <span className="font-semibold">Sisa Tagihan</span>
                     <span>{formatCurrency(selectedBillsTotal)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-semibold">Pembayaran</span>
-                    <span>{formatCurrency(selectedBillsTotal)}</span>
+                    <span>{formatCurrency(paymentAmount)}</span>
                   </div>
+                  {customDepositEstimate > 0 ? (
+                    <div className="flex justify-between text-emerald-700">
+                      <span className="font-semibold">Masuk Deposit</span>
+                      <span>{formatCurrency(customDepositEstimate)}</span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between border-b border-slate-400 pb-1">
                     <span className="font-semibold">Kembali</span>
                     <span>Rp0</span>
@@ -714,8 +903,3 @@ export default function PaymentEditPage() {
     </Layout>
   );
 }
-
-
-
-
-

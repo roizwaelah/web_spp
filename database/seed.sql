@@ -41,18 +41,18 @@ INSERT INTO user_menu_access (user_id, menu_key, created_at) VALUES
 (3, 'reports', NOW())
 ON DUPLICATE KEY UPDATE created_at=VALUES(created_at);
 
-INSERT INTO finance_posts (id, name, description, amount, applies_to, class_id, student_id, billing_type, is_active, created_at) VALUES
-(1, 'SPP Bulanan', 'Tagihan bulanan pendidikan', 250000, 'class', 1, NULL, 'monthly', 1, NOW()),
-(2, 'Uang Gedung', 'Biaya fasilitas sekolah', 1500000, 'class', 1, NULL, 'one_time', 1, NOW()),
-(3, 'Seragam', 'Seragam peserta didik', 450000, 'student', NULL, 1, 'one_time', 1, NOW())
-ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), amount=VALUES(amount), applies_to=VALUES(applies_to), class_id=VALUES(class_id), student_id=VALUES(student_id), billing_type=VALUES(billing_type), is_active=VALUES(is_active);
+INSERT INTO finance_posts (id, name, description, amount, applies_to, class_id, student_id, billing_type, is_flexible_installment, is_active, created_at) VALUES
+(1, 'SPP Bulanan', 'Tagihan bulanan pendidikan', 250000, 'class', 1, NULL, 'monthly', 0, 1, NOW()),
+(2, 'Uang Gedung', 'Biaya fasilitas sekolah', 1500000, 'class', 1, NULL, 'one_time', 0, 1, NOW()),
+(3, 'Seragam', 'Seragam peserta didik', 450000, 'student', NULL, 1, 'one_time', 0, 1, NOW())
+ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), amount=VALUES(amount), applies_to=VALUES(applies_to), class_id=VALUES(class_id), student_id=VALUES(student_id), billing_type=VALUES(billing_type), is_flexible_installment=VALUES(is_flexible_installment), is_active=VALUES(is_active);
 
-INSERT INTO bills (id, student_id, finance_post_id, bill_name, period, due_date, amount, status, paid_at, created_at) VALUES
-(1, 1, 1, 'SPP Bulanan', '2026-03', '2026-03-10', 250000, 'paid', NOW(), NOW()),
-(2, 1, 2, 'Uang Gedung', '2026', '2026-03-15', 1500000, 'unpaid', NULL, NOW()),
-(3, 1, 3, 'Seragam', '2026', '2026-03-20', 450000, 'unpaid', NULL, NOW()),
-(4, 2, 1, 'SPP Bulanan', '2026-03', '2026-03-10', 300000, 'unpaid', NULL, NOW())
-ON DUPLICATE KEY UPDATE bill_name=VALUES(bill_name), amount=VALUES(amount), status=VALUES(status);
+INSERT INTO bills (id, student_id, academic_year_id, finance_post_id, bill_name, period, due_date, amount, paid_amount, remaining_amount, status, paid_at, created_at) VALUES
+(1, 1, 1, 1, 'SPP Bulanan', '2026-03', '2026-03-10', 250000, 250000, 0, 'paid', NOW(), NOW()),
+(2, 1, 1, 2, 'Uang Gedung', '2026', '2026-03-15', 1500000, 0, 1500000, 'unpaid', NULL, NOW()),
+(3, 1, 1, 3, 'Seragam', '2026', '2026-03-20', 450000, 0, 450000, 'unpaid', NULL, NOW()),
+(4, 2, 1, 1, 'SPP Bulanan', '2026-03', '2026-03-10', 300000, 0, 300000, 'unpaid', NULL, NOW())
+ON DUPLICATE KEY UPDATE bill_name=VALUES(bill_name), amount=VALUES(amount), paid_amount=VALUES(paid_amount), remaining_amount=VALUES(remaining_amount), status=VALUES(status);
 
 INSERT INTO transactions (id, bill_id, student_id, payment_channel, amount_paid, payment_date, reference_no, status, notes, created_at) VALUES
 (1, 1, 1, 'Transfer Bank', 250000, NOW(), 'TRF-202603200900-101', 'paid', 'Pembayaran sukses', NOW())

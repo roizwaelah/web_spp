@@ -15,6 +15,7 @@ const initialForm = {
   class_id: "",
   student_id: "",
   billing_type: "monthly",
+  is_flexible_installment: false,
   is_active: true,
 };
 
@@ -73,6 +74,7 @@ export default function FinanceEditPage() {
         class_id: selectedPost.class_id ? String(selectedPost.class_id) : "",
         student_id: selectedPost.student_id ? String(selectedPost.student_id) : "",
         billing_type: selectedPost.billing_type,
+        is_flexible_installment: !!selectedPost.is_flexible_installment,
         is_active: !!selectedPost.is_active,
       });
       return;
@@ -88,6 +90,7 @@ export default function FinanceEditPage() {
         class_id: copiedPost.class_id ? String(copiedPost.class_id) : "",
         student_id: copiedPost.student_id ? String(copiedPost.student_id) : "",
         billing_type: copiedPost.billing_type,
+        is_flexible_installment: !!copiedPost.is_flexible_installment,
         is_active: !!copiedPost.is_active,
       });
       return;
@@ -234,6 +237,25 @@ export default function FinanceEditPage() {
             </div>
           )}
 
+          <label className="flex items-start gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={!!form.is_flexible_installment}
+              onChange={(e) =>
+                setForm({ ...form, is_flexible_installment: e.target.checked })
+              }
+            />
+            <span>
+              <span className="font-semibold text-slate-900">
+                Izinkan cicilan fleksibel
+              </span>
+              <span className="mt-1 block text-slate-500">
+                Bendahara dapat menerima pembayaran sebagian untuk satu tagihan ini. Pembayaran orang tua tetap mengikuti sisa tagihan penuh lewat gateway.
+              </span>
+            </span>
+          </label>
+
           <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm">
             <input
               type="checkbox"
@@ -260,3 +282,4 @@ export default function FinanceEditPage() {
     </Layout>
   );
 }
+

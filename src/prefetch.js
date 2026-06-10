@@ -26,6 +26,7 @@ const prefetchers = {
   "/orang-tua/tagihan/pembayaran": () => import("./pages/ParentPaymentPage"),
   "/orang-tua/tagihan/pembayaran/manual": () => import("./pages/ParentManualPaymentPage"),
   "/orang-tua/tagihan/pembayaran/otomatis": () => import("./pages/ParentGatewayPaymentPage"),
+  "/orang-tua/tagihan/pembayaran/popup-v2": () => import("./pages/ParentGatewayPopupV2Page"),
   "/orang-tua/transaksi": () => import("./pages/ParentTransactionsPage"),
   "/orang-tua/notifikasi": () => import("./pages/ParentNotificationsPage"),
 };
@@ -67,4 +68,3 @@ export const schedulePrefetch = (cb) => {
   }
   window.setTimeout(cb, 250);
 };
-

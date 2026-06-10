@@ -1,6 +1,59 @@
 <?php
 // Helper renderer kuitansi pembayaran agar template admin dan orang tua konsisten.
 
+function receipt_base64url_encode(string $data): string
+{
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function receipt_base64url_decode(string $data): string
+{
+    return base64_decode(strtr($data, '-_', '+/'));
+}
+
+function receipt_period_sort_key(string $periodRaw): string
+{
+    $period = trim($periodRaw);
+    if (preg_match('/^(\d{4})-(\d{2})$/', $period, $m)) {
+        return $m[1] . '-' . $m[2];
+    }
+
+    return '9999-99';
+}
+
+function sort_receipt_items_oldest_first(array $items): array
+{
+    usort($items, static function (array $left, array $right): int {
+        $leftName = trim((string) ($left['bill_name'] ?? ''));
+        $rightName = trim((string) ($right['bill_name'] ?? ''));
+        $nameCompare = strcasecmp($leftName, $rightName);
+        if ($nameCompare !== 0) {
+            return $nameCompare;
+        }
+
+        $leftKey = receipt_period_sort_key((string) ($left['period'] ?? ''));
+        $rightKey = receipt_period_sort_key((string) ($right['period'] ?? ''));
+        if ($leftKey !== $rightKey) {
+            return $leftKey <=> $rightKey;
+        }
+
+        return ((int) ($left['transaction_id'] ?? 0)) <=> ((int) ($right['transaction_id'] ?? 0));
+    });
+
+    return $items;
+}
+
+function receipt_resolve_officer_name(array $row, string $fallbackOfficerName = 'ADMIN'): string
+{
+    $storedOfficer = trim((string) ($row['officer_name'] ?? ''));
+    if ($storedOfficer !== '') {
+        return strtoupper($storedOfficer);
+    }
+
+    $fallbackOfficer = trim($fallbackOfficerName);
+    return strtoupper($fallbackOfficer !== '' ? $fallbackOfficer : 'ADMIN');
+}
+
 function render_payment_receipt_html(array $row, array $settings, string $officerName = 'ADMIN'): string
 {
     $schoolName = trim((string) ($settings['school_name'] ?? 'DARUSSALAM'));
@@ -51,7 +104,7 @@ function render_payment_receipt_html(array $row, array $settings, string $office
         ];
     }
     $channel = (string) ($row['payment_channel'] ?: '-');
-    $officer = strtoupper(trim($officerName) !== '' ? $officerName : 'ADMIN');
+    $officer = receipt_resolve_officer_name($row, $officerName);
     $amount = 0.0;
     foreach ($items as $item) $amount += (float) ($item['amount'] ?? 0);
     $amountText = number_format($amount, 0, ',', '.');
@@ -288,6 +341,7 @@ function receipt_row_by_reference(int $studentId, string $referenceNo): ?array
     if ($studentId <= 0 || $referenceNo === '') return null;
 
     $stmtRows = db()->prepare("SELECT t.*,
+            COALESCE(t.officer_name, '') AS officer_name,
             COALESCE(b.bill_name, CONCAT('Tagihan #', t.bill_id)) AS bill_name,
             COALESCE(b.period, '-') AS period,
             s.name AS student_name, s.nis, s.nisn, c.name AS class_name, ay.name AS academic_year
@@ -297,7 +351,7 @@ function receipt_row_by_reference(int $studentId, string $referenceNo): ?array
         LEFT JOIN classes c ON c.id=s.class_id
         LEFT JOIN academic_years ay ON ay.id = COALESCE(b.academic_year_id, s.academic_year_id)
         WHERE t.reference_no = ? AND t.student_id = ?
-        ORDER BY t.id ASC");
+        ORDER BY CASE WHEN b.period REGEXP '^[0-9]{4}-[0-9]{2}$' THEN b.period ELSE '9999-99' END ASC, t.id ASC");
     $stmtRows->execute([$referenceNo, $studentId]);
     $rows = $stmtRows->fetchAll();
     if (!$rows) return null;
@@ -309,12 +363,13 @@ function receipt_row_by_reference(int $studentId, string $referenceNo): ?array
         $amount = (float) ($txRow['amount_paid'] ?? 0);
         $total += $amount;
         $items[] = [
+            'transaction_id' => (int) ($txRow['id'] ?? 0),
             'bill_name' => (string) ($txRow['bill_name'] ?? '-'),
             'period' => (string) ($txRow['period'] ?? '-'),
             'amount' => $amount,
         ];
     }
-    $first['items'] = $items;
+    $first['items'] = sort_receipt_items_oldest_first($items);
     $first['amount_paid'] = $total;
     return $first;
 }
@@ -340,7 +395,7 @@ function save_receipt_pdf_to_local(string $receiptPdf, string $referenceNo, int 
 function receipt_local_public_file_base_url(): string
 {
     $base = trim((string) env_value('RECEIPT_LOCAL_PUBLIC_BASE_URL', ''));
-    if ($base !== '') return rtrim($base, '/');
+    if ($base !== '') return normalize_receipt_base_url($base) . '/public/receipts';
 
     $fallback = receipt_public_base_url();
     if ($fallback === '') return '';
@@ -383,7 +438,7 @@ function receipt_link_secret(): string
 function receipt_public_base_url(): string
 {
     $base = trim((string) env_value('RECEIPT_PUBLIC_BASE_URL', ''));
-    if ($base !== '') return rtrim($base, '/');
+    if ($base !== '') return normalize_receipt_base_url($base);
 
     $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
     if ($host === '') return '';
@@ -391,9 +446,24 @@ function receipt_public_base_url(): string
         || (($_SERVER['SERVER_PORT'] ?? '') === '443');
     $scheme = $https ? 'https' : 'http';
     $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
-    $basePath = rtrim((string) dirname($script), '/');
-    if ($basePath === '.') $basePath = '';
-    return $scheme . '://' . $host . $basePath;
+    $basePath = '';
+    if (preg_match('#^(.*?/api)(?:/.*)?$#i', $script, $matches)) {
+        $basePath = rtrim((string) ($matches[1] ?? ''), '/');
+    } else {
+        $basePath = rtrim((string) dirname($script), '/');
+        if ($basePath === '.') $basePath = '';
+    }
+    return normalize_receipt_base_url($scheme . '://' . $host . $basePath);
+}
+
+function normalize_receipt_base_url(string $base): string
+{
+    $base = rtrim(trim($base), '/');
+    if ($base === '') return '';
+    if (str_ends_with(strtolower($base), '/index.php')) {
+        $base = substr($base, 0, -10);
+    }
+    return rtrim($base, '/');
 }
 
 function build_local_receipt_signed_url(string $relativePath, int $expiresSeconds = 604800): ?string
@@ -409,7 +479,9 @@ function build_local_receipt_signed_url(string $relativePath, int $expiresSecond
 
     $exp = time() + $expiresSeconds;
     $sig = hash_hmac('sha256', $relativePath . '|' . $exp, $secret);
-    return $base . '/?route=public/receipt-file&path=' . rawurlencode($relativePath) . '&exp=' . $exp . '&sig=' . $sig;
+    $encodedPath = rawurlencode(receipt_base64url_encode($relativePath));
+    $filename = rawurlencode(basename($relativePath));
+    return $base . '/index.php?route=public/receipt-file/' . $exp . '/' . $sig . '/' . $encodedPath . '/' . $filename;
 }
 
 function is_valid_local_receipt_signature(string $relativePath, int $exp, string $sig): bool

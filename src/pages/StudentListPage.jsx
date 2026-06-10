@@ -227,6 +227,17 @@ export default function StudentListPage() {
     }
   };
 
+  const downloadExport = async () => {
+    try {
+      await downloadRouteFile("admin/students/export", {}, "data-siswa.xlsx");
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error?.response?.data?.message || "Gagal mengunduh data siswa",
+      });
+    }
+  };
+
   const filtered = useMemo(
     () =>
       students.filter((item) =>
@@ -772,12 +783,15 @@ export default function StudentListPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2 md:flex md:items-end">
+            <div className="grid grid-cols-3 gap-2 md:flex md:items-end">
               <button type="button" className="btn-primary w-full whitespace-nowrap md:w-auto" onClick={importStudents}>
                 Import
               </button>
               <button type="button" className="btn-secondary w-full whitespace-nowrap md:w-auto" onClick={downloadTemplate}>
                 Template
+              </button>
+              <button type="button" className="btn-secondary w-full whitespace-nowrap md:w-auto" onClick={downloadExport}>
+                Export
               </button>
             </div>
           </div>

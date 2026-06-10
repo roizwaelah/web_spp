@@ -1,0 +1,9 @@
+<svg width="180" height="56" viewBox="0 0 180 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="56" rx="12" fill="white"/>
+  <g transform="translate(16 12)">
+    <rect x="0" y="0" width="32" height="32" rx="10" fill="#00AED6"/>
+    <path d="M11 10H23C25.2 10 27 11.8 27 14V18C27 20.2 25.2 22 23 22H20.8V19.6H23C23.9 19.6 24.6 18.9 24.6 18V14C24.6 13.1 23.9 12.4 23 12.4H11C10.1 12.4 9.4 13.1 9.4 14V18C9.4 18.9 10.1 19.6 11 19.6H17V22H11C8.8 22 7 20.2 7 18V14C7 11.8 8.8 10 11 10Z" fill="white"/>
+    <path d="M15.8 16.2H26V18.6H15.8V16.2Z" fill="white"/>
+    <text x="46" y="21" fill="#00AED6" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">GoPay</text>
+  </g>
+</svg>

@@ -78,14 +78,14 @@ if ($route === 'admin/academic-years/transition-impact' && in_array($method, ['G
         "SELECT COUNT(*) 
          FROM bills b 
          LEFT JOIN students s ON s.id = b.student_id
-         WHERE (b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?)) AND b.status = 'unpaid'",
+         WHERE (b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?)) AND b.status <> 'paid'",
         [$fromYearId, $fromYearId]
     );
     $unpaidStudents = (int) scalar(
         "SELECT COUNT(DISTINCT b.student_id) 
          FROM bills b
          LEFT JOIN students s ON s.id = b.student_id
-         WHERE (b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?)) AND b.status = 'unpaid'",
+         WHERE (b.academic_year_id = ? OR (b.academic_year_id IS NULL AND s.academic_year_id = ?)) AND b.status <> 'paid'",
         [$fromYearId, $fromYearId]
     );
 

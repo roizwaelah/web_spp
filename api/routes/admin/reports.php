@@ -95,6 +95,120 @@ if (!function_exists('reports_date_label_id')) {
     }
 }
 
+
+
+if (!function_exists('reports_distinct_values')) {
+    function reports_distinct_values(array $rows, string $field): array
+    {
+        $values = [];
+        $seen = [];
+        foreach ($rows as $row) {
+            $value = trim((string) ($row[$field] ?? ''));
+            if ($value === '' || isset($seen[$value])) continue;
+            $seen[$value] = true;
+            $values[] = $value;
+        }
+        return $values;
+    }
+}
+
+if (!function_exists('reports_compact_bill_periods')) {
+    function reports_compact_bill_periods(array $rows): string
+    {
+        $rawPeriods = reports_distinct_values($rows, 'period');
+        if (count($rawPeriods) === 0) return '-';
+
+        $parsedPeriods = [];
+        foreach ($rawPeriods as $rawPeriod) {
+            if (!preg_match('/^(\d{4})-(\d{1,2})$/', $rawPeriod, $matches)) {
+                return implode(', ', $rawPeriods);
+            }
+            $year = (int) $matches[1];
+            $month = (int) $matches[2];
+            if ($year <= 0 || $month < 1 || $month > 12) {
+                return implode(', ', $rawPeriods);
+            }
+            $parsedPeriods[] = [
+                'year' => $year,
+                'month' => $month,
+                'index' => ($year * 12) + $month,
+            ];
+        }
+
+        usort($parsedPeriods, fn($a, $b) => $a['index'] <=> $b['index']);
+        $years = [];
+        foreach ($parsedPeriods as $period) {
+            $years[$period['year']] = true;
+        }
+        $hasMultipleYears = count($years) > 1;
+        $monthLabels = [
+            1 => 'JAN',
+            2 => 'FEB',
+            3 => 'MAR',
+            4 => 'APR',
+            5 => 'MEI',
+            6 => 'JUN',
+            7 => 'JUL',
+            8 => 'AGU',
+            9 => 'SEP',
+            10 => 'OKT',
+            11 => 'NOV',
+            12 => 'DES',
+        ];
+        $formatPeriod = function (array $period) use ($monthLabels, $hasMultipleYears): string {
+            $label = $monthLabels[$period['month']] ?? (string) $period['month'];
+            return $hasMultipleYears ? $label . ' ' . $period['year'] : $label;
+        };
+
+        $labels = [];
+        $count = count($parsedPeriods);
+        for ($idx = 0; $idx < $count; $idx++) {
+            $start = $parsedPeriods[$idx];
+            $end = $start;
+            while ($idx + 1 < $count && $parsedPeriods[$idx + 1]['index'] === $end['index'] + 1) {
+                $idx++;
+                $end = $parsedPeriods[$idx];
+            }
+            $labels[] = $start['index'] === $end['index']
+                ? $formatPeriod($start)
+                : $formatPeriod($start) . ' - ' . $formatPeriod($end);
+        }
+
+        return implode(', ', $labels);
+    }
+}
+
+if (!function_exists('group_income_rows_by_reference')) {
+    function group_income_rows_by_reference(array $rows): array
+    {
+        $groups = [];
+        foreach ($rows as $idx => $row) {
+            $referenceNo = trim((string) ($row['reference_no'] ?? ''));
+            $key = $referenceNo !== '' ? 'ref:' . $referenceNo : 'blank:' . $idx;
+            if (!isset($groups[$key])) {
+                $groups[$key] = $row;
+                $groups[$key]['reference_no'] = $referenceNo;
+                $groups[$key]['amount'] = 0.0;
+                $groups[$key]['_income_rows'] = [];
+            }
+            $groups[$key]['amount'] += (float) ($row['amount'] ?? $row['amount_paid'] ?? 0);
+            $groups[$key]['_income_rows'][] = $row;
+        }
+
+        $groupedRows = [];
+        foreach ($groups as $group) {
+            $sourceRows = $group['_income_rows'];
+            $group['item_name'] = implode(', ', reports_distinct_values($sourceRows, 'item_name'));
+            $group['payment_channel'] = implode(', ', reports_distinct_values($sourceRows, 'payment_channel'));
+            $group['period'] = reports_compact_bill_periods($sourceRows);
+            unset($group['_income_rows']);
+            $groupedRows[] = $group;
+        }
+
+        return $groupedRows;
+    }
+}
+
 if (!function_exists('reports_type_label_id')) {
     function reports_type_label_id(string $type): string
     {
@@ -174,6 +288,7 @@ if ($route === 'admin/reports' && $method === 'GET') {
     $academicYearId = query('academic_year_id', '');
     $financePostId = query('finance_post_id', '');
     if ($end < $start) response(['message' => 'Tanggal akhir tidak boleh lebih awal dari tanggal mulai'], 422);
+    $mode = query('mode', '');
     $rows = [];
 
     if ($type !== 'expense') {
@@ -215,6 +330,7 @@ if ($route === 'admin/reports' && $method === 'GET') {
                 COALESCE(t.payment_channel, '') payment_channel,
                 t.amount_paid amount,
                 COALESCE(t.reference_no, '') reference_no,
+                COALESCE(b.period, '') period,
                 COALESCE(t.status, '') status
             FROM transactions t
             JOIN students s ON s.id=t.student_id
@@ -278,7 +394,53 @@ if ($route === 'admin/reports' && $method === 'GET') {
         $byChannel[$channel] = ($byChannel[$channel] ?? 0) + (float) $row['amount'];
     }
 
-    response(['rows' => $rows, 'summary' => $summary, 'byChannel' => $byChannel, 'header' => $reportHeader]);
+    if ($mode !== 'page') {
+        response(['rows' => $rows, 'summary' => $summary, 'byChannel' => $byChannel, 'header' => $reportHeader]);
+    }
+
+    $page = filter_var(query('page', 1), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($page === false) $page = 1;
+    $perPage = filter_var(query('per_page', 50), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($perPage === false) $perPage = 50;
+    $perPage = min($perPage, 200);
+    $total = count($rows);
+    $totalPages = $total > 0 ? (int) ceil($total / $perPage) : 1;
+    if ($page > $totalPages) $page = $totalPages;
+    $offset = ($page - 1) * $perPage;
+
+    if ($type === 'all') {
+        foreach ($rows as $idx => &$row) {
+            $row['__report_key'] = $idx;
+        }
+        unset($row);
+        $balanceRows = $rows;
+        usort($balanceRows, function ($a, $b) {
+            if ((string) $a['report_date'] === (string) $b['report_date']) {
+                return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+            }
+            return strcmp((string) $a['report_date'], (string) $b['report_date']);
+        });
+        $runningBalance = (float) $summary['openingBalance'];
+        $balanceByKey = [];
+        foreach ($balanceRows as $row) {
+            $runningBalance += $row['report_type'] === 'income' ? (float) $row['amount'] : 0;
+            $runningBalance -= $row['report_type'] === 'expense' ? (float) $row['amount'] : 0;
+            $balanceByKey[$row['__report_key']] = $runningBalance;
+        }
+        foreach ($rows as &$row) {
+            $row['mutation_balance'] = $balanceByKey[$row['__report_key']] ?? null;
+            unset($row['__report_key']);
+        }
+        unset($row);
+    }
+
+    response([
+        'rows' => array_values(array_slice($rows, $offset, $perPage)),
+        'summary' => $summary,
+        'byChannel' => $byChannel,
+        'header' => $reportHeader,
+        'pagination' => ['page' => $page, 'per_page' => $perPage, 'total' => $total, 'total_pages' => $totalPages],
+    ]);
 }
 
 if ($route === 'admin/reports/export' && $method === 'GET') {
@@ -342,6 +504,7 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
                 COALESCE(t.payment_channel, '') payment_channel,
                 t.amount_paid amount,
                 COALESCE(t.reference_no, '') reference_no,
+                COALESCE(b.period, '') period,
                 COALESCE(t.status, '') status
             FROM transactions t
             JOIN students s ON s.id=t.student_id
@@ -408,13 +571,15 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
                 $withBalance[] = $row;
             }
             $sheetRows = $withBalance;
+        } elseif ($type === 'income') {
+            $sheetRows = group_income_rows_by_reference($sheetRows);
         }
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Laporan');
 
-        $lastColumn = ($type === 'expense') ? 'G' : 'H';
+        $lastColumn = ($type === 'income') ? 'I' : (($type === 'expense') ? 'G' : 'H');
         $sheet->mergeCells('A1:' . $lastColumn . '1');
         $sheet->mergeCells('A2:' . $lastColumn . '2');
         $sheet->setCellValue('A1', $exportTitle);
@@ -488,7 +653,7 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
             $sheet->getColumnDimension('H')->setWidth(16);
         } else {
             if ($type === 'income') {
-                $headers = ['No', 'Tanggal', 'Referensi', 'Siswa', 'Kelas', 'Pos', 'Kanal', 'Nominal'];
+                $headers = ['No', 'Tanggal', 'Referensi', 'Siswa', 'Kelas', 'Pos', 'Bulan', 'Kanal', 'Nominal'];
                 foreach ($headers as $idx => $head) {
                     $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1) . $rowNo, $head);
                 }
@@ -502,29 +667,30 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
                     $sheet->setCellValue('D' . $rowNo, (string) ($row['student_name'] ?? ''));
                     $sheet->setCellValue('E' . $rowNo, (string) ($row['class_name'] ?? ''));
                     $sheet->setCellValue('F' . $rowNo, (string) ($row['item_name'] ?? ''));
-                    $sheet->setCellValue('G' . $rowNo, (string) ($row['payment_channel'] ?? ''));
-                    $sheet->setCellValue('H' . $rowNo, (float) ($row['amount'] ?? 0));
+                    $sheet->setCellValue('G' . $rowNo, (string) ($row['period'] ?? ''));
+                    $sheet->setCellValue('H' . $rowNo, (string) ($row['payment_channel'] ?? ''));
+                    $sheet->setCellValue('I' . $rowNo, (float) ($row['amount'] ?? 0));
                     $rowNo++;
                 }
 
                 // Satu baris kosong, lalu baris total.
                 $rowNo++;
                 $totalNominal = array_reduce($sheetRows, fn($carry, $item) => $carry + (float) ($item['amount'] ?? 0), 0.0);
-                $sheet->mergeCells('A' . $rowNo . ':G' . $rowNo);
+                $sheet->mergeCells('A' . $rowNo . ':H' . $rowNo);
                 $sheet->setCellValue('A' . $rowNo, 'TOTAL');
-                $sheet->setCellValue('H' . $rowNo, $totalNominal);
-                $sheet->getStyle('A' . $rowNo . ':H' . $rowNo)->getFont()->setBold(true);
-                $sheet->getStyle('A' . $rowNo . ':G' . $rowNo)->getAlignment()->setHorizontal('center');
+                $sheet->setCellValue('I' . $rowNo, $totalNominal);
+                $sheet->getStyle('A' . $rowNo . ':I' . $rowNo)->getFont()->setBold(true);
+                $sheet->getStyle('A' . $rowNo . ':H' . $rowNo)->getAlignment()->setHorizontal('center');
 
                 $dataStartRow = $headerRow + 1;
                 $dataEndRow = max($dataStartRow, $rowNo);
-                $sheet->getStyle('H' . $dataStartRow . ':H' . $dataEndRow)
+                $sheet->getStyle('I' . $dataStartRow . ':I' . $dataEndRow)
                     ->getNumberFormat()
                     ->setFormatCode('[$-421]Rp #,##0');
                 $sheet->getStyle('A' . $dataStartRow . ':C' . $dataEndRow)
                     ->getAlignment()
                     ->setHorizontal('center');
-                $sheet->getStyle('H' . $dataStartRow . ':H' . $dataEndRow)
+                $sheet->getStyle('I' . $dataStartRow . ':I' . $dataEndRow)
                     ->getAlignment()
                     ->setHorizontal('right');
 
@@ -536,6 +702,7 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
                 $sheet->getColumnDimension('F')->setWidth(28);
                 $sheet->getColumnDimension('G')->setWidth(16);
                 $sheet->getColumnDimension('H')->setWidth(16);
+                $sheet->getColumnDimension('I')->setWidth(18);
             } else {
                 $headers = ['No', 'Tanggal', 'Referensi', 'Item', 'Kategori', 'Kanal', 'Nominal'];
                 foreach ($headers as $idx => $head) {
@@ -818,14 +985,15 @@ if ($route === 'admin/reports/export' && $method === 'GET') {
         fputcsv($out, ['', '', 'Saldo akhir bulan ini', '', '', '', '', $closingBalance]);
     } else {
         if ($type === 'income') {
-            fputcsv($out, ['No', 'Tanggal', 'Referensi', 'Siswa', 'Kelas', 'Pos', 'Kanal', 'Nominal']);
+            fputcsv($out, ['No', 'Tanggal', 'Referensi', 'Siswa', 'Kelas', 'Pos', 'Bulan', 'Kanal', 'Nominal']);
+            $rows = group_income_rows_by_reference($rows);
             $no = 1;
             foreach ($rows as $row) {
-                fputcsv($out, [$no++, $row['tanggal'], $row['reference_no'], $row['student_name'], $row['class_name'], $row['item_name'], $row['payment_channel'], $row['amount']]);
+                fputcsv($out, [$no++, $row['tanggal'], $row['reference_no'], $row['student_name'], $row['class_name'], $row['item_name'], $row['period'], $row['payment_channel'], $row['amount']]);
             }
             fputcsv($out, []);
             $totalNominal = array_reduce($rows, fn($carry, $item) => $carry + (float) ($item['amount'] ?? 0), 0.0);
-            fputcsv($out, ['TOTAL', '', '', '', '', '', '', $totalNominal]);
+            fputcsv($out, ['TOTAL', '', '', '', '', '', '', '', $totalNominal]);
         } else {
             fputcsv($out, ['No', 'Tanggal', 'Referensi', 'Item', 'Kategori', 'Kanal', 'Nominal']);
             $no = 1;

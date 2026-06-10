@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { fetchRoute } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForUser } from "../access";
 import {
@@ -13,7 +14,13 @@ import {
 export default function LandingPage() {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState("staff");
+  const [contact, setContact] = useState({
+    school_name: "DARUSSALAM PANUSUPAN",
+    school_address: "-",
+    support_whatsapp: "-",
+    support_email: "-",
+  });
+  const [role, setRole] = useState("parent");
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -31,6 +38,21 @@ export default function LandingPage() {
       }
     });
   }, [role]);
+
+  useEffect(() => {
+    fetchRoute("public/legal-contact", { skipLoading: true })
+      .then(({ data }) => {
+        setContact((prev) => ({
+          ...prev,
+          ...data,
+          school_name: data?.school_name || prev.school_name,
+          school_address: data?.school_address || prev.school_address,
+          support_whatsapp: data?.support_whatsapp || prev.support_whatsapp,
+          support_email: data?.support_email || prev.support_email,
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -69,7 +91,7 @@ export default function LandingPage() {
               <p className="text-[0.8rem] font-semibold uppercase tracking-[0.22em] text-amber-200/90">
                 Sistem Pembayaran Terintegrasi
               </p>
-              <h1 className="mt-2.5 text-[2.1rem] font-black leading-tight text-white lg:text-[2.8rem]">
+              <h1 className="mt-2.5 hidden text-[2.1rem] font-black leading-tight text-white sm:block lg:text-[2.8rem]">
                 Portal pembayaran SPP yang lebih tertata, jelas, nyaman, dan
                 transparan.
               </h1>
@@ -77,29 +99,19 @@ export default function LandingPage() {
           </section>
 
           <section className="landing-login-card">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
-                Akses Portal
-              </p>
-              <h2 className="mt-2 text-[1.75rem] font-bold text-slate-900">
-                Masuk ke sistem
-              </h2>
-            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xl font-extrabold leading-tight text-sky-800">
+                  {role === "parent" ? "Akses Portal Orang Tua" : "Akses Portal Admin"}
+                </p>
+              </div>
 
-            <div className="mt-5 grid grid-cols-2 rounded-2xl bg-slate-200 p-1.5">
               <button
                 type="button"
-                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${role === "staff" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
-                onClick={() => setRole("staff")}
+                className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-300"
+                onClick={() => setRole(role === "parent" ? "staff" : "parent")}
               >
-                Staf
-              </button>
-              <button
-                type="button"
-                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${role === "parent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}
-                onClick={() => setRole("parent")}
-              >
-                Orang Tua
+                {role === "parent" ? "Staf" : "Orang Tua"}
               </button>
             </div>
 
@@ -172,12 +184,42 @@ export default function LandingPage() {
                   "Memproses..."
                 ) : (
                   <>
-                    {role === "parent" ? "Masuk dengan NISN" : "Masuk"}{" "}
+                    {role === "parent" ? "Masuk" : "Masuk"}{" "}
                     <ArrowRight size={18} />
                   </>
                 )}
               </button>
             </form>
+
+            <div className="mt-5 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                <Link className="font-medium text-slate-600 hover:text-slate-800" to="/syarat-ketentuan">
+                  Syarat & Ketentuan
+                </Link>
+                <Link className="font-medium text-slate-600 hover:text-slate-800" to="/refund-policy">
+                  Refund Policy
+                </Link>
+                <Link className="font-medium text-slate-600 hover:text-slate-800" to="/faq">
+                  FAQ
+                </Link>
+              </div>
+            </div>
+          </section>
+
+          <section className="lg:col-span-2">
+            <div className="rounded-md border border-white/15 bg-slate-950/45 px-5 py-2 text-center backdrop-blur">
+              <p className="text-xs leading-relaxed text-slate-200">
+                Copyright © 2026. <a href="https://madarussalamcilongok.sch.id" target="_blank" rel="noopener noreferrer" className="font-semibold tracking-wide text-white hover:underline">{contact.school_name}</a>
+                {" | "}
+                Office - <a href="https://maps.app.goo.gl/BsSp3VniM9TZSTf99" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">
+                  {contact.school_address}</a>
+                {" | "}
+                WA - <a href={"https://wa.me/" + contact.support_whatsapp} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">
+                  {contact.support_whatsapp}</a>
+                {" | "}
+                Email - <a href={`mailto:${contact.support_email}`} className="text-white hover:underline">{contact.support_email}</a>
+              </p>
+            </div>
           </section>
         </div>
       </div>

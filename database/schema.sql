@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(120) NOT NULL,
   email VARCHAR(120) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  role ENUM('admin','bendahara','parent') NOT NULL,
+  role ENUM('admin','bendahara','verifikator','parent') NOT NULL,
   student_id INT NULL,
   created_at DATETIME NULL,
   CONSTRAINT fk_users_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL
@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS finance_posts (
   class_id INT NULL,
   student_id INT NULL,
   billing_type ENUM('monthly','one_time') NOT NULL DEFAULT 'monthly',
+  is_flexible_installment TINYINT(1) NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NULL,
   CONSTRAINT fk_finance_class FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE SET NULL,
@@ -67,15 +68,19 @@ CREATE TABLE IF NOT EXISTS finance_posts (
 CREATE TABLE IF NOT EXISTS bills (
   id INT AUTO_INCREMENT PRIMARY KEY,
   student_id INT NOT NULL,
+  academic_year_id INT NULL,
   finance_post_id INT NOT NULL,
   bill_name VARCHAR(120) NOT NULL,
   period VARCHAR(20) NOT NULL,
   due_date DATE NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
-  status ENUM('unpaid','paid') NOT NULL DEFAULT 'unpaid',
+  paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  remaining_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  status ENUM('unpaid','partial','paid') NOT NULL DEFAULT 'unpaid',
   paid_at DATETIME NULL,
   created_at DATETIME NULL,
   CONSTRAINT fk_bill_student FOREIGN KEY (student_id) REFERENCES students(id),
+  CONSTRAINT fk_bill_year FOREIGN KEY (academic_year_id) REFERENCES academic_years(id) ON DELETE SET NULL,
   CONSTRAINT fk_bill_finance FOREIGN KEY (finance_post_id) REFERENCES finance_posts(id)
 );
 
@@ -89,10 +94,42 @@ CREATE TABLE IF NOT EXISTS transactions (
   reference_no VARCHAR(100) NOT NULL,
   status ENUM('paid','pending','failed') NOT NULL DEFAULT 'paid',
   notes TEXT NULL,
+  officer_name VARCHAR(120) NULL,
   created_at DATETIME NULL,
   CONSTRAINT fk_tx_bill FOREIGN KEY (bill_id) REFERENCES bills(id),
   CONSTRAINT fk_tx_student FOREIGN KEY (student_id) REFERENCES students(id)
 );
+
+CREATE TABLE IF NOT EXISTS student_deposits (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+  updated_at DATETIME NULL,
+  created_at DATETIME NULL,
+  UNIQUE KEY uq_student_deposits_student (student_id),
+  CONSTRAINT fk_student_deposits_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS student_deposit_mutations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  bill_id INT NULL,
+  transaction_id INT NULL,
+  mutation_type ENUM('credit','debit') NOT NULL,
+  source_type VARCHAR(50) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  mutation_date DATETIME NOT NULL,
+  notes TEXT NULL,
+  created_at DATETIME NULL,
+  KEY idx_student_deposit_mutations_student (student_id),
+  KEY idx_student_deposit_mutations_bill (bill_id),
+  KEY idx_student_deposit_mutations_transaction (transaction_id),
+  CONSTRAINT fk_student_deposit_mutations_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  CONSTRAINT fk_student_deposit_mutations_bill FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE SET NULL,
+  CONSTRAINT fk_student_deposit_mutations_transaction FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+);
+
+
 
 CREATE TABLE IF NOT EXISTS payment_proofs (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -110,6 +147,33 @@ CREATE TABLE IF NOT EXISTS payment_proofs (
   CONSTRAINT fk_pp_bill FOREIGN KEY (bill_id) REFERENCES bills(id) ON DELETE CASCADE,
   CONSTRAINT fk_pp_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
   CONSTRAINT fk_pp_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS payment_proof_groups (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  reference_no VARCHAR(100) NULL,
+  proof_file_name VARCHAR(255) NOT NULL,
+  proof_path VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NULL,
+  size_bytes BIGINT NOT NULL DEFAULT 0,
+  status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  notes TEXT NULL,
+  reviewed_by INT NULL,
+  reviewed_at DATETIME NULL,
+  created_at DATETIME NULL,
+  KEY idx_ppg_student_status (student_id, status),
+  KEY idx_ppg_reference_no (reference_no)
+);
+
+CREATE TABLE IF NOT EXISTS payment_proof_group_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  group_id INT NOT NULL,
+  bill_id INT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  created_at DATETIME NULL,
+  UNIQUE KEY uq_ppgi_group_bill (group_id, bill_id),
+  KEY idx_ppgi_bill (bill_id)
 );
 
 CREATE TABLE IF NOT EXISTS notifications (

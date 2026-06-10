@@ -10,6 +10,10 @@ require_once API_ROOT . '/core/auth.php';
 require_once API_ROOT . '/utils/notifications.php';
 require_once API_ROOT . '/utils/supabase_storage.php';
 require_once API_ROOT . '/utils/payment.php';
+require_once API_ROOT . '/utils/ipaymu.php';
+require_once API_ROOT . '/utils/midtrans.php';
+require_once API_ROOT . '/utils/doku.php';
+require_once API_ROOT . '/utils/tripay.php';
 require_once API_ROOT . '/bootstrap/app_helpers.php';
 
 set_exception_handler(static function (Throwable $e): void {
@@ -82,22 +86,29 @@ $route = ltrim((string) query('route', ''), '/');
 $method = request_method();
 $pdo = db();
 
-$studentsNisNullable = scalar("
-    SELECT IS_NULLABLE
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'students'
-      AND COLUMN_NAME = 'nis'
-    LIMIT 1
-");
-if ($studentsNisNullable === 'NO') {
-    $pdo->exec("ALTER TABLE students MODIFY nis VARCHAR(50) NULL");
+try {
+    $roleColumn = $pdo->query("SHOW COLUMNS FROM users LIKE 'role'")->fetch();
+    $roleType = strtolower((string) ($roleColumn['Type'] ?? ''));
+    if ($roleType !== '' && !str_contains($roleType, "'verifikator'")) {
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('admin','bendahara','verifikator','parent') NOT NULL");
+    }
+} catch (Throwable $e) {
+    // Abaikan jika table users belum tersedia saat bootstrap awal.
 }
 
 if (!is_dir(API_ROOT . '/storage/backups')) @mkdir(API_ROOT . '/storage/backups', 0777, true);
 if (!is_dir(API_ROOT . '/storage/payment-proofs')) @mkdir(API_ROOT . '/storage/payment-proofs', 0777, true);
 if (!is_dir(API_ROOT . '/storage/receipts')) @mkdir(API_ROOT . '/storage/receipts', 0777, true);
 if (!is_dir(API_ROOT . '/public/receipts')) @mkdir(API_ROOT . '/public/receipts', 0777, true);
+
+try {
+    $txOfficerColumn = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'officer_name'")->fetch();
+    if (!$txOfficerColumn) {
+        $pdo->exec("ALTER TABLE transactions ADD COLUMN officer_name VARCHAR(120) NULL AFTER notes");
+    }
+} catch (Throwable $e) {
+    // Abaikan jika tabel transactions belum tersedia saat bootstrap awal.
+}
 
 $billTableExists = false;
 try {
@@ -146,6 +157,36 @@ if ($billTableExists) {
         }
     }
 }
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS payment_proof_groups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        reference_no VARCHAR(100) NULL,
+        proof_file_name VARCHAR(255) NOT NULL,
+        proof_path VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(120) NULL,
+        size_bytes BIGINT NOT NULL DEFAULT 0,
+        status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+        notes TEXT NULL,
+        reviewed_by INT NULL,
+        reviewed_at DATETIME NULL,
+        created_at DATETIME NULL,
+        KEY idx_ppg_student_status (student_id, status),
+        KEY idx_ppg_reference_no (reference_no)
+    )");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS payment_proof_group_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        group_id INT NOT NULL,
+        bill_id INT NOT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        created_at DATETIME NULL,
+        UNIQUE KEY uq_ppgi_group_bill (group_id, bill_id),
+        KEY idx_ppgi_bill (bill_id)
+    )");
+} catch (Throwable $e) {
+    // Abaikan jika tabel referensi belum tersedia saat bootstrap awal.
+}
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS user_menu_access (
     user_id INT NOT NULL,
     menu_key VARCHAR(50) NOT NULL,
@@ -161,4 +202,3 @@ require API_ROOT . '/routes/admin_system.php';
 require API_ROOT . '/routes/parent.php';
 
 response(['message' => 'Route tidak ditemukan'], 404);
-

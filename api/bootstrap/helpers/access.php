@@ -5,7 +5,7 @@ function validate_role_access(array $user, array $roles): void {
     if (!in_array($user['role'], $roles, true)) response(['message' => 'Forbidden'], 403);
 }
 
-function validate_menu_access(array $user, array $menuKeys, ?array $roles = ['admin', 'bendahara']): void {
+function validate_menu_access(array $user, array $menuKeys, ?array $roles = ['admin', 'bendahara', 'verifikator']): void {
     if ($roles) validate_role_access($user, $roles);
     if ($user['role'] === 'parent') response(['message' => 'Forbidden'], 403);
     $currentAccess = $user['menu_access'] ?? [];
@@ -17,12 +17,16 @@ function validate_menu_access(array $user, array $menuKeys, ?array $roles = ['ad
 
 function save_user_menu_access(int $userId, string $role, array $menuKeys): array {
     $normalized = normalize_menu_access($menuKeys);
-    if (!in_array($role, ['admin', 'bendahara'], true)) $normalized = [];
+    if (!in_array($role, ['admin', 'bendahara', 'verifikator'], true)) $normalized = [];
     if ($role === 'bendahara') {
+        $normalized = array_values(array_diff($normalized, ['settings', ...admin_only_menu_keys()]));
+    } elseif ($role === 'verifikator') {
         $normalized = array_values(array_diff($normalized, admin_only_menu_keys()));
+    } elseif ($role !== 'admin') {
+        $normalized = array_values(array_diff($normalized, ['settings', ...admin_only_menu_keys()]));
     }
     if ($role === 'admin' && !in_array('dashboard', $normalized, true)) $normalized[] = 'dashboard';
-    if ($role === 'bendahara' && !in_array('dashboard', $normalized, true)) $normalized[] = 'dashboard';
+    if (in_array($role, ['bendahara', 'verifikator'], true) && !in_array('dashboard', $normalized, true)) $normalized[] = 'dashboard';
     sort($normalized);
 
     $delete = db()->prepare('DELETE FROM user_menu_access WHERE user_id = ?');

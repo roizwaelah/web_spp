@@ -3,8 +3,10 @@ import { Download, Printer } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute } from "../api";
-import { formatCurrency } from "../utils";
+import { formatCurrency, formatPeriod } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
+
+const reportPerPage = 50;
 
 export default function ReportsPage() {
   const now = new Date();
@@ -44,6 +46,13 @@ export default function ReportsPage() {
   });
   const [rows, setRows] = useState([]);
   const [loadedRows, setLoadedRows] = useState([]);
+  const [reportPage, setReportPage] = useState(1);
+  const [reportPagination, setReportPagination] = useState({
+    page: 1,
+    per_page: reportPerPage,
+    total: 0,
+    total_pages: 1,
+  });
   const [meta, setMeta] = useState({ classes: [], students: [], years: [], financePosts: [] });
   const [summary, setSummary] = useState({
     count: 0,
@@ -93,11 +102,12 @@ export default function ReportsPage() {
     }
   }, []);
 
-  const load = async () => {
+  const load = async (pageOverride = reportPage) => {
     if (!filter.type) {
       setRows([]);
       setLoadedRows([]);
       setAppliedType("");
+      setReportPagination({ page: 1, per_page: reportPerPage, total: 0, total_pages: 1 });
       setSummary({
         count: 0,
         totalIncome: 0,
@@ -113,6 +123,9 @@ export default function ReportsPage() {
     try {
       const reportsRes = await fetchRoute("admin/reports", {
         params: {
+          mode: "page",
+          page: pageOverride,
+          per_page: reportPerPage,
           start_date: filter.start_date,
           end_date: filter.end_date,
           ...(filter.type ? { type: filter.type } : {}),
@@ -177,6 +190,8 @@ export default function ReportsPage() {
       };
 
       const incomingRows = findFirstRowArray(parsedRawData);
+      const pagination = payload?.pagination || {};
+      const totalPages = Math.max(1, Number(pagination.total_pages || 1));
       const normalizedRows = (Array.isArray(incomingRows) ? incomingRows : []).map((row, idx) => {
         const reportType =
           row?.report_type ??
@@ -197,6 +212,13 @@ export default function ReportsPage() {
       });
       setRows(normalizedRows);
       setLoadedRows(normalizedRows);
+      setReportPage(Number(pagination.page || pageOverride || 1));
+      setReportPagination({
+        page: Number(pagination.page || pageOverride || 1),
+        per_page: Number(pagination.per_page || reportPerPage),
+        total: Number(pagination.total ?? normalizedRows.length),
+        total_pages: totalPages,
+      });
       setSummary(
         payload?.summary || {
           count: 0,
@@ -261,18 +283,19 @@ export default function ReportsPage() {
       (appliedType || filter.type) === "all"
         ? Number(summary?.openingBalance || 0)
         : 0;
+    const hasServerBalances = ascending.every((row) => row.mutation_balance != null);
     let runningBalance = openingBalance;
     const withBalance = ascending.map((row, idx) => {
       const income = row.report_type === "income" ? Number(row.amount || 0) : 0;
       const expense =
         row.report_type === "expense" ? Number(row.amount || 0) : 0;
-      runningBalance += income - expense;
+      if (!hasServerBalances) runningBalance += income - expense;
       return {
         ...row,
         _key: row.id || `${row.report_type}-${row.report_date}-${idx}`,
         mutation_income: income,
         mutation_expense: expense,
-        mutation_balance: runningBalance,
+        mutation_balance: hasServerBalances ? Number(row.mutation_balance || 0) : runningBalance,
       };
     });
 
@@ -302,6 +325,11 @@ export default function ReportsPage() {
     class_id: filter.class_id,
     student_id: filter.student_id,
   });
+
+  useEffect(() => {
+    setReportPage(1);
+    setReportPagination((current) => ({ ...current, page: 1 }));
+  }, [currentParamsKey, search]);
 
   const toLabelStatus = (status) => {
     if (status === "paid") return "Lunas";
@@ -349,6 +377,86 @@ export default function ReportsPage() {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+
+
+  const getDistinctValues = (items, resolver) => {
+    const values = [];
+    const seen = new Set();
+    items.forEach((item) => {
+      const value = String(resolver(item) ?? "").trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      values.push(value);
+    });
+    return values;
+  };
+
+  const parseBillPeriod = (value) => {
+    const text = String(value ?? "").trim();
+    const match = text.match(/^(\d{4})-(\d{1,2})$/);
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (!year || month < 1 || month > 12) return null;
+    return { text, year, month, index: year * 12 + month };
+  };
+
+  const compactBillPeriods = (items) => {
+    const rawPeriods = getDistinctValues(
+      items,
+      (item) => item.period ?? item.bill_period ?? item.periode,
+    );
+    if (rawPeriods.length === 0) return "-";
+
+    const parsedPeriods = rawPeriods.map(parseBillPeriod);
+    if (parsedPeriods.some((period) => !period)) {
+      return rawPeriods.join(", ");
+    }
+
+    const sortedPeriods = [...parsedPeriods].sort((a, b) => a.index - b.index);
+    const labels = [];
+
+    for (let idx = 0; idx < sortedPeriods.length; idx += 1) {
+      const start = sortedPeriods[idx];
+      let end = start;
+      while (
+        idx + 1 < sortedPeriods.length &&
+        sortedPeriods[idx + 1].index === end.index + 1
+      ) {
+        idx += 1;
+        end = sortedPeriods[idx];
+      }
+      labels.push(start.index === end.index ? formatPeriod(start.text) : formatPeriod(start.text) + " - " + formatPeriod(end.text));
+    }
+
+    return labels.join(", ");
+  };
+
+  const groupIncomeRowsByReference = (sourceRows) => {
+    const groups = new Map();
+    sourceRows.forEach((row, idx) => {
+      const referenceNo = String(row.reference_no ?? "").trim();
+      const key = referenceNo || "blank-" + (row._key ?? row.id ?? idx);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          ...row,
+          reference_no: referenceNo,
+          amount: 0,
+          _incomeRows: [],
+        });
+      }
+      const group = groups.get(key);
+      group.amount += Number(row.amount ?? row.amount_paid ?? 0) || 0;
+      group._incomeRows.push(row);
+    });
+
+    return Array.from(groups.values()).map((group) => ({
+      ...group,
+      item_name: getDistinctValues(group._incomeRows, (row) => row.item_name).join(", "),
+      payment_channel: getDistinctValues(group._incomeRows, (row) => row.payment_channel).join(", "),
+      period: compactBillPeriods(group._incomeRows),
+    }));
+  };
 
   const exportReport = async () => {
     if (!filter.type) {
@@ -426,6 +534,7 @@ export default function ReportsPage() {
           { key: "nama_siswa", label: "Nama Siswa", align: "left" },
           { key: "kelas", label: "Kelas", align: "left" },
           { key: "pos", label: "Pos", align: "left" },
+          { key: "bulan", label: "Bulan", align: "left" },
           { key: "kanal", label: "Kanal", align: "left" },
           { key: "nominal", label: "Nominal", align: "right" },
         ]
@@ -459,7 +568,10 @@ export default function ReportsPage() {
               { key: "nominal", label: "Nominal", align: "right" },
             ];
 
-    const bodyRows = displayRows
+    const printRows = isIncomeDetailView
+      ? groupIncomeRowsByReference(displayRows)
+      : displayRows;
+    const bodyRows = printRows
       .map((row, idx) => {
         const cells = isIncomeDetailView
           ? [
@@ -469,6 +581,7 @@ export default function ReportsPage() {
               { value: row.student_name, align: "left" },
               { value: row.class_name, align: "left" },
               { value: row.item_name, align: "left" },
+              { value: formatPeriod(row.period), align: "left" },
               { value: row.payment_channel, align: "left" },
               { value: formatCurrency(row.amount), align: "right" },
             ]
@@ -540,13 +653,13 @@ export default function ReportsPage() {
       : "";
     const incomeTotalRow = isIncomeDetailView
       ? (() => {
-          const total = displayRows.reduce(
+          const total = printRows.reduce(
             (acc, row) => acc + Number(row.amount || 0),
             0,
           );
-          return `<tr><td colspan="8" style="border:none;height:12px;"></td></tr>
+          return `<tr><td colspan="9" style="border:none;height:12px;"></td></tr>
                   <tr>
-                    <td colspan="7" style="text-align:right;font-weight:700;">TOTAL</td>
+                    <td colspan="8" style="text-align:right;font-weight:700;">TOTAL</td>
                     <td style="text-align:right;font-weight:700;">${escapeHtml(formatCurrency(total))}</td>
                   </tr>`;
         })()
@@ -615,7 +728,7 @@ export default function ReportsPage() {
           </table>
           <div class="signature-wrap">
             <div class="signature-col">
-              Mengetahui,<br/>Kepala Madrasah
+              Mengetahui,<br/>Pengasuh
               <div class="signature-line">(${escapeHtml(reportHeader.principalName || ".................................")})</div>
             </div>
 <div class="signature-col">
@@ -636,7 +749,7 @@ export default function ReportsPage() {
 
   return (
     <Layout
-      title="Laporan Keuangan"
+      title="Laporan Keuangan Real-Time"
       subtitle="Mutasi keuangan: pemasukan per jenis pos dan pengeluaran operasional dalam satu kronologi laporan."
     >
       <div className="space-y-4">
@@ -898,7 +1011,7 @@ export default function ReportsPage() {
 <div className="flex flex-wrap justify-center gap-3">
               <button
                 className="btn-primary"
-                onClick={load}
+                onClick={() => load(1)}
                 disabled={!filter.type}
               >
                 Tampilkan
@@ -1043,10 +1156,34 @@ export default function ReportsPage() {
               : "Belum ada data"
           }
         />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+          <span>
+            Halaman {reportPagination.page} dari {reportPagination.total_pages} ({reportPagination.total} data)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={!filter.type || reportPage <= 1 || loadedParamsKey !== currentParamsKey}
+              onClick={() => load(Math.max(1, reportPage - 1))}
+            >
+              Sebelumnya
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={!filter.type || reportPage >= reportPagination.total_pages || loadedParamsKey !== currentParamsKey}
+              onClick={() => load(reportPage + 1)}
+            >
+              Berikutnya
+            </button>
+          </div>
+        </div>
       </div>
     </Layout>
   );
 }
+
 
 
 

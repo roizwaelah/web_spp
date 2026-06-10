@@ -1,14 +1,64 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import { Eye, Plus, Printer, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Eye, Plus, Printer, RefreshCw, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { fetchRoute, openRouteFile } from "../api";
-import { formatCurrency, formatDate, formatPeriod } from "../utils";
+import { formatCurrency, formatDate, formatPeriod, roleLabel } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { useUI } from "../context/UIContext";
 import ModalFrame from "../components/ModalFrame";
 import { prefetchRoute } from "../prefetch";
+import { useAuth } from "../context/AuthContext";
+
+const getOfficerPreviewName = (user, officerName = "") => {
+  const fromTransaction = String(officerName || "").trim();
+  if (fromTransaction) return fromTransaction;
+  const fromUser = String(user?.name || "").trim();
+  if (fromUser) return fromUser;
+  if (user?.role) return roleLabel(user.role).toUpperCase();
+  return "ADMIN";
+};
+
+const getBillRemainingAmount = (bill) => {
+  if (bill?.remaining_amount != null) return Number(bill.remaining_amount || 0);
+  return Math.max(Number(bill?.amount || 0) - Number(bill?.paid_amount || 0), 0);
+};
+
+const getTransactionRemainingAmount = (transaction) => {
+  if (transaction?.remaining_amount != null) return Number(transaction.remaining_amount || 0);
+  if (transaction?.bill_remaining_amount != null) return Number(transaction.bill_remaining_amount || 0);
+  return 0;
+};
+
+const getPaymentStatusLabel = (remainingAmount) =>
+  remainingAmount > 0 ? "Sebagian" : "Lunas";
+
+const studentStatusOptions = [
+  { value: "active", label: "Aktif" },
+  { value: "graduated", label: "Lulus" },
+  { value: "inactive", label: "Nonaktif" },
+];
+
+const transactionsPerPage = 25;
+
+const sortReceiptItems = (items = []) =>
+  [...items].sort((left, right) => {
+    const leftName = String(left?.bill_name || "").trim();
+    const rightName = String(right?.bill_name || "").trim();
+    const nameCompare = leftName.localeCompare(rightName, "id", {
+      sensitivity: "base",
+    });
+    if (nameCompare !== 0) return nameCompare;
+
+    const leftPeriod = String(left?.period || "");
+    const rightPeriod = String(right?.period || "");
+    if (leftPeriod !== rightPeriod) {
+      return leftPeriod.localeCompare(rightPeriod, "id");
+    }
+
+    return Number(left?.transaction_id || 0) - Number(right?.transaction_id || 0);
+  });
 
 export default function PaymentListPage() {
   const [meta, setMeta] = useState({ classes: [], students: [] });
@@ -18,17 +68,53 @@ export default function PaymentListPage() {
   });
   const [billRows, setBillRows] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [filters, setFilters] = useState({ class_id: "", student_id: "" });
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionPagination, setTransactionPagination] = useState({
+    page: 1,
+    per_page: transactionsPerPage,
+    total: 0,
+    total_pages: 1,
+  });
+  const [filters, setFilters] = useState({ class_id: "", student_status: "", student_id: "" });
   const [detailStudentId, setDetailStudentId] = useState("");
   const [detailTransaction, setDetailTransaction] = useState(null);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [loading, setLoading] = useState(true);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [reconcilingPending, setReconcilingPending] = useState(false);
   const [printing, setPrinting] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { confirm } = useUI();
 
   useToastMessage(message, setMessage);
+
+  const transactionFilterParams = () => ({
+    ...(filters.class_id ? { class_id: filters.class_id } : {}),
+    ...(filters.student_status ? { student_status: filters.student_status } : {}),
+    ...(filters.student_id ? { student_id: filters.student_id } : {}),
+  });
+
+  const applyTransactionPayload = (data, pageFallback = transactionPage) => {
+    const payload = data && typeof data === "object" && !Array.isArray(data) ? data : {};
+    const rows = Array.isArray(data) ? data : Array.isArray(payload.rows) ? payload.rows : [];
+    const pagination = payload.pagination || {};
+    const nextPage = Number(pagination.page || pageFallback || 1);
+    const totalPages = Math.max(1, Number(pagination.total_pages || 1));
+    setTransactions(rows);
+    setTransactionPage(nextPage);
+    setTransactionPagination({
+      page: nextPage,
+      per_page: Number(pagination.per_page || transactionsPerPage),
+      total: Number(pagination.total ?? rows.length),
+      total_pages: totalPages,
+    });
+  };
+
+  const resetFilters = (updater) => {
+    setTransactionPage(1);
+    setFilters(updater);
+  };
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -70,18 +156,22 @@ export default function PaymentListPage() {
       try {
         const { data } = await fetchRoute("admin/bills", {
           params: {
-            status: "unpaid",
             ...(filters.class_id ? { class_id: filters.class_id } : {}),
+            ...(filters.student_status ? { student_status: filters.student_status } : {}),
             ...(filters.student_id ? { student_id: filters.student_id } : {}),
           },
         });
-        setBillRows(Array.isArray(data) ? data : []);
+        setBillRows(
+          Array.isArray(data)
+            ? data.filter((item) => item?.status !== "paid")
+            : [],
+        );
       } catch (error) {
         setMessage({
           type: "error",
           text:
             error?.response?.data?.message ||
-            "Gagal memuat daftar tagihan belum lunas",
+            "Gagal memuat daftar tagihan terbuka",
         });
       } finally {
         setLoading(false);
@@ -89,7 +179,7 @@ export default function PaymentListPage() {
     };
 
     loadBills();
-  }, [filters.class_id, filters.student_id]);
+  }, [filters.class_id, filters.student_status, filters.student_id]);
 
   useEffect(() => {
     const loadTransactions = async () => {
@@ -97,11 +187,13 @@ export default function PaymentListPage() {
       try {
         const { data } = await fetchRoute("admin/transactions", {
           params: {
-            ...(filters.class_id ? { class_id: filters.class_id } : {}),
-            ...(filters.student_id ? { student_id: filters.student_id } : {}),
+            mode: "page",
+            page: transactionPage,
+            per_page: transactionsPerPage,
+            ...transactionFilterParams(),
           },
         });
-        setTransactions(Array.isArray(data) ? data : []);
+        applyTransactionPayload(data);
       } catch (error) {
         setMessage({
           type: "error",
@@ -115,10 +207,11 @@ export default function PaymentListPage() {
     };
 
     loadTransactions();
-  }, [filters.class_id, filters.student_id]);
+  }, [filters.class_id, filters.student_status, filters.student_id, transactionPage]);
 
   const studentOptions = useMemo(() => {
     const rows = meta.students.filter((item) => {
+      if (filters.student_status && item.status !== filters.student_status) return false;
       if (!filters.class_id) return true;
       const hasBill = billRows.some(
         (row) => String(row.student_id) === String(item.id),
@@ -130,7 +223,7 @@ export default function PaymentListPage() {
     });
 
     return rows.sort((a, b) => a.name.localeCompare(b.name, "id"));
-  }, [billRows, filters.class_id, meta.students, transactions]);
+  }, [billRows, filters.class_id, filters.student_status, meta.students, transactions]);
 
   const groupedRows = useMemo(() => {
     const byStudent = new Map();
@@ -199,9 +292,11 @@ export default function PaymentListPage() {
               payment_date: tx.payment_date || "",
               payment_channel: tx.payment_channel || "-",
               reference_no: tx.reference_no || "",
+              officer_name: tx.officer_name || "",
               transaction_ids: [],
               items: [],
               total_amount_paid: 0,
+              deposit_credit_amount: 0,
             });
           }
           const group = receiptMap.get(groupKey);
@@ -213,16 +308,24 @@ export default function PaymentListPage() {
           }
           group.transaction_ids.push(Number(tx.id));
           group.items.push({
+            transaction_id: Number(tx.id || 0),
             bill_name: tx.bill_name || "-",
             period: tx.period || "-",
             amount: Number(tx.amount_paid || 0),
+            bill_amount: Number(tx.bill_amount ?? tx.amount ?? 0),
+            paid_amount: Number(tx.paid_amount ?? tx.amount_paid ?? 0),
+            remaining_amount: getTransactionRemainingAmount(tx),
+            is_flexible_installment: !!tx.is_flexible_installment,
           });
           group.total_amount_paid += Number(tx.amount_paid || 0);
+          group.deposit_credit_amount =
+            Number(group.deposit_credit_amount || 0) + Number(tx.deposit_credit_amount || 0);
         }
 
         const receiptGroups = Array.from(receiptMap.values())
           .map((group) => ({
             ...group,
+            items: sortReceiptItems(group.items),
             pos_count: group.items.length,
           }))
           .sort((a, b) =>
@@ -253,6 +356,11 @@ export default function PaymentListPage() {
     if (!detailStudentId) return;
     if (!detailStudentRow) setDetailStudentId("");
   }, [detailStudentId, detailStudentRow]);
+
+  const openBillRemainingTotal = useMemo(
+    () => billRows.reduce((sum, item) => sum + getBillRemainingAmount(item), 0),
+    [billRows],
+  );
 
   const printTransaction = async ({ transactionId, referenceNo, studentId }) => {
     try {
@@ -313,20 +421,26 @@ export default function PaymentListPage() {
       const [{ data: rows }, { data: txRows }] = await Promise.all([
         fetchRoute("admin/bills", {
           params: {
-            status: "unpaid",
             ...(filters.class_id ? { class_id: filters.class_id } : {}),
+            ...(filters.student_status ? { student_status: filters.student_status } : {}),
             ...(filters.student_id ? { student_id: filters.student_id } : {}),
           },
         }),
         fetchRoute("admin/transactions", {
           params: {
-            ...(filters.class_id ? { class_id: filters.class_id } : {}),
-            ...(filters.student_id ? { student_id: filters.student_id } : {}),
+            mode: "page",
+            page: transactionPage,
+            per_page: transactionsPerPage,
+            ...transactionFilterParams(),
           },
         }),
       ]);
-      setBillRows(Array.isArray(rows) ? rows : []);
-      setTransactions(Array.isArray(txRows) ? txRows : []);
+      setBillRows(
+        Array.isArray(rows)
+          ? rows.filter((item) => item?.status !== "paid")
+          : [],
+      );
+      applyTransactionPayload(txRows);
     } catch (error) {
       setMessage({
         type: "error",
@@ -334,6 +448,57 @@ export default function PaymentListPage() {
           error?.response?.data?.message ||
           "Gagal menghapus transaksi gabungan",
       });
+    }
+  };
+
+  const reconcilePendingTransactions = async () => {
+    setReconcilingPending(true);
+    try {
+      await fetchRoute("admin/transactions/reconcile-pending", {
+        method: "POST",
+        data: {
+          ...(filters.class_id ? { class_id: filters.class_id } : {}),
+          ...(filters.student_id ? { student_id: filters.student_id } : {}),
+        },
+      });
+
+      const [{ data: rows }, { data: txRows }] = await Promise.all([
+        fetchRoute("admin/bills", {
+          params: {
+            ...(filters.class_id ? { class_id: filters.class_id } : {}),
+            ...(filters.student_status ? { student_status: filters.student_status } : {}),
+            ...(filters.student_id ? { student_id: filters.student_id } : {}),
+          },
+        }),
+        fetchRoute("admin/transactions", {
+          params: {
+            mode: "page",
+            page: transactionPage,
+            per_page: transactionsPerPage,
+            ...transactionFilterParams(),
+          },
+        }),
+      ]);
+
+      setBillRows(
+        Array.isArray(rows)
+          ? rows.filter((item) => item?.status !== "paid")
+          : [],
+      );
+      applyTransactionPayload(txRows);
+      setMessage({
+        type: "success",
+        text: "Rekonsiliasi transaksi pending selesai",
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error?.response?.data?.message ||
+          "Gagal merekonsiliasi transaksi pending",
+      });
+    } finally {
+      setReconcilingPending(false);
     }
   };
 
@@ -348,8 +513,8 @@ export default function PaymentListPage() {
             onClick={() =>
               navigate("/admin/pembayaran/edit", {
                 state: {
-                  class_id: filters.class_id,
                   student_id: filters.student_id,
+                  student_status: filters.student_status,
                 },
               })
             }
@@ -362,14 +527,14 @@ export default function PaymentListPage() {
       }
     >
       <div className="card p-4 md:p-5">
-        <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+        <div className="grid gap-3 md:grid-cols-3 md:gap-4">
           <div>
             <label className="label">Filter kelas</label>
             <select
               className="input"
               value={filters.class_id}
               onChange={(e) =>
-                setFilters((current) => ({
+                resetFilters((current) => ({
                   ...current,
                   class_id: e.target.value,
                   student_id: "",
@@ -385,13 +550,34 @@ export default function PaymentListPage() {
             </select>
           </div>
           <div>
+            <label className="label">Status siswa</label>
+            <select
+              className="input"
+              value={filters.student_status}
+              onChange={(e) =>
+                resetFilters((current) => ({
+                  ...current,
+                  student_status: e.target.value,
+                  student_id: "",
+                }))
+              }
+            >
+              <option value="">Semua status siswa</option>
+              {studentStatusOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label">Filter siswa</label>
             <select
               className="input"
               value={filters.student_id}
               disabled={studentOptions.length === 0}
               onChange={(e) =>
-                setFilters((current) => ({
+                resetFilters((current) => ({
                   ...current,
                   student_id: e.target.value,
                 }))
@@ -417,11 +603,29 @@ export default function PaymentListPage() {
           <div>
             <h3 className="section-title">Transaksi pembayaran</h3>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Tagihan belum lunas:{" "}
-            <span className="font-semibold text-slate-900">
-              {loading ? "..." : billRows.length}
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="btn-secondary px-3 py-2"
+              disabled={reconcilingPending}
+              onClick={reconcilePendingTransactions}
+            >
+              <RefreshCw
+                size={16}
+                className={reconcilingPending ? "animate-spin" : ""}
+              />
+              {reconcilingPending ? "Merekonsiliasi..." : "Rekonsiliasi pending"}
+            </button>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              Tagihan terbuka:{" "}
+              <span className="font-semibold text-slate-900">
+                {loading ? "..." : billRows.length}
+              </span>
+              <span className="mx-2 text-slate-300">|</span>
+              Sisa:{" "}
+              <span className="font-semibold text-slate-900">
+                {loading ? "..." : formatCurrency(openBillRemainingTotal)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -522,6 +726,29 @@ export default function PaymentListPage() {
             ]}
             rows={groupedRows}
           />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+          <span>
+            Halaman {transactionPagination.page} dari {transactionPagination.total_pages} ({transactionPagination.total} siswa)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={transactionsLoading || transactionPage <= 1}
+              onClick={() => setTransactionPage((page) => Math.max(1, page - 1))}
+            >
+              Sebelumnya
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={transactionsLoading || transactionPage >= transactionPagination.total_pages}
+              onClick={() => setTransactionPage((page) => page + 1)}
+            >
+              Berikutnya
+            </button>
+          </div>
         </div>
       </div>
 
@@ -766,7 +993,14 @@ export default function PaymentListPage() {
                     <span className="inline-block w-28 font-semibold">
                       Status Pembayaran
                     </span>
-                    : Lunas
+                    : {getPaymentStatusLabel(
+                      Array.isArray(detailTransaction.items)
+                        ? detailTransaction.items.reduce(
+                            (sum, item) => sum + Number(item.remaining_amount || 0),
+                            0,
+                          )
+                        : getTransactionRemainingAmount(detailTransaction),
+                    )}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -792,7 +1026,7 @@ export default function PaymentListPage() {
                     <span className="inline-block w-28 font-semibold">
                       Petugas
                     </span>
-                    : ADMIN
+                    : {getOfficerPreviewName(user, detailTransaction.officer_name)}
                   </p>
                 </div>
               </div>
@@ -814,6 +1048,10 @@ export default function PaymentListPage() {
                               bill_name: detailTransaction.bill_name || "-",
                               period: detailTransaction.period || "-",
                               amount: Number(detailTransaction.amount_paid || 0),
+                              bill_amount: Number(detailTransaction.bill_amount ?? detailTransaction.amount ?? 0),
+                              paid_amount: Number(detailTransaction.paid_amount ?? detailTransaction.amount_paid ?? 0),
+                              remaining_amount: getTransactionRemainingAmount(detailTransaction),
+                              is_flexible_installment: !!detailTransaction.is_flexible_installment,
                             },
                           ]
                     ).map((item, index) => (
@@ -821,9 +1059,15 @@ export default function PaymentListPage() {
                         key={`${item.bill_name}-${item.period}-${index}`}
                         className="grid grid-cols-[1fr_auto] gap-2"
                       >
-                        <p>
-                          {index + 1}. {item.bill_name} ({formatPeriod(item.period)})
-                        </p>
+                        <div>
+                          <p>{index + 1}. {item.bill_name} ({formatPeriod(item.period)})</p>
+                          <p className="text-[11px] text-slate-500">
+                            {Number(item.remaining_amount || 0) > 0
+                              ? `Sisa ${formatCurrency(item.remaining_amount)}`
+                              : "Tagihan lunas"}
+                            {item.is_flexible_installment ? " · Fleksibel" : ""}
+                          </p>
+                        </div>
                         <p className="font-semibold">
                           {formatCurrency(Number(item.amount || 0))}
                         </p>
@@ -856,6 +1100,12 @@ export default function PaymentListPage() {
                       )}
                     </span>
                   </div>
+                  {Number(detailTransaction.deposit_credit_amount || 0) > 0 ? (
+                    <div className="flex justify-between text-emerald-700">
+                      <span className="font-semibold">Masuk Deposit</span>
+                      <span>{formatCurrency(detailTransaction.deposit_credit_amount)}</span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between border-b border-slate-400 pb-1">
                     <span className="font-semibold">Kembali</span>
                     <span>Rp0</span>

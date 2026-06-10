@@ -100,6 +100,7 @@ if (!$references) {
 }
 
 $summary = trim((string) ($_GET['summary'] ?? 'pembayaran'));
+$forceUnique = ((string) ($_GET['force_unique'] ?? '0')) === '1';
 $links = generate_receipt_links_for_student($studentId, $references, 'ADMIN');
 $missingLinks = [];
 foreach ($references as $ref) {
@@ -140,6 +141,9 @@ if ($references) {
 }
 
 $message = build_receipt_notification_message($summary, $totalPaid, $references, $links);
+if ($forceUnique) {
+    $message .= "\nKode Tes: " . date('YmdHis') . '-' . substr(sha1((string) microtime(true)), 0, 6);
+}
 $mediaUrlForGateway = '';
 if (function_exists('extract_references_from_message')) {
     $refsFromMessage = extract_references_from_message($message);
@@ -164,13 +168,16 @@ if (function_exists('is_kirimi_url') && is_kirimi_url($gatewayUrl)) $gatewayType
 if (function_exists('is_fonnte_url') && is_fonnte_url($gatewayUrl)) $gatewayType = 'fonnte';
 $dryRun = ((string) ($_GET['dry_run'] ?? '0')) === '1';
 $sent = false;
+$gatewayResult = null;
 if (!$dryRun) {
-    $sent = dispatch_whatsapp_message($gatewayUrl, $gatewayToken, $target, $message, $mediaUrlForGateway);
+    $gatewayResult = dispatch_whatsapp_message_result($gatewayUrl, $gatewayToken, $target, $message, $mediaUrlForGateway);
+    $sent = (bool) ($gatewayResult['success'] ?? false);
 }
 
 echo json_encode([
     'ok' => true,
     'dry_run' => $dryRun,
+    'force_unique' => $forceUnique,
     'sent' => $dryRun ? null : $sent,
     'student' => [
         'id' => (int) ($student['id'] ?? 0),
@@ -182,6 +189,7 @@ echo json_encode([
         'type' => $gatewayType,
         'url' => $gatewayUrl,
     ],
+    'gateway_result' => $gatewayResult,
     'references' => $references,
     'receipt_links' => $links,
     'missing_receipt_links' => $missingLinks,

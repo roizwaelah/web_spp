@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { fetchRoute } from "../api";
@@ -22,6 +22,7 @@ export default function UsersEditPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -68,15 +69,17 @@ export default function UsersEditPage() {
     });
   }, [id, selectedUser]);
 
-  const isBendahara = form.role === "bendahara";
+  const isNonAdminStaff = form.role !== "admin";
+  const isVerifikator = form.role === "verifikator";
   const effectiveMenuAccess = Array.from(
     new Set(
       ["dashboard", ...(form.menu_access || [])].filter(
-        (menuKey) =>
-          !(
-            isBendahara &&
-            ["settings", "users"].includes(menuKey)
-          ),
+        (menuKey) => {
+          if (!isNonAdminStaff) return true;
+          if (menuKey === "users") return false;
+          if (menuKey === "settings" && !isVerifikator) return false;
+          return true;
+        },
       ),
     ),
   );
@@ -166,13 +169,24 @@ export default function UsersEditPage() {
             <label className="label">
               Password {form.id ? "(kosongkan jika tidak diubah)" : ""}
             </label>
-            <input
-              type="password"
-              className="input"
-              value={form.password}
-              disabled={loading || saving}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                className="input pr-11"
+                value={form.password}
+                disabled={loading || saving}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center text-slate-500 transition hover:text-slate-700"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                disabled={loading || saving}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -209,8 +223,8 @@ export default function UsersEditPage() {
                 const checked = effectiveMenuAccess.includes(menu.key);
                 const locked =
                   menu.key === "dashboard" ||
-                  (isBendahara &&
-                    ["settings", "users"].includes(menu.key));
+                  (menu.key === "users") ||
+                  (menu.key === "settings" && isNonAdminStaff && !isVerifikator);
                 return (
                   <label
                     key={menu.key}

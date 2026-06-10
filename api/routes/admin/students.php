@@ -13,7 +13,7 @@ if ($route === 'admin/students' && $method === 'GET') {
     $user = require_auth();
     validate_menu_access($user, ['students']);
     $rows = $pdo->query("SELECT s.*, c.name class_name, ay.name academic_year,
-            (SELECT COUNT(*) FROM bills b WHERE b.student_id=s.id AND b.status='unpaid') active_bills
+            (SELECT COUNT(*) FROM bills b WHERE b.student_id=s.id AND b.status <> 'paid') active_bills
         FROM students s
         LEFT JOIN classes c ON c.id=s.class_id
         LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
@@ -149,6 +149,77 @@ if ($route === 'admin/students' && $method === 'DELETE') {
     $pdo->prepare("DELETE FROM students WHERE id=?")->execute([$input['id']]);
     log_activity((int) $user['id'], 'delete', 'student', (int) $input['id'], 'Menghapus siswa');
     response(['message' => 'Siswa berhasil dihapus']);
+}
+
+if ($route === 'admin/students/export' && $method === 'GET') {
+    $user = require_auth();
+    validate_menu_access($user, ['students']);
+
+    $rows = $pdo->query("SELECT s.nis, s.nisn, s.name, c.name class_name, ay.name academic_year, s.parent_name, s.parent_phone, s.address, s.status
+        FROM students s
+        LEFT JOIN classes c ON c.id=s.class_id
+        LEFT JOIN academic_years ay ON ay.id=s.academic_year_id
+        ORDER BY c.name ASC, s.name ASC, s.id ASC")->fetchAll();
+
+    $filenameBase = 'data-siswa-' . date('Ymd-His');
+    $headers = ['NIS', 'NISN', 'Nama Siswa', 'Kelas', 'Tahun Ajaran', 'Wali', 'No. HP Wali', 'Alamat', 'Status'];
+
+    if (class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+        $spreadsheet = new PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Data Siswa');
+        $sheet->fromArray($headers, null, 'A1');
+
+        $rowNo = 2;
+        foreach ($rows as $row) {
+            $sheet->fromArray([
+                (string) ($row['nis'] ?? ''),
+                (string) ($row['nisn'] ?? ''),
+                (string) ($row['name'] ?? ''),
+                (string) ($row['class_name'] ?? ''),
+                (string) ($row['academic_year'] ?? ''),
+                (string) ($row['parent_name'] ?? ''),
+                (string) ($row['parent_phone'] ?? ''),
+                (string) ($row['address'] ?? ''),
+                (string) ($row['status'] ?? ''),
+            ], null, 'A' . $rowNo);
+            $rowNo++;
+        }
+
+        foreach (range('A', 'I') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename=' . $filenameBase . '.xlsx');
+        header('Cache-Control: max-age=0');
+
+        $writer = new PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
+    }
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename=' . $filenameBase . '.csv');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+    $out = fopen('php://output', 'w');
+    fputcsv($out, $headers);
+    foreach ($rows as $row) {
+        fputcsv($out, [
+            (string) ($row['nis'] ?? ''),
+            (string) ($row['nisn'] ?? ''),
+            (string) ($row['name'] ?? ''),
+            (string) ($row['class_name'] ?? ''),
+            (string) ($row['academic_year'] ?? ''),
+            (string) ($row['parent_name'] ?? ''),
+            (string) ($row['parent_phone'] ?? ''),
+            (string) ($row['address'] ?? ''),
+            (string) ($row['status'] ?? ''),
+        ]);
+    }
+    fclose($out);
+    exit;
 }
 
 if ($route === 'admin/students/template' && $method === 'GET') {

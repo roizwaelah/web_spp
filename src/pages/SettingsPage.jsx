@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, HardDriveDownload, Trash2 } from "lucide-react";
+import { Download, HardDriveDownload, Plus, Trash2 } from "lucide-react";
 import Layout from "../components/Layout";
 import Table from "../components/Table";
 import { downloadRouteFile, fetchRoute } from "../api";
@@ -12,18 +12,135 @@ const defaults = {
   principal_name: "",
   treasurer_name: "",
   bank_account: "",
+  qris_mpm_statis_payload: "",
   payment_gateway_enabled: false,
   payment_gateway_provider: "",
+  payment_gateway_mode: "redirect",
   payment_gateway_key: "",
+  ipaymu_va: "",
+  ipaymu_environment: "production",
+  midtrans_server_key: "",
+  midtrans_client_key: "",
+  midtrans_environment: "production",
+  doku_client_id: "",
+  doku_secret_key: "",
+  doku_environment: "production",
+  tripay_api_key: "",
+  tripay_private_key: "",
+  tripay_merchant_code: "",
+  tripay_environment: "production",
   whatsapp_gateway_enabled: false,
   whatsapp_gateway_url: "",
   whatsapp_gateway_token: "",
   whatsapp_test_target: "",
   payment_proof_retention_days: "730",
+  support_whatsapp: "",
+  support_email: "",
+  support_hours: "",
 };
+
+const emptyBankAccount = () => ({
+  bank_name: "",
+  account_number: "",
+  account_holder: "",
+});
+
+function parseBankAccounts(value) {
+  const text = String(value || "").trim();
+  if (!text) return [emptyBankAccount()];
+
+  const items = text
+    .split(/\n\s*\n/)
+    .map((block) => block.split("\n").map((line) => line.trim()).filter(Boolean))
+    .filter((lines) => lines.length)
+    .map((lines) => ({
+      bank_name: lines[0] || "",
+      account_number: lines[1] || "",
+      account_holder: lines.slice(2).join(" ") || "",
+    }));
+
+  return items.length ? items : [emptyBankAccount()];
+}
+
+function serializeBankAccounts(accounts) {
+  return accounts
+    .map((account) => [
+      String(account.bank_name || "").trim(),
+      String(account.account_number || "").trim(),
+      String(account.account_holder || "").trim(),
+    ].filter(Boolean).join("\n"))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function validateBankAccounts(accounts) {
+  const nonEmptyAccounts = accounts.filter(
+    (account) =>
+      String(account.bank_name || "").trim() ||
+      String(account.account_number || "").trim() ||
+      String(account.account_holder || "").trim(),
+  );
+
+  if (!nonEmptyAccounts.length) {
+    return "Minimal 1 rekening harus diisi.";
+  }
+
+  for (const account of nonEmptyAccounts) {
+    const bankName = String(account.bank_name || "").trim();
+    const accountNumber = String(account.account_number || "").trim();
+    const accountHolder = String(account.account_holder || "").trim();
+
+    if (!bankName || !accountNumber || !accountHolder) {
+      return "Setiap rekening harus berisi nama bank, nomor rekening, dan nama pemilik.";
+    }
+
+    if (!/^[0-9 ]+$/.test(accountNumber)) {
+      return "Nomor rekening hanya boleh berisi angka dan spasi.";
+    }
+  }
+
+  return "";
+}
+
+const PAYMENT_GATEWAY_OPTIONS = [
+  { value: "iPaymu", label: "iPaymu" },
+  { value: "Midtrans", label: "Midtrans" },
+  { value: "DOKU", label: "DOKU" },
+  { value: "Tripay", label: "Tripay" },
+];
+
+const PAYMENT_GATEWAY_MODE_OPTIONS = {
+  iPaymu: [
+    { value: "redirect", label: "Redirect" },
+    { value: "popup", label: "Popup (Direct Payment)" },
+  ],
+  Midtrans: [
+    { value: "redirect", label: "Redirect" },
+    { value: "popup", label: "Popup" },
+  ],
+  DOKU: [
+    { value: "redirect", label: "Redirect" },
+    { value: "popup", label: "Popup" },
+  ],
+  Tripay: [
+    { value: "redirect", label: "Redirect" },
+    { value: "popup", label: "Popup (Direct Channel)" },
+  ],
+};
+
+function normalizeGatewayProvider(value) {
+  const provider = String(value || "").trim().toLowerCase();
+  if (!provider) return "";
+  if (provider.includes("ipaymu")) return "iPaymu";
+  if (provider.includes("midtrans")) return "Midtrans";
+  if (provider.includes("doku")) return "DOKU";
+  if (provider.includes("tripay")) return "Tripay";
+  return value;
+}
 
 export default function SettingsPage() {
   const [form, setForm] = useState(defaults);
+  const [bankAccounts, setBankAccounts] = useState([emptyBankAccount()]);
   const [backups, setBackups] = useState([]);
   const [loadingBackups, setLoadingBackups] = useState(true);
   const [message, setMessage] = useState("");
@@ -53,6 +170,13 @@ export default function SettingsPage() {
     Promise.all([fetchRoute("admin/settings"), loadBackups()])
       .then(([{ data }]) => {
         const payload = data?.settings || data?.data || data || {};
+        const provider = normalizeGatewayProvider(payload?.payment_gateway_provider || "");
+        const allowedModes = PAYMENT_GATEWAY_MODE_OPTIONS[provider] || [];
+        const incomingMode = String(payload?.payment_gateway_mode || defaults.payment_gateway_mode || "redirect").toLowerCase();
+        const normalizedMode = allowedModes.some((item) => item.value === incomingMode)
+          ? incomingMode
+          : (allowedModes[0]?.value || "redirect");
+
         setForm({
           ...defaults,
           ...payload,
@@ -60,11 +184,14 @@ export default function SettingsPage() {
             payload?.payment_gateway_enabled === true ||
             payload?.payment_gateway_enabled === 1 ||
             payload?.payment_gateway_enabled === "1",
+          payment_gateway_provider: provider,
+          payment_gateway_mode: normalizedMode,
           whatsapp_gateway_enabled:
             payload?.whatsapp_gateway_enabled === true ||
             payload?.whatsapp_gateway_enabled === 1 ||
             payload?.whatsapp_gateway_enabled === "1",
         });
+        setBankAccounts(parseBankAccounts(payload?.bank_account || ""));
       })
       .catch((error) => {
         setMessage(error?.response?.data?.message || "Gagal memuat pengaturan");
@@ -116,12 +243,18 @@ export default function SettingsPage() {
 
   const submit = async (e) => {
     e.preventDefault();
+    const bankAccountsError = validateBankAccounts(bankAccounts);
+    if (bankAccountsError) {
+      setMessage(bankAccountsError);
+      return;
+    }
     setSaving(true);
     try {
       await fetchRoute("admin/settings", {
         method: "PUT",
         data: {
           ...form,
+          bank_account: serializeBankAccounts(bankAccounts),
           payment_gateway_enabled: form.payment_gateway_enabled ? "1" : "0",
           whatsapp_gateway_enabled: form.whatsapp_gateway_enabled ? "1" : "0",
         },
@@ -176,6 +309,27 @@ export default function SettingsPage() {
       setCleaningProofs(false);
     }
   };
+
+  const updateBankAccount = (index, field, value) => {
+    setBankAccounts((current) =>
+      current.map((account, accountIndex) =>
+        accountIndex === index ? { ...account, [field]: value } : account,
+      ),
+    );
+  };
+
+  const addBankAccount = () => {
+    setBankAccounts((current) => [...current, emptyBankAccount()]);
+  };
+
+  const removeBankAccount = (index) => {
+    setBankAccounts((current) => {
+      if (current.length === 1) return [emptyBankAccount()];
+      return current.filter((_, accountIndex) => accountIndex !== index);
+    });
+  };
+
+  const gatewayModeOptions = PAYMENT_GATEWAY_MODE_OPTIONS[form.payment_gateway_provider] || [];
 
   return (
     <Layout
@@ -238,15 +392,122 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <label className="label">Rekening bank</label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="label mb-0">Rekening bank</label>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={loading || saving}
+                  onClick={addBankAccount}
+                >
+                  <Plus size={16} /> Tambah Rekening
+                </button>
+              </div>
+              <div className="mt-3 space-y-3">
+                {bankAccounts.map((account, index) => (
+                  <div key={`bank-account-${index}`} className="rounded-2xl border border-slate-200 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-slate-900">Rekening {index + 1}</p>
+                      <button
+                        type="button"
+                        className="btn-danger px-3 py-2"
+                        disabled={loading || saving}
+                        onClick={() => removeBankAccount(index)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <div>
+                        <label className="label">Nama Bank</label>
+                        <input
+                          className="input"
+                          placeholder="BANK BRI"
+                          value={account.bank_name}
+                          disabled={loading || saving}
+                          onChange={(e) => updateBankAccount(index, "bank_name", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Nomor Rekening</label>
+                        <input
+                          className="input"
+                          placeholder="1234567890"
+                          value={account.account_number}
+                          disabled={loading || saving}
+                          onChange={(e) => updateBankAccount(index, "account_number", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Nama Pemilik</label>
+                        <input
+                          className="input"
+                          placeholder="MA DARUSSALAM CILONGOK"
+                          value={account.account_holder}
+                          disabled={loading || saving}
+                          onChange={(e) => updateBankAccount(index, "account_holder", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Tambahkan satu atau lebih rekening. Data akan dipakai pada halaman pembayaran manual orang tua.
+              </p>
+            </div>
+            <div>
+              <label className="label">Payload QRIS MPM Statis</label>
               <textarea
-                className="textarea"
-                value={form.bank_account}
+                className="textarea font-mono text-xs"
+                placeholder="000201010211..."
+                value={form.qris_mpm_statis_payload || ""}
                 disabled={loading || saving}
                 onChange={(e) =>
-                  setForm({ ...form, bank_account: e.target.value })
+                  setForm({ ...form, qris_mpm_statis_payload: e.target.value })
                 }
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Isi dengan payload QRIS MPM statis dari penyedia QRIS. Digunakan pada pembayaran manual.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="label">WhatsApp Bantuan</label>
+                <input
+                  className="input"
+                  placeholder="628xxxxxxxxxx"
+                  value={form.support_whatsapp || ""}
+                  disabled={loading || saving}
+                  onChange={(e) =>
+                    setForm({ ...form, support_whatsapp: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Email Bantuan</label>
+                <input
+                  className="input"
+                  placeholder="admin@domain.sch.id"
+                  value={form.support_email || ""}
+                  disabled={loading || saving}
+                  onChange={(e) =>
+                    setForm({ ...form, support_email: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Jam Layanan</label>
+                <input
+                  className="input"
+                  placeholder="Senin-Sabtu 08.00-15.00 WIB"
+                  value={form.support_hours || ""}
+                  disabled={loading || saving}
+                  onChange={(e) =>
+                    setForm({ ...form, support_hours: e.target.value })
+                  }
+                />
+              </div>
             </div>
           </div>
           <div className="mt-8 border-t border-slate-200 pt-6">
@@ -281,26 +542,243 @@ export default function SettingsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="label">Provider payment gateway</label>
-                  <input
+                  <select
                     className="input"
                     value={form.payment_gateway_provider}
                     disabled={loading || saving}
-                    onChange={(e) =>
-                      setForm({ ...form, payment_gateway_provider: e.target.value })
-                    }
-                  />
+                    onChange={(e) => {
+                      const provider = e.target.value;
+                      const nextModes = PAYMENT_GATEWAY_MODE_OPTIONS[provider] || [];
+                      setForm({
+                        ...form,
+                        payment_gateway_provider: provider,
+                        payment_gateway_mode: nextModes[0]?.value || "redirect",
+                      });
+                    }}
+                  >
+                    <option value="">Pilih provider</option>
+                    {PAYMENT_GATEWAY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="label">API key gateway</label>
-                  <input
+                  <label className="label">Mode gateway</label>
+                  <select
                     className="input"
-                    value={form.payment_gateway_key}
-                    disabled={loading || saving}
+                    value={form.payment_gateway_mode || "redirect"}
+                    disabled={loading || saving || gatewayModeOptions.length <= 1}
                     onChange={(e) =>
-                      setForm({ ...form, payment_gateway_key: e.target.value })
+                      setForm({ ...form, payment_gateway_mode: e.target.value })
                     }
-                  />
+                  >
+                    {gatewayModeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {form.payment_gateway_provider === "iPaymu"
+                      ? "iPaymu mendukung Redirect Payment Page dan Popup Direct Payment pada web ini."
+                      : form.payment_gateway_provider === "Midtrans"
+                        ? "Midtrans Snap mendukung redirect dan popup. Popup memerlukan Client Key."
+                        : form.payment_gateway_provider === "DOKU"
+                          ? "DOKU Checkout mendukung redirect dan popup melalui Jokul Checkout JS."
+                          : form.payment_gateway_provider === "Tripay"
+                            ? "Tripay mendukung redirect checkout dan direct channel. Mode popup di web ini dipakai untuk kanal direct seperti VA/QRIS/retail."
+                          : "Pilih provider terlebih dahulu."}
+                  </p>
                 </div>
+
+                {form.payment_gateway_provider === "iPaymu" && (
+                  <>
+                    <div>
+                      <label className="label">API Key iPaymu</label>
+                      <input
+                        className="input"
+                        value={form.payment_gateway_key}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, payment_gateway_key: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">VA iPaymu</label>
+                      <input
+                        className="input"
+                        value={form.ipaymu_va}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, ipaymu_va: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Mode iPaymu</label>
+                      <select
+                        className="input"
+                        value={form.ipaymu_environment || "production"}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, ipaymu_environment: e.target.value })
+                        }
+                      >
+                        <option value="production">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                      </select>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      iPaymu mendukung Redirect Payment API dan Direct Payment Popup. Mode popup akan memakai kanal spesifik di halaman orang tua, lalu menampilkan VA / QR langsung di web ini.
+                    </div>
+                  </>
+                )}
+
+                {form.payment_gateway_provider === "Midtrans" && (
+                  <>
+                    <div>
+                      <label className="label">Server Key Midtrans</label>
+                      <input
+                        className="input"
+                        value={form.midtrans_server_key || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, midtrans_server_key: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Client Key Midtrans</label>
+                      <input
+                        className="input"
+                        value={form.midtrans_client_key || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, midtrans_client_key: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Mode Midtrans</label>
+                      <select
+                        className="input"
+                        value={form.midtrans_environment || "production"}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, midtrans_environment: e.target.value })
+                        }
+                      >
+                        <option value="production">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                      </select>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      Midtrans memakai Snap Redirect. Server Key wajib. Notification URL tetap perlu diatur di MAP sesuai dokumentasi Midtrans.
+                    </div>
+                  </>
+                )}
+
+                {form.payment_gateway_provider === "DOKU" && (
+                  <>
+                    <div>
+                      <label className="label">Client ID DOKU</label>
+                      <input
+                        className="input"
+                        value={form.doku_client_id || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, doku_client_id: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Secret Key DOKU</label>
+                      <input
+                        className="input"
+                        value={form.doku_secret_key || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, doku_secret_key: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Mode DOKU</label>
+                      <select
+                        className="input"
+                        value={form.doku_environment || "production"}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, doku_environment: e.target.value })
+                        }
+                      >
+                        <option value="production">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                      </select>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      DOKU memakai Checkout Redirect. Client ID dan Secret Key wajib. Notification URL perlu disetel di DOKU Back Office.
+                    </div>
+                  </>
+                )}
+
+                {form.payment_gateway_provider === "Tripay" && (
+                  <>
+                    <div>
+                      <label className="label">API Key Tripay</label>
+                      <input
+                        className="input"
+                        value={form.tripay_api_key || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, tripay_api_key: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Private Key Tripay</label>
+                      <input
+                        className="input"
+                        value={form.tripay_private_key || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, tripay_private_key: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Merchant Code Tripay</label>
+                      <input
+                        className="input"
+                        value={form.tripay_merchant_code || ""}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, tripay_merchant_code: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Mode Tripay</label>
+                      <select
+                        className="input"
+                        value={form.tripay_environment || "production"}
+                        disabled={loading || saving}
+                        onChange={(e) =>
+                          setForm({ ...form, tripay_environment: e.target.value })
+                        }
+                      >
+                        <option value="production">Production</option>
+                        <option value="sandbox">Sandbox</option>
+                      </select>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 md:col-span-2">
+                      Tripay closed payment memakai API Key, Private Key, dan Merchant Code. Notification URL Tripay nanti diarahkan ke route callback aplikasi ini, sedangkan mode popup di web ini dipakai untuk kanal direct yang mengembalikan kode bayar, QR, dan instruksi pembayaran.
+                    </div>
+                  </>
+                )}
               </div>
               <div>
                 <label className="label">WhatsApp Gateway</label>

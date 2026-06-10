@@ -97,7 +97,7 @@ if ($route === 'me' && $method === 'PUT') {
 
 if ($route === 'admin/meta' && $method === 'GET') {
     $user = require_auth();
-    validate_role_access($user, ['admin', 'bendahara']);
+    validate_role_access($user, ['admin', 'bendahara', 'verifikator']);
     response([
         'classes' => $pdo->query('SELECT id, name FROM classes WHERE is_active=1 ORDER BY name')->fetchAll(),
         'years' => $pdo->query('SELECT id, name FROM academic_years ORDER BY id DESC')->fetchAll(),
@@ -106,15 +106,30 @@ if ($route === 'admin/meta' && $method === 'GET') {
         'roles' => [
             ['value' => 'admin', 'label' => 'Admin'],
             ['value' => 'bendahara', 'label' => 'Bendahara'],
+            ['value' => 'verifikator', 'label' => 'Verifikator'],
         ],
         'menuOptions' => staff_menu_definitions(),
     ]);
 }
 
-if ($route === 'public/receipt-file' && $method === 'GET') {
+if (($route === 'public/receipt-file' || str_starts_with($route, 'public/receipt-file/')) && $method === 'GET') {
     $relativePath = str_replace('\\', '/', trim((string) query('path', '')));
     $exp = (int) query('exp', 0);
     $sig = trim((string) query('sig', ''));
+
+    if (str_starts_with($route, 'public/receipt-file/')) {
+        $parts = explode('/', $route);
+        if (count($parts) >= 5) {
+            $exp = (int) ($parts[2] ?? 0);
+            $sig = trim((string) ($parts[3] ?? ''));
+            $encodedPath = trim((string) ($parts[4] ?? ''));
+            $decodedPath = receipt_base64url_decode(rawurldecode($encodedPath));
+            if (is_string($decodedPath) && $decodedPath !== '') {
+                $relativePath = str_replace('\\', '/', trim($decodedPath));
+            }
+        }
+    }
+
     if ($relativePath === '' || $exp <= 0 || $sig === '') response(['message' => 'Link kuitansi tidak valid'], 422);
     if (str_contains($relativePath, '..') || !str_starts_with($relativePath, 'receipts/')) {
         response(['message' => 'Path kuitansi tidak valid'], 403);
@@ -140,4 +155,15 @@ if ($route === 'public/receipt-file' && $method === 'GET') {
     header('Content-Disposition: inline; filename="' . basename($fullPath) . '"');
     readfile($fullPath);
     exit;
+}
+
+if ($route === 'public/legal-contact' && $method === 'GET') {
+    $settings = list_settings();
+    response([
+        'school_name' => (string) ($settings['school_name'] ?? ''),
+        'school_address' => (string) ($settings['school_address'] ?? ''),
+        'support_whatsapp' => (string) ($settings['support_whatsapp'] ?? ''),
+        'support_email' => (string) ($settings['support_email'] ?? ''),
+        'support_hours' => (string) ($settings['support_hours'] ?? ''),
+    ]);
 }

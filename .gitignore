@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 vendor/
+database/
+.npm-cache/
 
 # Build output
 dist/

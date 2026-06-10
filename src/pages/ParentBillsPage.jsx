@@ -7,6 +7,19 @@ import { downloadRouteFile, fetchRoute } from "../api";
 import { formatCurrency, formatDate, formatPeriod } from "../utils";
 import { useToastMessage } from "../hooks/useToastMessage";
 
+const getBillRemainingAmount = (bill) => {
+  if (bill?.remaining_amount != null) return Number(bill.remaining_amount || 0);
+  return Math.max(Number(bill?.amount || 0) - Number(bill?.paid_amount || 0), 0);
+};
+
+const getBillStatusLabel = (status) => {
+  if (status === "paid") return "Lunas";
+  if (status === "partial") return "Sebagian";
+  return "Belum Lunas";
+};
+
+const getBillPostKey = (bill) => String(bill?.finance_post_id || bill?.bill_name || "");
+
 export default function ParentBillsPage() {
   const navigate = useNavigate();
   const [bills, setBills] = useState([]);
@@ -104,6 +117,29 @@ export default function ParentBillsPage() {
     () => unpaidBills.find((item) => String(item.id) === String(detailBillId)) || null,
     [unpaidBills, detailBillId],
   );
+  const blockedBillReasons = useMemo(() => {
+    const oldestOpenByPost = new Map();
+    const reasons = new Map();
+
+    for (const bill of unpaidBills) {
+      const postKey = getBillPostKey(bill);
+      if (!postKey) continue;
+      const olderBill = oldestOpenByPost.get(postKey);
+      if (olderBill) {
+        reasons.set(
+          String(bill.id),
+          `Selesaikan dulu ${olderBill.bill_name} periode ${formatPeriod(olderBill.period)} untuk pos yang sama.`,
+        );
+        continue;
+      }
+      oldestOpenByPost.set(postKey, bill);
+    }
+
+    return reasons;
+  }, [unpaidBills]);
+  const detailBillBlockedReason = detailBill
+    ? blockedBillReasons.get(String(detailBill.id)) || ""
+    : "";
 
   return (
     <Layout
@@ -130,7 +166,9 @@ export default function ParentBillsPage() {
           <div className="card p-4 text-sm text-slate-600">Belum ada tagihan</div>
         ) : (
           <ol className="space-y-2">
-            {unpaidBills.map((row, index) => (
+            {unpaidBills.map((row, index) => {
+              const blockedReason = blockedBillReasons.get(String(row.id)) || "";
+              return (
               <li key={row.id} className="card p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2">
@@ -141,7 +179,14 @@ export default function ParentBillsPage() {
                       <p className="truncate text-sm font-semibold text-slate-900">
                         {row.bill_name} {formatPeriod(row.period)}
                       </p>
-                      <p className="mt-1 text-sm text-slate-700">{formatCurrency(row.amount)}</p>
+                      <p className="mt-1 text-sm text-slate-700">
+                        Sisa {formatCurrency(getBillRemainingAmount(row))}
+                        <span className="mx-1 text-slate-300">|</span>
+                        {getBillStatusLabel(row.status)}
+                      </p>
+                      {blockedReason ? (
+                        <p className="mt-1 text-xs text-amber-700">{blockedReason}</p>
+                      ) : null}
                     </div>
                   </div>
                   <button type="button" className="btn-secondary px-3 py-1" onClick={() => setDetailBillId(String(row.id))}>
@@ -149,7 +194,8 @@ export default function ParentBillsPage() {
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ol>
         )}
       </div>
@@ -159,49 +205,79 @@ export default function ParentBillsPage() {
           striped
           emptyText={loading ? "Memuat tagihan..." : "Belum ada tagihan"}
           columns={[
-            { key: "bill_name", title: "Tagihan" },
-            { key: "period", title: "Periode" },
+            {
+              key: "bill_name",
+              title: "Tagihan",
+              headerClassName: "min-w-[180px]",
+              cellClassName: "min-w-[180px] font-semibold text-slate-900",
+            },
+            {
+              key: "period",
+              title: "Periode",
+              headerClassName: "w-28",
+              cellClassName: "w-28 whitespace-nowrap",
+            },
             {
               key: "due_date",
               title: "Jatuh Tempo",
+              headerClassName: "w-32",
+              cellClassName: "w-32 whitespace-nowrap",
               render: (row) => formatDate(row.due_date),
             },
             {
               key: "amount",
-              title: "Nominal",
-              render: (row) => formatCurrency(row.amount),
+              title: "Nominal / Sisa",
+              headerClassName: "min-w-[180px]",
+              cellClassName: "min-w-[180px]",
+              render: (row) => (
+                <div className="space-y-1">
+                  <p className="font-semibold text-slate-900">
+                    {formatCurrency(getBillRemainingAmount(row))}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    dari {formatCurrency(row.amount)} · terbayar {formatCurrency(row.paid_amount)}
+                  </p>
+                </div>
+              ),
             },
             {
               key: "status",
               title: "Status",
+              headerClassName: "w-32",
+              cellClassName: "w-32 whitespace-nowrap",
               render: (row) => (
                 <span
                   className={
-                    row.status === "paid" ? "badge-green" : "badge-amber"
+                    row.status === "paid"
+                      ? "badge-green"
+                      : row.status === "partial"
+                        ? "badge-slate"
+                        : "badge-amber"
                   }
                 >
-                  {row.status === "paid" ? "Lunas" : "Belum Lunas"}
+                  {getBillStatusLabel(row.status)}
                 </span>
               ),
             },
             {
               key: "action",
               title: (
-                <div className="inline-flex items-center gap-2">
+                <div className="flex max-w-[260px] flex-col gap-1">
                   <span>Aksi</span>
                   {!gatewayEnabled && (
-                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                    <span className="w-fit rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold leading-tight text-amber-700">
                       Bayar Otomatis non-aktif, gunakan TF manual
                     </span>
                   )}
                 </div>
               ),
-              headerClassName: "w-0",
-              cellClassName: "w-0 whitespace-nowrap",
+              headerClassName: "w-[280px] min-w-[240px]",
+              cellClassName: "w-[280px] min-w-[240px] whitespace-normal",
               render: (row) => {
                 const proofPending = row.proof_status === "pending";
                 const proofApproved = row.proof_status === "approved";
                 const isBusy = busyBillId === row.id;
+                const blockedReason = blockedBillReasons.get(String(row.id)) || "";
 
                 return row.status === "paid" || proofApproved ? (
                   <button
@@ -212,10 +288,14 @@ export default function ParentBillsPage() {
                     {isBusy ? "Memproses..." : "Cetak bukti"}
                   </button>
                 ) : (
-                  <div className="inline-flex max-w-[320px] flex-col items-start space-y-3">
+                  <div className="flex max-w-[260px] flex-col items-start space-y-2">
                     {proofPending ? (
-                      <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      <div className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700 ring-1 ring-amber-100">
                         Bukti pembayaran sedang menunggu review admin.
+                      </div>
+                    ) : blockedReason ? (
+                      <div className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700 ring-1 ring-amber-100">
+                        {blockedReason}
                       </div>
                     ) : (
                       <div className="inline-flex flex-col items-start gap-2">
@@ -251,11 +331,18 @@ export default function ParentBillsPage() {
               <li>Periode: {formatPeriod(detailBill.period)}</li>
               <li>Jatuh Tempo: {formatDate(detailBill.due_date)}</li>
               <li>Nominal: {formatCurrency(detailBill.amount)}</li>
-              <li>Status: {detailBill.status === "paid" ? "Lunas" : "Belum Lunas"}</li>
+              <li>Terbayar: {formatCurrency(detailBill.paid_amount)}</li>
+              <li>Sisa: {formatCurrency(getBillRemainingAmount(detailBill))}</li>
+              <li>Status: {getBillStatusLabel(detailBill.status)}</li>
             </ul>
             {detailBill.proof_status === "pending" ? (
               <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
                 Bukti pembayaran sedang menunggu review admin.
+              </div>
+            ) : null}
+            {detailBillBlockedReason ? (
+              <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {detailBillBlockedReason}
               </div>
             ) : null}
             <div className="modal-actions">
@@ -265,7 +352,7 @@ export default function ParentBillsPage() {
               <button
                 type="button"
                 className="btn-primary"
-                disabled={detailBill.proof_status === "pending"}
+                disabled={detailBill.proof_status === "pending" || !!detailBillBlockedReason}
                 onClick={() => navigate(`/orang-tua/tagihan/pembayaran?bill_id=${detailBill.id}`)}
               >
                 Bayar

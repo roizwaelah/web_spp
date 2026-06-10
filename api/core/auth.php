@@ -41,7 +41,7 @@ function decode_token(string $token): ?array {
 function staff_menu_definitions(): array {
     return [
         ['key' => 'dashboard', 'label' => 'Dashboard'],
-        ['key' => 'students', 'label' => 'Data Siswa'],
+        ['key' => 'students', 'label' => 'Data Santri'],
         ['key' => 'classes', 'label' => 'Data Kelas'],
         ['key' => 'academic_years', 'label' => 'Tahun Ajaran'],
         ['key' => 'finance_posts', 'label' => 'Pos Keuangan'],
@@ -58,12 +58,13 @@ function default_menu_access_for_role(string $role): array {
     return match ($role) {
         'admin' => array_column(staff_menu_definitions(), 'key'),
         'bendahara' => ['dashboard', 'students', 'classes', 'academic_years', 'finance_posts', 'expenses', 'bills', 'payment_proofs', 'reports'],
+        'verifikator' => ['dashboard', 'payment_proofs', 'settings'],
         default => [],
     };
 }
 
 function admin_only_menu_keys(): array {
-    return ['settings', 'users'];
+    return ['users'];
 }
 
 function normalize_menu_access(array $menuKeys): array {
@@ -78,7 +79,7 @@ function normalize_menu_access(array $menuKeys): array {
 }
 
 function user_menu_access(int $userId, string $role): array {
-    if (!in_array($role, ['admin', 'bendahara'], true)) return [];
+    if (!in_array($role, ['admin', 'bendahara', 'verifikator'], true)) return [];
 
     // Admin selalu memiliki akses penuh agar tidak terkunci oleh data menu_access lama.
     if ($role === 'admin') return default_menu_access_for_role('admin');
@@ -124,4 +125,3 @@ function require_auth($role = null): array {
     if (is_array($role) && !in_array($user['role'], $role, true)) response(['message' => 'Forbidden'], 403);
     return $user;
 }
-

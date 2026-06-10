@@ -6,9 +6,10 @@ import Table from "../components/Table";
 import FormModal from "../components/FormModal";
 import ModalFrame from "../components/ModalFrame";
 import { downloadRouteFile, fetchRoute } from "../api";
-import { formatCurrency, formatDate } from "../utils";
+import { formatCurrency, formatDate, formatPeriod } from "../utils";
 import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
+import { useAdminMeta } from "../hooks/useAdminMeta";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { prefetchRoute } from "../prefetch";
 
@@ -37,10 +38,29 @@ const getClassOrder = (item) => {
   return null;
 };
 
+const getBillRemainingAmount = (bill) => {
+  if (bill?.remaining_amount != null) return Number(bill.remaining_amount || 0);
+  return Number(bill?.amount || 0);
+};
+
+const studentStatusOptions = [
+  { value: "active", label: "Aktif" },
+  { value: "graduated", label: "Lulus" },
+  { value: "inactive", label: "Nonaktif" },
+];
+
+const billsPerPage = 25;
+
 export default function BillsListPage() {
   const [rows, setRows] = useState([]);
   const [studentSourceRows, setStudentSourceRows] = useState([]);
-  const [meta, setMeta] = useState({ students: [], classes: [], years: [], finance_posts: [] });
+  const [billPage, setBillPage] = useState(1);
+  const [billPagination, setBillPagination] = useState({
+    page: 1,
+    per_page: billsPerPage,
+    total: 0,
+    total_pages: 1,
+  });
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [message, setMessage] = useState("");
   const [sendingStudentId, setSendingStudentId] = useState(null);
@@ -58,45 +78,52 @@ export default function BillsListPage() {
   const [filter, setFilter] = useState({
     status: "",
     class_id: "",
-    student_id: "",
+    student_status: "",
     academic_year_id: "",
   });
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { meta, error: metaError } = useAdminMeta();
   const canManageBills = user?.role === "admin" || user?.role === "bendahara";
   const { confirm } = useUI();
 
   useToastMessage(message, setMessage);
 
+  const applyBillPayload = (data, pageFallback = billPage) => {
+    const payload = data && typeof data === "object" && !Array.isArray(data) ? data : {};
+    const billRows = Array.isArray(data) ? data : Array.isArray(payload.rows) ? payload.rows : [];
+    const pagination = payload.pagination || {};
+    const nextPage = Number(pagination.page || pageFallback || 1);
+    setStudentSourceRows(billRows);
+    setRows(billRows);
+    setBillPage(nextPage);
+    setBillPagination({
+      page: nextPage,
+      per_page: Number(pagination.per_page || billsPerPage),
+      total: Number(pagination.total ?? billRows.length),
+      total_pages: Math.max(1, Number(pagination.total_pages || 1)),
+    });
+  };
+
+  const setFilterAndResetPage = (updater) => {
+    setBillPage(1);
+    setFilter(updater);
+  };
+
   const load = async () => {
     try {
-      const [metaRes, studentRowsRes, rowsRes] = await Promise.all([
-        fetchRoute("admin/meta"),
-        fetchRoute("admin/bills", {
-          params: {
-            ...(filter.status ? { status: filter.status } : {}),
-            ...(filter.class_id ? { class_id: filter.class_id } : {}),
-            ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
-          },
-        }),
-        fetchRoute("admin/bills", {
-          params: {
-            ...(filter.status ? { status: filter.status } : {}),
-            ...(filter.class_id ? { class_id: filter.class_id } : {}),
-            ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
-            ...(filter.student_id ? { student_id: filter.student_id } : {}),
-          },
-        }),
-      ]);
-
-      setMeta({
-        classes: Array.isArray(metaRes.data?.classes) ? metaRes.data.classes : [],
-        students: Array.isArray(metaRes.data?.students) ? metaRes.data.students : [],
-        years: Array.isArray(metaRes.data?.years) ? metaRes.data.years : [],
-        finance_posts: Array.isArray(metaRes.data?.finance_posts) ? metaRes.data.finance_posts : [],
+      const { data } = await fetchRoute("admin/bills", {
+        params: {
+          mode: "page",
+          page: billPage,
+          per_page: billsPerPage,
+          ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.class_id ? { class_id: filter.class_id } : {}),
+          ...(filter.student_status ? { student_status: filter.student_status } : {}),
+          ...(filter.academic_year_id ? { academic_year_id: filter.academic_year_id } : {}),
+        },
       });
-      setStudentSourceRows(Array.isArray(studentRowsRes.data) ? studentRowsRes.data : []);
-      setRows(Array.isArray(rowsRes.data) ? rowsRes.data : []);
+      applyBillPayload(data);
     } catch (error) {
       setMessage(error?.response?.data?.message || "Gagal memuat data tagihan");
     }
@@ -104,7 +131,11 @@ export default function BillsListPage() {
 
   useEffect(() => {
     load();
-  }, [filter.status, filter.class_id, filter.student_id, filter.academic_year_id]);
+  }, [filter.status, filter.class_id, filter.student_status, filter.academic_year_id, billPage]);
+
+  useEffect(() => {
+    if (metaError) setMessage(metaError?.response?.data?.message || "Gagal memuat metadata tagihan");
+  }, [metaError]);
 
   useEffect(() => {
     const postIds = (meta.finance_posts || []).map((item) => Number(item.id)).filter((id) => id > 0);
@@ -120,7 +151,8 @@ export default function BillsListPage() {
       if (current.academic_year_id) return current;
       const activeYear = meta.years.find((item) => Number(item?.is_active || 0) === 1);
       if (!activeYear?.id) return current;
-      return { ...current, academic_year_id: String(activeYear.id), student_id: "" };
+      setBillPage(1);
+      return { ...current, academic_year_id: String(activeYear.id) };
     });
   }, [meta.years]);
 
@@ -147,7 +179,7 @@ export default function BillsListPage() {
       }
 
       const entry = byStudent.get(studentId);
-      entry.total_amount += Number(row.amount || 0);
+      entry.total_amount += getBillRemainingAmount(row);
       if (row.period) entry.periods.add(String(row.period));
       if (row.academic_year_name) entry.academicYears.add(String(row.academic_year_name));
       if (row.status === "paid") entry.has_paid = true;
@@ -168,8 +200,8 @@ export default function BillsListPage() {
         const periodList = Array.from(entry.periods).sort((a, b) => a.localeCompare(b, "id"));
         const periodLabel =
           periodList.length <= 1
-            ? periodList[0] || "-"
-            : `${periodList[0]} s/d ${periodList[periodList.length - 1]}`;
+            ? formatPeriod(periodList[0] || "-")
+            : `${formatPeriod(periodList[0])} s/d ${formatPeriod(periodList[periodList.length - 1])}`;
 
         const academicYearList = Array.from(entry.academicYears).sort((a, b) => a.localeCompare(b, "id"));
         const academicYearLabel =
@@ -468,7 +500,7 @@ export default function BillsListPage() {
               <select
                 className="input"
                 value={filter.status}
-                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                onChange={(e) => setFilterAndResetPage({ ...filter, status: e.target.value })}
               >
                 <option value="">Semua status</option>
                 <option value="unpaid">Belum lunas</option>
@@ -477,7 +509,7 @@ export default function BillsListPage() {
               <select
                 className="input"
                 value={filter.class_id}
-                onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
+                onChange={(e) => setFilterAndResetPage({ ...filter, class_id: e.target.value })}
               >
                 <option value="">Semua kelas</option>
                 {sortedClassOptions.map((item) => (
@@ -489,7 +521,7 @@ export default function BillsListPage() {
               <select
                 className="input"
                 value={filter.academic_year_id}
-                onChange={(e) => setFilter({ ...filter, academic_year_id: e.target.value, student_id: "" })}
+                onChange={(e) => setFilterAndResetPage({ ...filter, academic_year_id: e.target.value })}
               >
                 <option value="">Semua tahun ajaran</option>
                 {(meta.years || []).map((item) => (
@@ -500,14 +532,13 @@ export default function BillsListPage() {
               </select>
               <select
                 className="input"
-                value={filter.student_id}
-                disabled={studentOptions.length === 0}
-                onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
+                value={filter.student_status}
+                onChange={(e) => setFilterAndResetPage({ ...filter, student_status: e.target.value })}
               >
-                <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
-                {studentOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} - {item.nis}
+                <option value="">Semua status siswa</option>
+                {studentStatusOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
                   </option>
                 ))}
               </select>
@@ -632,7 +663,7 @@ export default function BillsListPage() {
               <select
                 className="input"
                 value={filter.status}
-                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                onChange={(e) => setFilterAndResetPage({ ...filter, status: e.target.value })}
               >
                 <option value="">Semua status</option>
                 <option value="unpaid">Belum lunas</option>
@@ -641,7 +672,7 @@ export default function BillsListPage() {
               <select
                 className="input"
                 value={filter.class_id}
-                onChange={(e) => setFilter({ ...filter, class_id: e.target.value, student_id: "" })}
+                onChange={(e) => setFilterAndResetPage({ ...filter, class_id: e.target.value })}
               >
                 <option value="">Semua kelas</option>
                 {sortedClassOptions.map((item) => (
@@ -653,7 +684,7 @@ export default function BillsListPage() {
               <select
                 className="input"
                 value={filter.academic_year_id}
-                onChange={(e) => setFilter({ ...filter, academic_year_id: e.target.value, student_id: "" })}
+                onChange={(e) => setFilterAndResetPage({ ...filter, academic_year_id: e.target.value })}
               >
                 <option value="">Semua tahun ajaran</option>
                 {(meta.years || []).map((item) => (
@@ -664,14 +695,13 @@ export default function BillsListPage() {
               </select>
               <select
                 className="input"
-                value={filter.student_id}
-                disabled={studentOptions.length === 0}
-                onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
+                value={filter.student_status}
+                onChange={(e) => setFilterAndResetPage({ ...filter, student_status: e.target.value })}
               >
-                <option value="">{studentOptions.length === 0 ? "Tidak ada siswa" : "Semua siswa"}</option>
-                {studentOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} - {item.nis}
+                <option value="">Semua status siswa</option>
+                {studentStatusOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
                   </option>
                 ))}
               </select>
@@ -700,8 +730,7 @@ export default function BillsListPage() {
                         </div>
                         <div className="space-y-1 text-xs text-slate-600">
                           <p>Periode: {row.period_label}</p>
-                          <p>Jatuh tempo: {row.due_date ? formatDate(row.due_date) : "-"}</p>
-                          <p className="text-sm font-semibold text-slate-900">{formatCurrency(row.total_amount)}</p>
+                          <p className="text-sm font-semibold text-slate-900">Sisa Tagihan: {formatCurrency(row.total_amount)}</p>
                         </div>
                         <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-2">
                           {canManageBills ? (
@@ -789,13 +818,8 @@ export default function BillsListPage() {
               { key: "class_name", title: "Kelas" },
               { key: "period_label", title: "Periode" },
               {
-                key: "due_date",
-                title: "Jatuh Tempo",
-                render: (row) => (row.due_date ? formatDate(row.due_date) : "-"),
-              },
-              {
                 key: "total_amount",
-                title: "Total Tagihan",
+                title: "Sisa Tagihan",
                 render: (row) => formatCurrency(row.total_amount),
               },
               {
@@ -833,6 +857,29 @@ export default function BillsListPage() {
             emptyText="Belum ada data tagihan"
           />
         </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+          <span>
+            Halaman {billPagination.page} dari {billPagination.total_pages} ({billPagination.total} siswa)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={billPage <= 1}
+              onClick={() => setBillPage((page) => Math.max(1, page - 1))}
+            >
+              Sebelumnya
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={billPage >= billPagination.total_pages}
+              onClick={() => setBillPage((page) => page + 1)}
+            >
+              Berikutnya
+            </button>
+          </div>
+        </div>
       </div>
 
       <ModalFrame
@@ -859,7 +906,7 @@ export default function BillsListPage() {
                 <p className="font-semibold text-slate-900">{detailRow.academic_year_label}</p>
               </div>
               <div className="rounded-xl border border-slate-200 p-3 text-sm">
-                <p className="text-xs text-slate-500">Total Tagihan</p>
+                <p className="text-xs text-slate-500">Sisa Tagihan</p>
                 <p className="font-semibold text-slate-900">{formatCurrency(detailRow.total_amount)}</p>
               </div>
             </div>
@@ -892,7 +939,7 @@ export default function BillsListPage() {
                           <p className="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(bill.amount)}</p>
                         </div>
                         <p className="text-xs text-slate-600">
-                          {bill.period || "-"}
+                          {formatPeriod(bill.period)}
                           <span className="mx-1 text-yellow-500">|</span>
                           {bill.academic_year_name || "-"}
                         </p>
@@ -1106,6 +1153,7 @@ export default function BillsListPage() {
     </Layout>
   );
 }
+
 
 
 
